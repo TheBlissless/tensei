@@ -156,6 +156,13 @@ fun MangaReaderScreen(
     var currentPageIndex by remember { mutableIntStateOf(0) }
     // True while the "Next Chapter" button is shown (reader settled at the end of a chapter).
     var showNextChapterButton by remember { mutableStateOf(false) }
+    // Frozen snapshot of the next chapter while the exit animation plays.
+    var cachedNextChapterForButton by remember { mutableStateOf<MangaChapter?>(null) }
+    LaunchedEffect(showNextChapterButton, currentChapterIndex) {
+        if (showNextChapterButton) {
+            cachedNextChapterForButton = chapters.getOrNull(currentChapterIndex + 1)
+        }
+    }
     // True when the current chapter was opened via the next-chapter button — suppresses restoring
     // the saved (stale) scroll position so the new chapter always opens at the top.
     var suppressResumeRestore by remember { mutableStateOf(false) }
@@ -712,8 +719,7 @@ fun MangaReaderScreen(
             exit = fadeOut(tween(150)) + slideOutVertically(tween(200)) { it / 2 },
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            val nextChapter = chapters.getOrNull(currentChapterIndex + 1)
-            val nextLabel = nextChapter?.let { ch ->
+            val nextLabel = cachedNextChapterForButton?.let { ch ->
                 val num = extractChapterNum(ch.title)
                 if (num != "?") "Ch. $num" else ch.title
             } ?: ""
