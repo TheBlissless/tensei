@@ -608,11 +608,10 @@ class MainViewModel : ViewModel() {
                 fetchMangaExplore()
             }
 
-            // On app start with both providers logged in and auto-sync enabled, run a directional
-            // sync (AniList -> MAL or MAL -> AniList per the chosen preference) to reconcile lists.
+            // On app start with both providers logged in, run a directional sync (AniList -> MAL
+            // or MAL -> AniList per the chosen preference) to reconcile lists.
             launch {
-                if (_loginProvider.value == LoginProvider.BOTH &&
-                    userPreferences.autoSyncCrossProviderStartup.value) {
+                if (_loginProvider.value == LoginProvider.BOTH) {
                     runCrossProviderStartupSync(userPreferences.autoSyncCrossProviderDirection.value)
                 }
             }

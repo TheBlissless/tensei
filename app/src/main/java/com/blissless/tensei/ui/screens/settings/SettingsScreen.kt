@@ -148,8 +148,6 @@ import com.blissless.tensei.viewmodel.setSwipeSwap
 import com.blissless.tensei.viewmodel.setSupportsPiP
 import com.blissless.tensei.viewmodel.setDiscordRichPresence
 import com.blissless.tensei.viewmodel.setCheckUpdatesOnStart
-import com.blissless.tensei.viewmodel.setAutoSyncCrossProviderStartup
-import com.blissless.tensei.viewmodel.setAutoSyncCrossProviderDirection
 import com.blissless.tensei.viewmodel.setMalAsMainProvider
 import com.blissless.tensei.viewmodel.setAutoUpdateExtensions
 import com.blissless.tensei.viewmodel.loadAvailableMagnetExtensions
@@ -257,8 +255,6 @@ private fun AccountSettingsPage(
     val preventScheduleSync by viewModel.preventScheduleSync.collectAsState()
     val mangaSyncThreshold by viewModel.mangaSyncThreshold.collectAsState()
     val discordRichPresence by viewModel.discordRichPresence.collectAsState(initial = false)
-    val autoSyncCrossProviderStartup by viewModel.autoSyncCrossProviderStartup.collectAsState(initial = false)
-    val autoSyncCrossProviderDirection by viewModel.autoSyncCrossProviderDirection.collectAsState(initial = true)
     val malAsMainProvider by viewModel.malAsMainProvider.collectAsState(initial = false)
 
     val userName by viewModel.userName.collectAsState()
@@ -380,96 +376,6 @@ private fun AccountSettingsPage(
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(if (malAsMainProvider) "Sync Now (MAL to AniList)" else "Sync Now (AniList to MAL)")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                if (malAsMainProvider)
-                    "MyAnimeList is your main list provider and populates the home screen."
-                else
-                    "AniList is your main list provider and populates the home screen.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        "Auto-Sync on Start",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        "Automatically sync AniList and MyAnimeList when the app starts",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Switch(
-                    checked = autoSyncCrossProviderStartup,
-                    onCheckedChange = { viewModel.setAutoSyncCrossProviderStartup(it) }
-                )
-            }
-            if (autoSyncCrossProviderStartup) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    "Sync Direction",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Button(
-                        onClick = {
-                            viewModel.setAutoSyncCrossProviderDirection(true)
-                            viewModel.setMalAsMainProvider(false)
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (autoSyncCrossProviderDirection)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Text(
-                            "AniList to MAL",
-                            color = if (autoSyncCrossProviderDirection)
-                                MaterialTheme.colorScheme.onPrimary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            viewModel.setAutoSyncCrossProviderDirection(false)
-                            viewModel.setMalAsMainProvider(true)
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (!autoSyncCrossProviderDirection)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Text(
-                            "MAL to AniList",
-                            color = if (!autoSyncCrossProviderDirection)
-                                MaterialTheme.colorScheme.onPrimary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
             }
         }
 
