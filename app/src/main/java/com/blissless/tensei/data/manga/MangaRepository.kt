@@ -31,6 +31,11 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 class MangaRepository {
 
@@ -155,7 +160,7 @@ class MangaRepository {
      * Fallback: fetch each explore section as a separate request.
      * Used when the batched query fails or returns empty.
      */
-    private suspend fun fetchExploreSectionsIndividual(token: String? = null): Map<String, List<MangaExploreMedia>> {
+    private suspend fun fetchExploreSectionsIndividual(token: String? = null): Map<String, List<MangaExploreMedia>> = withContext(Dispatchers.IO) {
         val sections = mutableMapOf<String, List<MangaExploreMedia>>()
         val sectionDefs = listOf(
             "trending" to """sort: TRENDING_DESC""",
@@ -169,29 +174,37 @@ class MangaRepository {
             "sci-fi" to """genre: "Sci-Fi", sort: POPULARITY_DESC""",
             "seinen" to """genre: "Seinen", sort: POPULARITY_DESC"""
         )
-        for ((key, filter) in sectionDefs) {
-            val query = """
-                query {
-                    Page(page: 1, perPage: 50) {
-                        media($filter, type: MANGA, isAdult: false) {
-                            id idMal title { romaji english }
-                            coverImage { extraLarge large }
-                            bannerImage chapters volumes status averageScore genres
-                            seasonYear startDate { year month day } isAdult format
+        // Fetch every section concurrently instead of sequentially. The shared GraphQL
+        // client enforces the 5-concurrent/100ms rate limit, so this only cuts wall-clock
+        // time (~10 round trips → ~1). Parsing also happens off the main thread.
+        val results = coroutineScope {
+            sectionDefs.map { (key, filter) ->
+                async {
+                    val query = """
+                        query {
+                            Page(page: 1, perPage: 50) {
+                                media($filter, type: MANGA, isAdult: false) {
+                                    id idMal title { romaji english }
+                                    coverImage { extraLarge large }
+                                    bannerImage chapters volumes status averageScore genres
+                                    seasonYear startDate { year month day } isAdult format
+                                }
+                            }
                         }
+                    """.trimIndent()
+                    val raw = executeWithRetry(query, emptyMap(), token) ?: return@async null
+                    try {
+                        key to json.decodeFromString<MangaExploreResponse>(raw).data.Page.media
+                    } catch (e: Exception) {
+                        ErrorHandler.ignore(TAG, "individual section '$key' parse failed", e)
+                        null
                     }
                 }
-            """.trimIndent()
-            val raw = executeWithRetry(query, emptyMap(), token) ?: continue
-            try {
-                val result = json.decodeFromString<MangaExploreResponse>(raw)
-                sections[key] = result.data.Page.media
-            } catch (e: Exception) {
-                ErrorHandler.ignore(TAG, "individual section '$key' parse failed", e)
-            }
+            }.awaitAll()
         }
+        results.forEach { pair -> pair?.let { sections[it.first] = it.second } }
         android.util.Log.d(TAG, "fetchExploreSectionsIndividual: got ${sections.size} sections")
-        return sections
+        sections
     }
 
     /**

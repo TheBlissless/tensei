@@ -29,6 +29,11 @@ import com.blissless.tensei.network.GraphQLClient
 import com.blissless.tensei.network.GraphQLConfig
 import kotlinx.serialization.json.Json
 import com.blissless.tensei.util.ErrorHandler
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
 
 /**
  * Handles all API calls and data fetching.
@@ -41,7 +46,7 @@ class AnimeRepository(
 
     companion object {
         private val CLIENT_IDS = listOf(BuildConfig.CLIENT_ID_ANILIST)
-
+        private const val MAX_AIRING_PAGES = 5
     }
 
     internal val json = Json {
@@ -425,7 +430,7 @@ class AnimeRepository(
     // Airing Schedule
     // ============================================
 
-    suspend fun fetchAiringSchedule(): List<AiringScheduleEntry> {
+    suspend fun fetchAiringSchedule(): List<AiringScheduleEntry> = withContext(Dispatchers.IO) {
         val currentTime = System.currentTimeMillis() / 1000
         val startTime = currentTime - (24 * 60 * 60)
         val endTime = currentTime + (8 * 24 * 60 * 60)
@@ -456,37 +461,37 @@ class AnimeRepository(
             }
         """.trimIndent()
 
-        val allSchedules = mutableListOf<AiringScheduleEntry>()
-        var page = 1
-        var hasMore = true
-
-        while (hasMore && page <= 5) {
-            val result = publicGraphqlRequestWithError(
-                query,
-                mapOf("page" to page, "startTime" to startTime, "endTime" to endTime)
-            )
-
-            if (result.data == null) {
-                break
-            }
-
-            try {
-                val data = json.decodeFromString<AiringScheduleResponse>(result.data)
-                val pageSchedules = data.data.Page.airingSchedules
-
-                if (pageSchedules.isEmpty()) {
-                    hasMore = false
-                } else {
-                    allSchedules.addAll(pageSchedules)
-                    hasMore = pageSchedules.size == 50
-                    page++
+        // Fetch all pages concurrently instead of sequentially. The shared GraphQL client
+        // queue already enforces concurrency + rate limits, so parallelizing here only
+        // reduces wall-clock time (3-5 round trips → ~1). Parsing also moves off the main thread.
+        val pages = coroutineScope {
+            (1..MAX_AIRING_PAGES).map { page ->
+                async {
+                    try {
+                        val result = publicGraphqlRequestWithError(
+                            query,
+                            mapOf("page" to page, "startTime" to startTime, "endTime" to endTime)
+                        )
+                        if (result.data == null) {
+                            emptyList()
+                        } else {
+                            json.decodeFromString<AiringScheduleResponse>(result.data).data.Page.airingSchedules
+                        }
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
                 }
-            } catch (_: Exception) {
-                break
-            }
+            }.awaitAll()
         }
 
-        return allSchedules
+        // Merge pages in order, stopping at the first page that returned < 50 entries
+        // (empty out-of-range pages are simply not consumed).
+        buildList {
+            for (pageSchedules in pages) {
+                addAll(pageSchedules)
+                if (pageSchedules.size < 50) break
+            }
+        }
     }
 
     // ============================================

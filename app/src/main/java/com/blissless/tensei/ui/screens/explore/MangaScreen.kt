@@ -3,6 +3,9 @@ package com.blissless.tensei.ui.screens.explore
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -85,9 +89,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -99,6 +105,7 @@ import com.blissless.tensei.data.models.MangaExploreMedia
 import com.blissless.tensei.ui.components.LoadingSkeleton
 import com.blissless.tensei.ui.components.SectionTitle
 import com.blissless.tensei.ui.components.appIconDrawable
+import com.blissless.tensei.ui.components.rememberCinematicAnimation
 import com.blissless.tensei.ui.screens.manga.MangaStatusDialog
 import com.blissless.tensei.ui.theme.StatusColors
 import com.blissless.tensei.util.ErrorHandler
@@ -115,6 +122,7 @@ import com.blissless.tensei.viewmodel.updateMangaStatus
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 import kotlin.time.Duration.Companion.milliseconds
 import java.util.Locale
 
@@ -400,7 +408,7 @@ fun MangaScreen(
 
                 // Section rows in fixed order. Trending now also renders as a row with the full
                 // 50 manga below the carousel (which only shows the first 10).
-                mangaSectionOrder.forEach { key ->
+                mangaSectionOrder.forEachIndexed { sectionIndex, key ->
                     val list = mangaExploreSections[key].orEmpty()
                     if (list.isNotEmpty()) {
                         val label = sectionLabelMap[key] ?: key.replaceFirstChar { it.uppercase() }
@@ -434,7 +442,9 @@ fun MangaScreen(
                                 } else {
                                     onMangaReadClick(manga)
                                 }
-                            }
+                            },
+                            listIndex = sectionIndex,
+                            isVisible = isVisible
                         )
                     }
                 }
@@ -532,15 +542,35 @@ private fun MangaExploreHorizontalRow(
     mangaStatusMap: Map<Int, String> = emptyMap(),
     onMangaClick: (MangaExploreMedia) -> Unit,
     onStatusClick: (MangaExploreMedia) -> Unit = {},
-    onReadClick: (MangaExploreMedia) -> Unit = {}
+    onReadClick: (MangaExploreMedia) -> Unit = {},
+    listIndex: Int = 0,
+    isVisible: Boolean = true
 ) {
     val context = LocalContext.current
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val cameraDistancePx = with(density) { 12.dp.toPx() }
+    val translationYOffset = with(density) { (-40).dp.toPx() }
+
+    val isScrolling by remember {
+        derivedStateOf { listState.isScrollInProgress }
+    }
+
+    val cinematicProgress = rememberCinematicAnimation("mangaExplore", isVisible, true)
+    val staggerDelay = listIndex * 50f
+    val effectiveProgress = ((cinematicProgress * 1000f - staggerDelay) / 1000f).coerceIn(0f, 1f)
+    val easedProgress = easeOutCubic(effectiveProgress)
+
     LazyRow(
+        state = listState,
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        itemsIndexed(mangaList) { _, manga ->
+        itemsIndexed(
+            mangaList,
+            key = { _, manga -> manga.id }
+        ) { index, manga ->
             val title = if (preferEnglishTitles && !manga.title.english.isNullOrBlank()) manga.title.english!!
                        else manga.title.romaji ?: "Unknown"
             val coverUrl = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: manga.coverImage?.medium ?: ""
@@ -556,8 +586,55 @@ private fun MangaExploreHorizontalRow(
             } else {
                 Color.Black.copy(alpha = 0.6f)
             }
+            // Mirrors the anime explore rows: a per-card center-offset 3D tilt while
+            // scrolling plus a staggered cinematic fade/slide-in when the screen appears.
+            val layoutInfo by remember { derivedStateOf { listState.layoutInfo } }
+            val visibleItems = layoutInfo.visibleItemsInfo
+            val itemInfo = visibleItems.find { it.index == index }
+
+            val centerOffset = if (itemInfo != null) {
+                val itemCenter = itemInfo.offset + itemInfo.size / 2
+                val screenCenter = (layoutInfo.viewportSize.width / 2).toFloat()
+                (itemCenter - screenCenter) / screenCenter
+            } else {
+                0f
+            }
+
+            val animatedOffset by animateFloatAsState(
+                targetValue = if (isScrolling) centerOffset.coerceIn(-1.5f, 1.5f) else 0f,
+                animationSpec = if (isScrolling) {
+                    spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+                } else {
+                    spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                },
+                label = "mangaCenterOffset"
+            )
+
+            val baseScale = 1f - (animatedOffset.absoluteValue * 0.25f).coerceAtMost(0.25f)
+            val baseAlpha = 1f - (animatedOffset.absoluteValue * 0.4f).coerceAtMost(0.6f)
+            val translationXVal = animatedOffset * -20f
+            val rotationYVal = (animatedOffset * 15f).coerceIn(-15f, 15f)
+
+            val introScale = 0.3f + easedProgress * 0.7f
+            val introTranslationY = translationYOffset * (1f - easedProgress)
+
+            val finalScale = baseScale * introScale
+            val finalAlpha = baseAlpha * easedProgress
+
             // Match anime card dimensions exactly: 120dp wide, 170dp tall, RoundedCornerShape(4.dp)
-            Column(modifier = Modifier.width(120.dp)) {
+            Column(
+                modifier = Modifier
+                    .width(120.dp)
+                    .graphicsLayer {
+                        scaleX = finalScale
+                        scaleY = finalScale
+                        alpha = finalAlpha
+                        translationX = translationXVal
+                        translationY = introTranslationY
+                        rotationY = rotationYVal
+                        cameraDistance = cameraDistancePx
+                    }
+            ) {
                 Card(
                     shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.height(170.dp).clip(RoundedCornerShape(4.dp)).clickable { onMangaClick(manga) }
@@ -565,7 +642,7 @@ private fun MangaExploreHorizontalRow(
                     Box(modifier = Modifier.fillMaxSize()) {
                         if (coverUrl.isNotEmpty()) {
                             AsyncImage(
-                                model = ImageRequest.Builder(context).data(coverUrl).crossfade(true).build(),
+                                model = ImageRequest.Builder(context).data(coverUrl).build(),
                                 contentDescription = title,
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -795,7 +872,6 @@ private fun MangaFeaturedCarousel(
                         model = ImageRequest.Builder(context)
                             .data(coverUrl)
                             .memoryCacheKey(coverUrl)
-                            .crossfade(true)
                             .build(),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
@@ -1034,4 +1110,9 @@ private fun MangaFeaturedCarousel(
             }
         }
     }
+}
+
+private fun easeOutCubic(t: Float): Float {
+    val t1 = t - 1
+    return t1 * t1 * t1 + 1
 }

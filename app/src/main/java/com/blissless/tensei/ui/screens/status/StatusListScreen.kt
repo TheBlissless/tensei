@@ -785,7 +785,7 @@ private fun StatusListMangaCard(
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context).data(manga.cover).crossfade(true).build(),
+                    model = ImageRequest.Builder(context).data(manga.cover).build(),
                     contentDescription = displayMangaTitle,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop

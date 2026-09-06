@@ -610,7 +610,6 @@ fun ContinueWatchingCard(
             AsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(backgroundImageModel)
-                    .crossfade(true)
                     .build(),
                 contentDescription = displayTitle,
                 contentScale = ContentScale.Crop,
@@ -767,7 +766,6 @@ fun ContinueWatchingEpisodeCard(
             AsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(backgroundImageModel)
-                    .crossfade(true)
                     .build(),
                 contentDescription = displayTitle,
                 contentScale = ContentScale.Crop,

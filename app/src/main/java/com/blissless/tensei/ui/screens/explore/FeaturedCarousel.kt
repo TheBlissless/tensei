@@ -165,7 +165,6 @@ fun FeaturedCarousel(
                     model = ImageRequest.Builder(context)
                         .data(anime.cover)
                         .memoryCacheKey(anime.cover)
-                        .crossfade(true)
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,

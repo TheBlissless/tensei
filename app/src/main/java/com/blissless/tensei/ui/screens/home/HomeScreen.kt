@@ -380,7 +380,7 @@ fun HomeScreen(
                             ) {
                                 if (userAvatar != null) {
                                     AsyncImage(
-                                        model = ImageRequest.Builder(LocalContext.current).data(userAvatar).crossfade(true).build(),
+                                        model = ImageRequest.Builder(LocalContext.current).data(userAvatar).build(),
                                         contentDescription = "User Avatar",
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.size(44.dp).clip(CircleShape)
@@ -508,7 +508,6 @@ fun HomeScreen(
                                     AsyncImage(
                                         model = ImageRequest.Builder(LocalContext.current)
                                             .data(com.blissless.tensei.network.Endpoints.AniList.FAVICON)
-                                            .crossfade(true)
                                             .build(),
                                         contentDescription = "AniList",
                                         modifier = Modifier.size(20.dp)
@@ -1333,7 +1332,7 @@ fun HomeScreen(
                     if (isLoggedIn) {
                         if (userAvatar != null) {
                             AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current).data(userAvatar).crossfade(true).build(),
+                                model = ImageRequest.Builder(LocalContext.current).data(userAvatar).build(),
                                 contentDescription = "User Avatar",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.size(52.dp).clip(CircleShape)
@@ -1452,7 +1451,6 @@ private fun MangaHorizontalRow(
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(manga.cover)
-                                .crossfade(true)
                                 .build(),
                             contentDescription = manga.title,
                             modifier = Modifier.fillMaxSize(),
@@ -1576,7 +1574,6 @@ private fun MangaContinueReadingCard(
             AsyncImage(
                 model = ImageRequest.Builder(context)
                     .data(manga.banner ?: manga.cover)
-                    .crossfade(true)
                     .build(),
                 contentDescription = displayMangaTitle,
                 contentScale = ContentScale.Crop,

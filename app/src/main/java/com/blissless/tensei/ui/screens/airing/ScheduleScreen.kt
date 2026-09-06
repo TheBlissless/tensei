@@ -239,7 +239,7 @@ fun ScheduleScreen(
     }
     LaunchedEffect(isLoading) { if (!isLoading && isRefreshing) isRefreshing = false }
     LaunchedEffect(Unit) {
-        while (true) { delay(300000.milliseconds); currentTime = System.currentTimeMillis() / 1000; if (!preventAutoSync) viewModel.fetchAiringSchedule() }
+        while (true) { delay(300000.milliseconds); currentTime = System.currentTimeMillis() / 1000; if (!preventAutoSync) viewModel.fetchAiringSchedule(force = true) }
     }
     LaunchedEffect(Unit) {
         while (true) {

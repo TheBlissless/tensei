@@ -289,22 +289,22 @@ private fun MainViewModel.fetchExtensionChapterImages(mangaTitle: String, chapte
 
 // â”€â”€â”€ State Flows â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-private val _mangaContinueReading = MutableStateFlow<List<MangaMedia>>(emptyList())
+internal val _mangaContinueReading = MutableStateFlow<List<MangaMedia>>(emptyList())
 val MainViewModel.mangaContinueReading: StateFlow<List<MangaMedia>> get() = _mangaContinueReading.asStateFlow()
 
-private val _mangaCurrentlyReading = MutableStateFlow<List<MangaMedia>>(emptyList())
+internal val _mangaCurrentlyReading = MutableStateFlow<List<MangaMedia>>(emptyList())
 val MainViewModel.mangaCurrentlyReading: StateFlow<List<MangaMedia>> get() = _mangaCurrentlyReading.asStateFlow()
 
-private val _mangaPlanningToRead = MutableStateFlow<List<MangaMedia>>(emptyList())
+internal val _mangaPlanningToRead = MutableStateFlow<List<MangaMedia>>(emptyList())
 val MainViewModel.mangaPlanningToRead: StateFlow<List<MangaMedia>> get() = _mangaPlanningToRead.asStateFlow()
 
-private val _mangaCompleted = MutableStateFlow<List<MangaMedia>>(emptyList())
+internal val _mangaCompleted = MutableStateFlow<List<MangaMedia>>(emptyList())
 val MainViewModel.mangaCompleted: StateFlow<List<MangaMedia>> get() = _mangaCompleted.asStateFlow()
 
-private val _mangaPaused = MutableStateFlow<List<MangaMedia>>(emptyList())
+internal val _mangaPaused = MutableStateFlow<List<MangaMedia>>(emptyList())
 val MainViewModel.mangaPaused: StateFlow<List<MangaMedia>> get() = _mangaPaused.asStateFlow()
 
-private val _mangaDropped = MutableStateFlow<List<MangaMedia>>(emptyList())
+internal val _mangaDropped = MutableStateFlow<List<MangaMedia>>(emptyList())
 val MainViewModel.mangaDropped: StateFlow<List<MangaMedia>> get() = _mangaDropped.asStateFlow()
 
 private val _mangaExploreSections = MutableStateFlow<Map<String, List<MangaExploreMedia>>>(emptyMap())
@@ -549,6 +549,7 @@ suspend fun MainViewModel.fetchMangaLists(): Boolean {
 
     // Reload from local (which now includes both local-only and AniList-synced tracks)
     loadLocalMangaTracking()
+    saveHomeDataToCache()
     return true
 }
 

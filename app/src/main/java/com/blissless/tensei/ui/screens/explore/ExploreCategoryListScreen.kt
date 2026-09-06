@@ -706,7 +706,7 @@ private fun ExploreCategoryMangaCard(
             Box(modifier = Modifier.fillMaxSize()) {
                 if (coverUrl.isNotEmpty()) {
                     AsyncImage(
-                        model = ImageRequest.Builder(context).data(coverUrl).crossfade(true).build(),
+                        model = ImageRequest.Builder(context).data(coverUrl).build(),
                         contentDescription = title,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop

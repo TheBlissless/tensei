@@ -587,14 +587,6 @@ fun AnimeScreen(
         }
     }
     
-    // Refresh data when screen becomes visible
-    LaunchedEffect(isVisible, seasonalAnime) {
-        if (isVisible && seasonalAnime.isEmpty()) {
-            delay(100.milliseconds)
-            viewModel.forceRefreshExplore()
-        }
-    }
-
     // Whole-screen skeleton: show it immediately on first open (before any fetch has
     // started) and keep it until the API returns anything or the fetch cycle concludes.
     var exploreFetchesStarted by remember { mutableStateOf(false) }
@@ -603,6 +595,21 @@ fun AnimeScreen(
     }
     val showExploreSkeleton =
         !hasAnyExploreData && (!exploreFetchesStarted || isLoading)
+
+    // Refresh data when screen becomes visible. Mirrors the manga explore backoff: a
+    // failed fetch sets exploreTimedOut, so repeated tab visits can't hammer a down API.
+    var exploreTimedOut by remember { mutableStateOf(false) }
+    LaunchedEffect(isVisible, exploreTimedOut) {
+        if (isVisible && !hasAnyExploreData && !isLoading && !exploreTimedOut) {
+            viewModel.forceRefreshExplore()
+        }
+    }
+    LaunchedEffect(isLoading, seasonalAnime, exploreTimedOut) {
+        if (exploreFetchesStarted && !isLoading && seasonalAnime.isEmpty()) exploreTimedOut = true
+    }
+    LaunchedEffect(seasonalAnime) {
+        if (seasonalAnime.isNotEmpty()) exploreTimedOut = false
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(

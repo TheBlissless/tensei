@@ -53,6 +53,7 @@ class UserPreferences(context: Context) {
         private const val KEY_SHOW_BUFFER_INDICATOR = "show_buffer_indicator"
         private const val KEY_LAST_HOME_REFRESH = "last_home_refresh_time"
         private const val KEY_LAST_EXPLORE_REFRESH = "last_explore_refresh_time"
+        private const val KEY_LAST_SCHEDULE_REFRESH = "last_schedule_refresh_time"
         private const val KEY_LOCAL_ANIME_STATUS = "local_anime_status"
         private const val KEY_DEFAULT_SUBTITLE_LANG = "default_subtitle_lang"
         private const val KEY_MAL_FAVORITES = "mal_favorites"
@@ -746,6 +747,11 @@ class UserPreferences(context: Context) {
     fun getLastExploreRefreshTime(): Long = sharedPreferences.getLong(KEY_LAST_EXPLORE_REFRESH, 0L)
     fun setLastExploreRefreshTime(time: Long) {
         sharedPreferences.edit { putLong(KEY_LAST_EXPLORE_REFRESH, time) }
+    }
+
+    fun getLastScheduleRefreshTime(): Long = sharedPreferences.getLong(KEY_LAST_SCHEDULE_REFRESH, 0L)
+    fun setLastScheduleRefreshTime(time: Long) {
+        sharedPreferences.edit { putLong(KEY_LAST_SCHEDULE_REFRESH, time) }
     }
 
     // Local Anime Status (for offline users)

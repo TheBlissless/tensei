@@ -382,7 +382,13 @@ data class HomeCacheData(
     val dropped: List<AnimeMedia>,
     val userId: Int?,
     val userName: String?,
-    val userAvatar: String?
+    val userAvatar: String?,
+    val mangaContinueReading: List<MangaMedia> = emptyList(),
+    val mangaCurrentlyReading: List<MangaMedia> = emptyList(),
+    val mangaPlanningToRead: List<MangaMedia> = emptyList(),
+    val mangaCompleted: List<MangaMedia> = emptyList(),
+    val mangaPaused: List<MangaMedia> = emptyList(),
+    val mangaDropped: List<MangaMedia> = emptyList()
 )
 
 @Serializable

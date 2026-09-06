@@ -78,6 +78,12 @@ import com.blissless.tensei.viewmodel.clearMangaUserData
 import com.blissless.tensei.viewmodel.fetchMangaExplore
 import com.blissless.tensei.viewmodel.restoreMangaExploreFromCache
 import com.blissless.tensei.viewmodel.fetchMangaLists
+import com.blissless.tensei.viewmodel._mangaContinueReading
+import com.blissless.tensei.viewmodel._mangaCurrentlyReading
+import com.blissless.tensei.viewmodel._mangaPlanningToRead
+import com.blissless.tensei.viewmodel._mangaCompleted
+import com.blissless.tensei.viewmodel._mangaPaused
+import com.blissless.tensei.viewmodel._mangaDropped
 import com.blissless.tensei.viewmodel.fetchMangaUserProfile
 import com.blissless.tensei.viewmodel.toggleMalFavoriteById
 import com.blissless.tensei.viewmodel.loadMalFavoritesFromCache
@@ -109,6 +115,7 @@ class MainViewModel : ViewModel() {
         internal const val TAG = "MainViewModel"
         private const val CLIENT_ID = BuildConfig.CLIENT_ID_ANILIST
         internal const val MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000L // 5 minutes
+        internal const val SCHEDULE_REFRESH_INTERVAL_MS = 30 * 60 * 1000L // 30 minutes (airing schedule is stable)
         internal const val MANUAL_REFRESH_COOLDOWN_MS = 30_000L // 30 seconds between manual refreshes
         internal const val SYNC_DEBOUNCE_MS = 2000L // 2 seconds debounce for API sync
         internal const val FAVORITE_DEBOUNCE_MS = 1000L // 1 second debounce for favorite toggles
@@ -273,6 +280,10 @@ class MainViewModel : ViewModel() {
     private var lastExploreRefreshTime: Long
         get() = userPreferences.getLastExploreRefreshTime()
         set(value) = userPreferences.setLastExploreRefreshTime(value)
+
+    private var lastScheduleRefreshTime: Long
+        get() = userPreferences.getLastScheduleRefreshTime()
+        set(value) = userPreferences.setLastScheduleRefreshTime(value)
 
     // UI State
     internal val _userId = MutableStateFlow<Int?>(null)
@@ -954,8 +965,9 @@ class MainViewModel : ViewModel() {
         // prefetchOfflineWatchingStreams() // Disabled for now
     }
 private suspend fun loadHomeDataWithCache() {
-        cacheManager.loadHomeDataFromCache()?.let {
-            updateHomeState(it)
+        val homeData = cacheManager.loadHomeDataFromCache()
+        if (homeData != null) {
+            updateHomeState(homeData)
         }
 
         val now = System.currentTimeMillis()
@@ -964,9 +976,10 @@ private suspend fun loadHomeDataWithCache() {
         if (now - lastHomeRefreshTime < MIN_REFRESH_INTERVAL_MS) {
             _isLoadingHome.value = false
             refreshReleasingAnimeProgress()
-            // Manga tracking is NOT cached like the anime lists, so always re-sync it.
-            // Prefer AniList when both providers are active (AniList is the primary source).
-            if (isAniListActive) {
+            // Manga home lists are restored from the home cache and also mirrored in the
+            // local track database, so a fresh window skips the AniList re-sync entirely.
+            // Only sync when the cache has no manga data at all (e.g. first run after login).
+            if (isAniListActive && shouldSyncMangaListsOnFreshWindow(homeData)) {
                 viewModelScope.launch { fetchMangaLists() }
             }
             return
@@ -1032,6 +1045,32 @@ private suspend fun loadHomeDataWithCache() {
         _userId.value = data.userId
         _userName.value = data.userName
         _userAvatar.value = data.userAvatar
+        // Only restore manga lists when the cache actually has manga data, so a stale or
+        // empty cache never overrides the locally-tracked manga lists.
+        if (data.mangaCurrentlyReading.isNotEmpty() ||
+            data.mangaPlanningToRead.isNotEmpty() ||
+            data.mangaCompleted.isNotEmpty() ||
+            data.mangaPaused.isNotEmpty() ||
+            data.mangaDropped.isNotEmpty() ||
+            data.mangaContinueReading.isNotEmpty()
+        ) {
+            _mangaContinueReading.value = data.mangaContinueReading
+            _mangaCurrentlyReading.value = data.mangaCurrentlyReading
+            _mangaPlanningToRead.value = data.mangaPlanningToRead
+            _mangaCompleted.value = data.mangaCompleted
+            _mangaPaused.value = data.mangaPaused
+            _mangaDropped.value = data.mangaDropped
+        }
+    }
+
+    private fun shouldSyncMangaListsOnFreshWindow(homeData: HomeCacheData?): Boolean {
+        val data = homeData ?: return true
+        return data.mangaContinueReading.isEmpty() &&
+            data.mangaCurrentlyReading.isEmpty() &&
+            data.mangaPlanningToRead.isEmpty() &&
+            data.mangaCompleted.isEmpty() &&
+            data.mangaPaused.isEmpty() &&
+            data.mangaDropped.isEmpty()
     }
 
     private fun loadExploreDataWithCache() {
@@ -1184,7 +1223,7 @@ private suspend fun loadHomeDataWithCache() {
         val now = System.currentTimeMillis()
 
         val cached = cacheManager.loadAiringScheduleCache()
-        if (cached != null && !force && now - lastExploreRefreshTime < MIN_REFRESH_INTERVAL_MS) {
+        if (cached != null && !force && now - lastScheduleRefreshTime < SCHEDULE_REFRESH_INTERVAL_MS) {
             return
         }
 
@@ -1224,7 +1263,7 @@ private suspend fun loadHomeDataWithCache() {
                 _airingSchedule.value = scheduleByDay
                 _airingAnimeList.value = airingList
                 cacheManager.saveAiringScheduleCache(scheduleByDay, airingList)
-                lastExploreRefreshTime = System.currentTimeMillis()
+                lastScheduleRefreshTime = System.currentTimeMillis()
             } catch (_: Exception) {
                 // Keep existing cached data on failure
             }
@@ -1709,7 +1748,16 @@ private suspend fun loadHomeDataWithCache() {
 
 
     // Misc
-    internal fun saveHomeDataToCache() = cacheManager.saveHomeDataToCache(HomeCacheData(_currentlyWatching.value, _planningToWatch.value, _completed.value, _onHold.value, _dropped.value, _userId.value, _userName.value, _userAvatar.value))
+    internal fun saveHomeDataToCache() = cacheManager.saveHomeDataToCache(HomeCacheData(
+        _currentlyWatching.value, _planningToWatch.value, _completed.value, _onHold.value, _dropped.value,
+        _userId.value, _userName.value, _userAvatar.value,
+        mangaContinueReading = _mangaContinueReading.value,
+        mangaCurrentlyReading = _mangaCurrentlyReading.value,
+        mangaPlanningToRead = _mangaPlanningToRead.value,
+        mangaCompleted = _mangaCompleted.value,
+        mangaPaused = _mangaPaused.value,
+        mangaDropped = _mangaDropped.value
+    ))
     private fun saveExploreDataToCache() = cacheManager.saveExploreDataToCache(ExploreCacheData(_featuredAnime.value, _seasonalAnime.value, _topSeries.value, _topMovies.value, _actionAnime.value, _romanceAnime.value, _comedyAnime.value, _fantasyAnime.value, _scifiAnime.value))
 
     fun refreshHome(force: Boolean = false) {
