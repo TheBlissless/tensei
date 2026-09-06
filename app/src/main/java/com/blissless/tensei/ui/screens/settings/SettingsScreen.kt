@@ -818,9 +818,9 @@ private fun GeneralSettingsPage(
             SettingsRadioItem(
                 selected = startupScreenState == 1,
                 onClick = { viewModel.setStartupScreen(1) },
-                icon = Icons.Default.Explore,
-                title = "Anime",
-                description = "Browse and discover anime"
+                icon = Icons.Default.Home,
+                title = "Home",
+                description = "Your anime and manga lists"
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -830,9 +830,9 @@ private fun GeneralSettingsPage(
             SettingsRadioItem(
                 selected = startupScreenState == 2,
                 onClick = { viewModel.setStartupScreen(2) },
-                icon = Icons.Default.Home,
-                title = "Home",
-                description = "Your anime and manga lists"
+                icon = Icons.Default.Explore,
+                title = "Anime",
+                description = "Browse and discover anime"
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -845,18 +845,6 @@ private fun GeneralSettingsPage(
                 icon = Icons.Default.MenuBook,
                 title = "Manga",
                 description = "Browse and discover manga"
-            )
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 54.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                thickness = 0.5.dp
-            )
-            SettingsRadioItem(
-                selected = startupScreenState == 4,
-                onClick = { viewModel.setStartupScreen(4) },
-                icon = Icons.Default.Search,
-                title = "Search",
-                description = "Search anime and manga"
             )
         }
 

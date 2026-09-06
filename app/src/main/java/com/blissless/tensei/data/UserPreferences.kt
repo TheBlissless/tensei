@@ -189,7 +189,7 @@ class UserPreferences(context: Context) {
     val streamProvider: StateFlow<Int> = _streamProvider.asStateFlow()
 
     // Stream Method (direct or magnet)
-    private val _streamMethod = MutableStateFlow("direct")
+    private val _streamMethod = MutableStateFlow("magnet")
     val streamMethod: StateFlow<String> = _streamMethod.asStateFlow()
 
     // Default Magnet Extension
@@ -337,7 +337,7 @@ class UserPreferences(context: Context) {
         _defaultSubtitleLang.value = sharedPreferences.getString(KEY_DEFAULT_SUBTITLE_LANG, "English") ?: "English"
         _hideAdultContent.value = sharedPreferences.getBoolean(KEY_HIDE_ADULT_CONTENT, true)
         _streamProvider.value = sharedPreferences.getInt(KEY_STREAM_PROVIDER, 1)
-        _streamMethod.value = sharedPreferences.getString(KEY_STREAM_METHOD, "direct") ?: "direct"
+        _streamMethod.value = sharedPreferences.getString(KEY_STREAM_METHOD, "magnet") ?: "magnet"
         val savedMagnetExt = sharedPreferences.getString(KEY_DEFAULT_MAGNET_EXTENSION, null)
         val migratedMagnetExt = migrateStreamAuthority(savedMagnetExt)
         if (migratedMagnetExt != savedMagnetExt && savedMagnetExt != null) {
