@@ -582,7 +582,11 @@ fun SearchScreen(
                         textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide(); performSearch() }),
+                        // Search is already auto-triggered (debounced) as the query changes,
+                        // so pressing the keyboard's search button only dismisses the keyboard.
+                        // No extra request is fired, and the button can't be spammed into
+                        // launching duplicate searches.
+                        keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
                         decorationBox = { innerTextField ->
                             Box(contentAlignment = Alignment.CenterStart) {
                                 if (filters.query.isEmpty()) Text("Search anime...", color = Color.White.copy(alpha = 0.35f), fontSize = 16.sp)
@@ -645,7 +649,11 @@ fun SearchScreen(
                         }
                     }
                     Button(
-                        onClick = { keyboardController?.hide(); performSearch() },
+                        // Searches are already auto-triggered (debounced) when the query or
+                        // active filters change, so this button only dismisses the keyboard.
+                        // No extra request is fired, so the button can't be spammed into
+                        // launching duplicate searches.
+                        onClick = { keyboardController?.hide() },
                         modifier = Modifier.height(34.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),

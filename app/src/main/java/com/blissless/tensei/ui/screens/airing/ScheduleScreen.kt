@@ -824,7 +824,7 @@ private fun TimelineAnimeItem(
             .padding(end = 12.dp, top = 8.dp, bottom = 8.dp)
     ) {
         Surface(
-            modifier = Modifier.padding(start = 38.dp, bottom = 4.dp).graphicsLayer { scaleX = cardScale; scaleY = cardScale; alpha = cardAlpha; translationY = cardTranslationY },
+            modifier = Modifier.padding(start = 38.dp, bottom = 4.dp).height(112.dp).graphicsLayer { scaleX = cardScale; scaleY = cardScale; alpha = cardAlpha; translationY = cardTranslationY },
             shape = RoundedCornerShape(14.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 1.dp,
@@ -849,7 +849,7 @@ private fun TimelineAnimeItem(
                             displayTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            maxLines = 2,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha)
                         )

@@ -67,6 +67,13 @@ object Endpoints {
             val encodedFields = java.net.URLEncoder.encode(fields, "UTF-8")
             return "$API_BASE/anime?q=$encodedQuery&limit=$limit&offset=$offset&fields=$encodedFields"
         }
+
+        /** Top-anime ranking fallback used for the search screen's default result set
+         *  (blank query) when the AniList API is unavailable. */
+        fun rankingAnimeUrl(limit: Int, offset: Int, fields: String): String {
+            val encodedFields = java.net.URLEncoder.encode(fields, "UTF-8")
+            return "$API_BASE/anime/ranking?ranking_type=all&limit=$limit&offset=$offset&fields=$encodedFields"
+        }
     }
 
     /**

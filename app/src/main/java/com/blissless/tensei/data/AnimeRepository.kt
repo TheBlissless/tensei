@@ -586,51 +586,59 @@ class AnimeRepository(
 
     fun mapAnimeScheduleToAiring(entries: List<AnimeScheduleTimetableEntry>, now: Long): List<AiringScheduleAnime> {
         val result = mutableListOf<AiringScheduleAnime>()
-        var droppedAired = 0
         var droppedNoDate = 0
         var droppedBadDate = 0
         var droppedSeen = 0
+        var airedShown = 0
+        var airedSkipped = 0
         val seenRoutes = mutableSetOf<String>()
-        for (entry in entries) {
-            if (entry.airingStatus == "aired") {
-                droppedAired++
-                continue
-            }
-            if (!seenRoutes.add(entry.route)) {
-                droppedSeen++
-                Log.w("AiringDebug", "AnimeSchedule duplicate route '${entry.route}' skipped")
-                continue
-            }
+        fun parseDate(entry: AnimeScheduleTimetableEntry): Long? {
             val dateStr = entry.episodeDate
             if (dateStr.isNullOrBlank()) {
                 droppedNoDate++
                 Log.w("AiringDebug", "AnimeSchedule '${entry.title ?: entry.route}' dropped: no episodeDate")
-                continue
+                return null
             }
-            val airingAt = parseAnimeScheduleDate(dateStr)
-            if (airingAt == null) {
-                droppedBadDate++
-                continue
-            }
-            val title = entry.english ?: entry.romaji ?: entry.title ?: "Unknown"
-            result.add(
-                AiringScheduleAnime(
-                    id = entry.route.hashCode(),
-                    title = title,
-                    titleEnglish = entry.english ?: entry.romaji,
-                    cover = entry.imageVersionRoute?.let {
-                        "${Endpoints.AnimeSchedule.IMAGE_BASE_URL}/${it.trimStart('/')}"
-                    } ?: "",
-                    episodes = entry.episodes ?: 0,
-                    airingEpisode = entry.episodeNumber ?: 0,
-                    airingAt = airingAt,
-                    timeUntilAiring = airingAt - now,
-                    year = dateStr.take(4).toIntOrNull(),
-                    isAdult = entry.donghua
-                )
-            )
+            return parseAnimeScheduleDate(dateStr).also { if (it == null) droppedBadDate++ }
         }
-        Log.d("AiringDebug", "AnimeSchedule map summary: total=${entries.size} kept=${result.size} dropped(aired=$droppedAired, seen=$droppedSeen, noDate=$droppedNoDate, badDate=$droppedBadDate)")
+        fun build(entry: AnimeScheduleTimetableEntry, airingAt: Long) = AiringScheduleAnime(
+            id = entry.route.hashCode(),
+            title = entry.english ?: entry.romaji ?: entry.title ?: "Unknown",
+            titleEnglish = entry.english ?: entry.romaji,
+            cover = entry.imageVersionRoute?.let {
+                "${Endpoints.AnimeSchedule.IMAGE_BASE_URL}/${it.trimStart('/')}"
+            } ?: "",
+            episodes = entry.episodes ?: 0,
+            airingEpisode = entry.episodeNumber ?: 0,
+            airingAt = airingAt,
+            timeUntilAiring = airingAt - now,
+            year = entry.episodeDate?.take(4)?.toIntOrNull(),
+            isAdult = false
+        )
+        // Only took entries that haven't aired yet this week are matched first so a series
+        // with a later episode this week keeps its countdown over an already-aired one.
+        val upcoming = entries.filter { it.airingStatus != "aired" }
+        for (entry in upcoming) {
+            if (!seenRoutes.add(entry.route)) {
+                droppedSeen++
+                continue
+            }
+            val airingAt = parseDate(entry) ?: continue
+            result.add(build(entry, airingAt))
+        }
+        // Already-aired episodes (e.g. a show that ran earlier today) are kept too so they
+        // still appear in the timeline as "Airs again in ...".
+        for (entry in entries) {
+            if (entry.airingStatus != "aired") continue
+            if (!seenRoutes.add(entry.route)) {
+                airedSkipped++
+                continue
+            }
+            val airingAt = parseDate(entry) ?: continue
+            result.add(build(entry, airingAt))
+            airedShown++
+        }
+        Log.d("AiringDebug", "AnimeSchedule map summary: total=${entries.size} kept=${result.size} dropped(seen=$droppedSeen, noDate=$droppedNoDate, badDate=$droppedBadDate) airedShown=$airedShown airedSkipped=$airedSkipped")
         return result.sortedBy { it.airingAt }
     }
 
@@ -767,10 +775,19 @@ class AnimeRepository(
         } ?: emptyList<ExploreMedia>().also { Log.e("SearchDebug", "Response was null") }
 
         // AniList unavailable (down/blocked): fall back to the official MyAnimeList
-        // search API so the search screen still returns results for text queries.
-        if (parsed.isEmpty() && search != null) {
-            Log.w("SearchDebug", "AniList search failed/empty — using MAL fallback for '$search'")
-            return searchAnimeMalFallback(search, page, perPage)
+        // API so the search screen still returns results. For blank/default queries
+        // (e.g. on first open with the default "trending/popular" sort) we mirror the
+        // expected behavior with MAL's top-anime ranking.
+        if (parsed.isEmpty()) {
+            if (search != null) {
+                Log.w("SearchDebug", "AniList search failed/empty — using MAL fallback for '$search'")
+                return searchAnimeMalFallback(search, page, perPage)
+            } else if (genres == null && tags == null && format == null && status == null &&
+                season == null && seasonYear == null
+            ) {
+                Log.w("SearchDebug", "AniList default search failed/empty — using MAL ranking fallback")
+                return searchAnimeMalRankingFallback(page, perPage)
+            }
         }
         return parsed
     }
@@ -787,30 +804,53 @@ class AnimeRepository(
             val offset = (page - 1).coerceAtLeast(0) * limit
             val url = Endpoints.Mal.searchAnimeUrl(query, limit, offset, fields)
             Log.d("SearchDebug", "MAL fallback URL: $url")
-            val request = Request.Builder().url(url)
-                .header("X-MAL-CLIENT-ID", BuildConfig.MAL_CLIENT_ID)
-                .header("Accept", "application/json")
-                .header("User-Agent", "Tensei/1.0")
-                .build()
-            animeScheduleClient.newCall(request).execute().use { response ->
-                val code = response.code
-                if (code != 200) {
-                    Log.w("SearchDebug", "MAL fallback HTTP $code body=${response.body?.string()?.take(300)}")
-                    return@use emptyList()
-                }
-                val body = response.body?.string() ?: return@use emptyList()
-                Log.d("SearchDebug", "MAL fallback HTTP 200 bodyLen=${body.length}")
-                val parsed = try {
-                    json.decodeFromString<MalSearchResponse>(body)
-                } catch (e: Exception) {
-                    Log.e("SearchDebug", "MAL fallback parse error: ${e.message}")
-                    return@use emptyList()
-                }
-                parsed.data.mapNotNull { node -> node.node.toExploreMedia() }
-            }
+            requestMalNodes(url)
         } catch (e: Exception) {
             Log.e("SearchDebug", "MAL fallback failed: ${e.message}", e)
             emptyList()
+        }
+    }
+
+    /**
+     * Returns MAL's top-anime ranking for the search screen's default (blank-query)
+     * result set when AniList is unavailable.
+     */
+    suspend fun searchAnimeMalRankingFallback(page: Int = 1, perPage: Int = 30): List<ExploreMedia> = withContext(Dispatchers.IO) {
+        try {
+            val fields = "id,title,alternative_titles,main_picture,num_episodes,mean,start_date,status,nsfw,media_type,genres"
+            val limit = perPage.coerceIn(1, 100)
+            val offset = (page - 1).coerceAtLeast(0) * limit
+            val url = Endpoints.Mal.rankingAnimeUrl(limit, offset, fields)
+            Log.d("SearchDebug", "MAL ranking fallback URL: $url")
+            requestMalNodes(url)
+        } catch (e: Exception) {
+            Log.e("SearchDebug", "MAL ranking fallback failed: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    /** Shared MAL request/parse for search & ranking responses (both use data[].node). */
+    private fun requestMalNodes(url: String): List<ExploreMedia> {
+        val request = Request.Builder().url(url)
+            .header("X-MAL-CLIENT-ID", BuildConfig.MAL_CLIENT_ID)
+            .header("Accept", "application/json")
+            .header("User-Agent", "Tensei/1.0")
+            .build()
+        animeScheduleClient.newCall(request).execute().use { response ->
+            val code = response.code
+            if (code != 200) {
+                Log.w("SearchDebug", "MAL fallback HTTP $code body=${response.body?.string()?.take(300)}")
+                return emptyList()
+            }
+            val body = response.body?.string() ?: return emptyList()
+            Log.d("SearchDebug", "MAL fallback HTTP 200 bodyLen=${body.length}")
+            val parsed = try {
+                json.decodeFromString<MalSearchResponse>(body)
+            } catch (e: Exception) {
+                Log.e("SearchDebug", "MAL fallback parse error: ${e.message}")
+                return emptyList()
+            }
+            return parsed.data.mapNotNull { node -> node.node.toExploreMedia() }
         }
     }
 
