@@ -118,7 +118,6 @@ import com.blissless.tensei.viewmodel.setMaxPerformance
 import com.blissless.tensei.viewmodel.setPreferEnglishTitles
 import com.blissless.tensei.viewmodel.setSimplifyEpisodeMenu
 import com.blissless.tensei.viewmodel.setStartupScreen
-import com.blissless.tensei.viewmodel.setPreventScheduleSync
 import com.blissless.tensei.viewmodel.setHideAdultContent
 import com.blissless.tensei.viewmodel.setMangaReaderMode
 import com.blissless.tensei.viewmodel.setMangaDataSaver
@@ -252,7 +251,6 @@ private fun AccountSettingsPage(
     var showMalLogoutConfirmation by remember { mutableStateOf(false) }
     val loginProvider by viewModel.loginProvider.collectAsState(initial = LoginProvider.NONE)
     val trackingPercentage by viewModel.trackingPercentage.collectAsState(initial = 85)
-    val preventScheduleSync by viewModel.preventScheduleSync.collectAsState()
     val mangaSyncThreshold by viewModel.mangaSyncThreshold.collectAsState()
     val discordRichPresence by viewModel.discordRichPresence.collectAsState(initial = false)
     val malAsMainProvider by viewModel.malAsMainProvider.collectAsState(initial = false)
@@ -392,14 +390,6 @@ private fun AccountSettingsPage(
 
         Spacer(modifier = Modifier.height(8.dp))
         SectionHeader("TRACKING & SYNC")
-        SettingsCard {
-            SettingsToggle(
-                title = "Auto Sync Schedule",
-                description = "Automatically sync airing schedule when opening",
-                checked = !preventScheduleSync,
-                onCheckedChange = { viewModel.setPreventScheduleSync(!it) }
-            )
-        }
         SettingsCard {
             SettingsSliderRow(
                 title = "Episode Tracking",

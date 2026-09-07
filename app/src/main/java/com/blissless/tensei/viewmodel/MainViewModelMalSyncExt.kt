@@ -178,9 +178,9 @@ internal suspend fun MainViewModel.executePendingSyncs() {
     }
 
     if (syncsToExecute.isNotEmpty()) {
-        // After a write, refresh the home lists from the chosen main provider, falling back to
-        // the other provider when the main one is unavailable.
-        val malMain = isMalActive && userPreferences.malAsMainProvider.value
+        // After a write, refresh the home lists preferring AniList when it's logged in, falling
+        // back to the other provider when AniList is unavailable.
+        val malMain = isMalActive && !isAniListActive
         if (malMain) {
             val ok = fetchMalList()
             if (!ok && isAniListActive) fetchLists()

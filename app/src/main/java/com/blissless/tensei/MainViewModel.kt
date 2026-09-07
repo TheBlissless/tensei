@@ -11,7 +11,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.util.UnstableApi
 import com.blissless.tensei.data.AnimeRepository
+import com.blissless.tensei.data.AiringScheduleApiDownException
 import com.blissless.tensei.data.CacheManager
+import com.blissless.tensei.data.AnimeScheduleUnavailableException
 import com.blissless.tensei.api.jikan.JikanService
 import com.blissless.tensei.api.jikan.JikanUserFavorites
 import com.blissless.tensei.api.jikan.JikanUserHistory
@@ -41,6 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -116,6 +119,7 @@ class MainViewModel : ViewModel() {
         private const val CLIENT_ID = BuildConfig.CLIENT_ID_ANILIST
         internal const val MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000L // 5 minutes
         internal const val SCHEDULE_REFRESH_INTERVAL_MS = 30 * 60 * 1000L // 30 minutes (airing schedule is stable)
+        internal const val SCHEDULE_REOPEN_INTERVAL_MS = 5 * 60 * 1000L // 5 minute cooldown when reopening a screen backed by AniList
         internal const val MANUAL_REFRESH_COOLDOWN_MS = 30_000L // 30 seconds between manual refreshes
         internal const val SYNC_DEBOUNCE_MS = 2000L // 2 seconds debounce for API sync
         internal const val FAVORITE_DEBOUNCE_MS = 1000L // 1 second debounce for favorite toggles
@@ -321,6 +325,12 @@ class MainViewModel : ViewModel() {
     private val _isLoadingSchedule = MutableStateFlow(false)
     val isLoadingSchedule: StateFlow<Boolean> = _isLoadingSchedule.asStateFlow()
 
+    private var airingScheduleFetchInProgress = false
+
+    // True when the last successful schedule fetch had to use the AnimeSchedule fallback
+    // (AniList was down), so the next screen reopen always refetches instead of skipping.
+    private var lastScheduleUsedFallback = false
+
     // Anime lists
     internal val _currentlyWatching = MutableStateFlow<List<AnimeMedia>>(emptyList())
     val currentlyWatching: StateFlow<List<AnimeMedia>> = _currentlyWatching.asStateFlow()
@@ -429,7 +439,6 @@ class MainViewModel : ViewModel() {
     val showMangaCardButtons: StateFlow<Boolean> get() = userPreferences.showMangaCardButtons
     val showMangaStatusColors: StateFlow<Boolean> get() = userPreferences.showMangaStatusColors
     val preferEnglishTitles: StateFlow<Boolean> get() = userPreferences.preferEnglishTitles
-    val preventScheduleSync: StateFlow<Boolean> get() = userPreferences.preventScheduleSync
     val trackingPercentage: StateFlow<Int> get() = userPreferences.trackingPercentage
     val forwardSkipSeconds: StateFlow<Int> get() = userPreferences.forwardSkipSeconds
     val backwardSkipSeconds: StateFlow<Int> get() = userPreferences.backwardSkipSeconds
@@ -734,10 +743,10 @@ class MainViewModel : ViewModel() {
                 // Do NOT clear the AniList token — we support simultaneous login.
                 _loginProvider.value = if (anilistStillLoggedIn) LoginProvider.BOTH else LoginProvider.MAL
                 loadMalUserData()
-                // AniList is the main provider by default when both are logged in — never let the
-                // MAL list overwrite the AniList home lists on login. Only fetch MAL as the list
-                // source when MAL is the sole provider or the user explicitly chose it as main.
-                if (anilistStillLoggedIn && !userPreferences.malAsMainProvider.value) {
+                // AniList is the primary home list provider whenever it's logged in — never let
+                // the MAL list overwrite the AniList home lists on login. Only fetch MAL as the
+                // list source when MAL is the sole provider.
+                if (anilistStillLoggedIn) {
                     fetchJikanUserData()
                 } else {
                     fetchMalList()
@@ -770,11 +779,9 @@ class MainViewModel : ViewModel() {
                 viewModelScope.launch {
                     _isLoadingHome.value = true
                     fetchUser()
-                    // If MAL was already logged in and the user chose it as the main provider,
-                    // keep the MAL list in control of the home screen instead of overwriting it.
-                    if (!(malStillLoggedIn && userPreferences.malAsMainProvider.value)) {
-                        fetchLists()
-                    }
+                    // AniList is always the preferred home list source when it's freshly logged
+                    // in, even if MAL was already active — AniList stays the primary provider.
+                    fetchLists()
                     fetchMangaLists()
                     _isLoadingHome.value = false
                     fetchAiringSchedule(force = true)
@@ -970,7 +977,10 @@ private suspend fun loadHomeDataWithCache() {
         }
 
         val now = System.currentTimeMillis()
-        val malMain = isMalActive && userPreferences.malAsMainProvider.value
+        // Home lists always prefer AniList when it's logged in — MAL is only the primary
+        // list source when it's the sole provider. If the AniList fetch fails (API down),
+        // the fallback below pulls the MAL list instead.
+        val malMain = isMalActive && !isAniListActive
 
         if (now - lastHomeRefreshTime < MIN_REFRESH_INTERVAL_MS) {
             _isLoadingHome.value = false
@@ -1095,8 +1105,11 @@ private suspend fun loadHomeDataWithCache() {
 
     private fun loadAiringScheduleCache() {
         cacheManager.loadAiringScheduleCache()?.let {
-            _airingSchedule.value = it.scheduleByDay
-            _airingAnimeList.value = it.airingAnimeList
+            val list = it.airingAnimeList.distinctBy { a -> a.id }
+            _airingAnimeList.value = list
+            _airingSchedule.value = list.groupBy { anime ->
+                Calendar.getInstance().apply { timeInMillis = anime.airingAt * 1000L }.get(Calendar.DAY_OF_WEEK) - 1
+            }
         }
     }
 
@@ -1218,56 +1231,109 @@ private suspend fun loadHomeDataWithCache() {
         )
     }
 
-    fun fetchAiringSchedule(force: Boolean = false) {
+    fun fetchAiringSchedule(force: Boolean = false, minIntervalMs: Long = SCHEDULE_REFRESH_INTERVAL_MS) {
         val now = System.currentTimeMillis()
 
         val cached = cacheManager.loadAiringScheduleCache()
-        if (cached != null && !force && now - lastScheduleRefreshTime < SCHEDULE_REFRESH_INTERVAL_MS) {
+        if (cached != null && !force && now - lastScheduleRefreshTime < minIntervalMs) {
             return
         }
 
+        if (airingScheduleFetchInProgress) {
+            Log.d("AiringDebug", "fetchAiringSchedule: fetch already in progress — skipping")
+            return
+        }
+
+        airingScheduleFetchInProgress = true
         viewModelScope.launch {
             _isLoadingSchedule.value = true
             try {
-                val schedules = repository.fetchAiringSchedule()
+                Log.d("AiringDebug", "fetchAiringSchedule: attempting AniList...")
+                val airingList = try {
+                    val schedules = repository.fetchAiringSchedule()
+                    Log.d("AiringDebug", "AniList returned ${schedules.size} schedule entries, ${schedules.count { it.media != null }} with media")
+                    schedules.filter { it.media != null }.map { schedule ->
+                        val media = schedule.media!!
+                        val title = media.title.romaji ?: media.title.english ?: "Unknown"
+                        val titleEnglish = media.title.english
+                        val episodes = media.episodes ?: 0
 
-                val airingList = schedules.filter { it.media != null }.map { schedule ->
-                    val media = schedule.media!!
-                    val title = media.title.romaji ?: media.title.english ?: "Unknown"
-                    val titleEnglish = media.title.english
-                    val episodes = media.episodes ?: 0
-
-                    AiringScheduleAnime(
-                        id = media.id,
-                        title = title,
-                        titleEnglish = titleEnglish,
-                        cover = schedule.media.coverImage?.extraLarge ?: "",
-                        episodes = episodes,
-                        airingEpisode = schedule.episode,
-                        airingAt = schedule.airingAt,
-                        timeUntilAiring = schedule.timeUntilAiring,
-                        averageScore = media.averageScore,
-                        genres = media.genres ?: emptyList(),
-                        year = media.seasonYear,
-                        malId = media.idMal,
-                        isAdult = media.isAdult
-                    )
-                }.sortedBy { it.airingAt }
-
-                val scheduleByDay = airingList.groupBy { anime ->
-                    val calendar = Calendar.getInstance().apply { timeInMillis = anime.airingAt * 1000L }
-                    calendar.get(Calendar.DAY_OF_WEEK) - 1
+                        AiringScheduleAnime(
+                            id = media.id,
+                            title = title,
+                            titleEnglish = titleEnglish,
+                            cover = schedule.media.coverImage?.extraLarge ?: "",
+                            episodes = episodes,
+                            airingEpisode = schedule.episode,
+                            airingAt = schedule.airingAt,
+                            timeUntilAiring = schedule.timeUntilAiring,
+                            averageScore = media.averageScore,
+                            genres = media.genres ?: emptyList(),
+                            year = media.seasonYear,
+                            malId = media.idMal,
+                            isAdult = media.isAdult
+                        )
+                    }.sortedBy { it.airingAt }
+                        .also { lastScheduleUsedFallback = false }
+                } catch (_: AiringScheduleApiDownException) {
+                    Log.w("AiringDebug", "AniList API down — using AnimeSchedule fallback")
+                    lastScheduleUsedFallback = true
+                    _toastMessage.emit("AniList is unavailable — showing schedule from AnimeSchedule instead")
+                    fetchAnimeScheduleWithToast()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("AiringDebug", "AniList fetch failed unexpectedly (${e::class.simpleName}: ${e.message}) — using AnimeSchedule fallback", e)
+                    lastScheduleUsedFallback = true
+                    _toastMessage.emit("AniList is unavailable — showing schedule from AnimeSchedule instead")
+                    fetchAnimeScheduleWithToast()
                 }
 
-                _airingSchedule.value = scheduleByDay
-                _airingAnimeList.value = airingList
-                cacheManager.saveAiringScheduleCache(scheduleByDay, airingList)
-                lastScheduleRefreshTime = System.currentTimeMillis()
-            } catch (_: Exception) {
+                val deduped = airingList.distinctBy { it.id }
+                Log.d("AiringDebug", "Final airing list size=${deduped.size}")
+                if (deduped.isNotEmpty()) {
+                    val scheduleByDay = deduped.groupBy { anime ->
+                        val calendar = Calendar.getInstance().apply { timeInMillis = anime.airingAt * 1000L }
+                        calendar.get(Calendar.DAY_OF_WEEK) - 1
+                    }
+
+                    _airingSchedule.value = scheduleByDay
+                    _airingAnimeList.value = deduped
+                    cacheManager.saveAiringScheduleCache(scheduleByDay, deduped)
+                    lastScheduleRefreshTime = System.currentTimeMillis()
+                }
+            } catch (e: Exception) {
                 // Keep existing cached data on failure
+                Log.e("AiringDebug", "Airing schedule fetch entirely failed: ${e::class.simpleName}: ${e.message}", e)
             }
             _isLoadingSchedule.value = false
+            airingScheduleFetchInProgress = false
         }
+    }
+
+    /**
+     * Called when the airing schedule screen is reopened. If the last fetch had to fall
+     * back to the AnimeSchedule timetable (AniList was down), always refetch so new/weekly
+     * data appears immediately. Otherwise respect a short 5-minute reload cooldown.
+     */
+    fun fetchAiringScheduleOnReopen() {
+        if (lastScheduleUsedFallback) {
+            Log.d("AiringDebug", "fetchAiringScheduleOnReopen: last source was fallback — forcing refetch")
+            fetchAiringSchedule(force = true)
+        } else {
+            Log.d("AiringDebug", "fetchAiringScheduleOnReopen: last source was AniList — ${SCHEDULE_REOPEN_INTERVAL_MS / 60000} min cooldown")
+            fetchAiringSchedule(force = false, minIntervalMs = SCHEDULE_REOPEN_INTERVAL_MS)
+        }
+    }
+
+    private suspend fun fetchAnimeScheduleWithToast(): List<AiringScheduleAnime> = try {
+        repository.fetchAiringScheduleAnimeScheduleFallback().also {
+            Log.d("AiringDebug", "AnimeSchedule fallback returned ${it.size} entries")
+        }
+    } catch (e: AnimeScheduleUnavailableException) {
+        Log.e("AiringDebug", "AnimeSchedule fallback unavailable: ${e.message}", e)
+        _toastMessage.emit("Schedule service is currently unavailable")
+        emptyList()
     }
 
     fun updateAnimeProgress(mediaId: Int, progress: Int) {
@@ -1776,7 +1842,10 @@ private suspend fun loadHomeDataWithCache() {
         cacheManager.invalidateUserCache()
         viewModelScope.launch {
             _isLoadingHome.value = true
-            val malMain = _loginProvider.value == LoginProvider.MAL || userPreferences.malAsMainProvider.value
+            // Home lists prefer AniList whenever it's logged in; MAL is primary only when it's
+            // the sole provider. The fallback branches below pull the other provider when the
+            // preferred one is unavailable (e.g. API outage).
+            val malMain = _loginProvider.value == LoginProvider.MAL
             if (malMain) {
                 // MAL is the main provider: pull its list first, fall back to AniList.
                 val malOk = fetchMalList()

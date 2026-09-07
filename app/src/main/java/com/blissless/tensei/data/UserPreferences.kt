@@ -29,7 +29,6 @@ class UserPreferences(context: Context) {
         private const val KEY_SHOW_MANGA_CARD_BUTTONS = "show_manga_card_buttons"
         private const val KEY_SHOW_MANGA_STATUS_COLORS = "show_manga_status_colors"
         private const val KEY_PREFER_ENGLISH_TITLES = "prefer_english_titles"
-        private const val KEY_PREVENT_SCHEDULE_SYNC = "prevent_schedule_sync"
         private const val KEY_TRACKING_PERCENTAGE = "tracking_percentage"
         private const val KEY_FORWARD_SKIP_SECONDS = "forward_skip_seconds"
         private const val KEY_BACKWARD_SKIP_SECONDS = "backward_skip_seconds"
@@ -128,9 +127,6 @@ class UserPreferences(context: Context) {
 
     private val _preferEnglishTitles = MutableStateFlow(true)
     val preferEnglishTitles: StateFlow<Boolean> = _preferEnglishTitles.asStateFlow()
-
-    private val _preventScheduleSync = MutableStateFlow(false)
-    val preventScheduleSync: StateFlow<Boolean> = _preventScheduleSync.asStateFlow()
 
     private val _trackingPercentage = MutableStateFlow(85)
     val trackingPercentage: StateFlow<Int> = _trackingPercentage.asStateFlow()
@@ -319,7 +315,6 @@ class UserPreferences(context: Context) {
         _showMangaStatusColors.value = sharedPreferences.getBoolean(KEY_SHOW_MANGA_STATUS_COLORS, false)
         _preferEnglishTitles.value = sharedPreferences.getBoolean(KEY_PREFER_ENGLISH_TITLES, true)
 
-        _preventScheduleSync.value = sharedPreferences.getBoolean(KEY_PREVENT_SCHEDULE_SYNC, false)
         _trackingPercentage.value = sharedPreferences.getInt(KEY_TRACKING_PERCENTAGE, 85)
         _forwardSkipSeconds.value = sharedPreferences.getInt(KEY_FORWARD_SKIP_SECONDS, 10)
         _backwardSkipSeconds.value = sharedPreferences.getInt(KEY_BACKWARD_SKIP_SECONDS, 10)
@@ -452,11 +447,6 @@ class UserPreferences(context: Context) {
     fun setPreferEnglishTitles(enabled: Boolean) {
         _preferEnglishTitles.value = enabled
         sharedPreferences.edit { putBoolean(KEY_PREFER_ENGLISH_TITLES, enabled) }
-    }
-
-    fun setPreventScheduleSync(enabled: Boolean) {
-        _preventScheduleSync.value = enabled
-        sharedPreferences.edit { putBoolean(KEY_PREVENT_SCHEDULE_SYNC, enabled) }
     }
 
     fun setTrackingPercentage(percentage: Int) {

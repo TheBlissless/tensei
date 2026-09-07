@@ -45,6 +45,8 @@ android {
         buildConfigField("String", "DISCORD_APP_ID", "\"$discordAppId\"")
         val discordPublicKey = localProperties.getProperty("DISCORD_PUBLIC_KEY") ?: ""
         buildConfigField("String", "DISCORD_PUBLIC_KEY", "\"$discordPublicKey\"")
+        val animeScheduleApiKey = localProperties.getProperty("ANIME_SCHEDULE_API_KEY") ?: ""
+        buildConfigField("String", "ANIME_SCHEDULE_API_KEY", "\"$animeScheduleApiKey\"")
     }
 
     // 1. ADD THIS: Configure your signing keys here

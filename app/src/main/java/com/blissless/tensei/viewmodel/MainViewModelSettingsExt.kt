@@ -49,9 +49,6 @@ fun MainViewModel.setMaxPerformance(enabled: Boolean) =
 fun MainViewModel.setPreferEnglishTitles(enabled: Boolean) =
     userPreferences.setPreferEnglishTitles(enabled)
 
-fun MainViewModel.setPreventScheduleSync(enabled: Boolean) =
-    userPreferences.setPreventScheduleSync(enabled)
-
 fun MainViewModel.setTrackingPercentage(percentage: Int) =
     userPreferences.setTrackingPercentage(percentage)
 

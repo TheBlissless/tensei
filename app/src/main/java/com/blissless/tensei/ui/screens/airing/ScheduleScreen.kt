@@ -118,7 +118,7 @@ private fun ordinalDay(day: Int): String {
 }
 
 private sealed class TimelineItem {
-    data class Anime(val data: AiringScheduleAnime, val isPast: Boolean) : TimelineItem()
+    data class Anime(val data: AiringScheduleAnime) : TimelineItem()
     data class DayHeader(val dayIndex: Int, val dayName: String) : TimelineItem()
     data class HourHeader(val hour: Int, val timeString: String) : TimelineItem()
 }
@@ -147,7 +147,6 @@ fun ScheduleScreen(
     viewModel: MainViewModel,
     isOled: Boolean = false,
     isVisible: Boolean = false,
-    preventAutoSync: Boolean = true,
     hideAdultContent: Boolean = false,
     preferEnglishTitles: Boolean = true,
     isLoggedIn: Boolean = false,
@@ -232,14 +231,12 @@ fun ScheduleScreen(
 
     LaunchedEffect(isLoading) { if (!isLoading && isRefreshing) isRefreshing = false }
     LaunchedEffect(Unit) {
-        if (!preventAutoSync) {
-            delay(800.milliseconds)
-            viewModel.fetchAiringSchedule()
-        }
+        delay(800.milliseconds)
+        viewModel.fetchAiringScheduleOnReopen()
     }
     LaunchedEffect(isLoading) { if (!isLoading && isRefreshing) isRefreshing = false }
     LaunchedEffect(Unit) {
-        while (true) { delay(300000.milliseconds); currentTime = System.currentTimeMillis() / 1000; if (!preventAutoSync) viewModel.fetchAiringSchedule(force = true) }
+        while (true) { delay(300000.milliseconds); currentTime = System.currentTimeMillis() / 1000; viewModel.fetchAiringSchedule(force = true) }
     }
     LaunchedEffect(Unit) {
         while (true) {
@@ -252,26 +249,26 @@ fun ScheduleScreen(
         }
     }
 
-    val startOfToday = remember(currentTime) {
-        val cal = Calendar.getInstance(); cal.timeInMillis = currentTime * 1000L
+    val startOfToday = remember(currentDayOfWeek) {
+        val cal = Calendar.getInstance()
         cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
         cal.timeInMillis / 1000
     }
     val endOfToday = remember(startOfToday) { startOfToday + 86400L }
-    val sevenDaysFromNow = remember(currentTime) { currentTime + 604800L }
+    val sevenDaysFromNow = remember(startOfToday) { endOfToday + 6 * 86400L }
 
-    val filteredScheduleByDay = remember(scheduleByDay, startOfToday, endOfToday, currentTime, sevenDaysFromNow, currentDayOfWeek, hideAdultContent) {
+    val filteredScheduleByDay = remember(scheduleByDay, startOfToday, endOfToday, sevenDaysFromNow, currentDayOfWeek, hideAdultContent) {
         val result = mutableMapOf<Int, MutableList<AiringScheduleAnime>>()
         for (i in 0..6) result[i] = mutableListOf()
         scheduleByDay.values.flatten().filter { !hideAdultContent || (!isAdultContent(it.isAdult, it.genres)) }.forEach { anime ->
             val ac = Calendar.getInstance(); ac.timeInMillis = anime.airingAt * 1000L; val animeDow = ac.get(Calendar.DAY_OF_WEEK) - 1
             if (animeDow == currentDayOfWeek) { if (anime.airingAt in startOfToday..endOfToday) result[animeDow]?.add(anime) }
-            else { if (anime.airingAt in currentTime..sevenDaysFromNow) result[animeDow]?.add(anime) }
+            else { if (anime.airingAt in endOfToday..sevenDaysFromNow) result[animeDow]?.add(anime) }
         }
         result.forEach { (_, list) -> list.sortBy { it.airingAt } }; result
     }
 
-    val allUpcomingTimelineItems = remember(filteredScheduleByDay, orderedDays, currentTime, currentDayOfWeek) {
+    val allUpcomingTimelineItems = remember(filteredScheduleByDay, orderedDays, currentDayOfWeek) {
         val items = mutableListOf<TimelineItem>()
         val tf = SimpleDateFormat("HH:mm", Locale.getDefault())
         orderedDays.forEach { dayIndex ->
@@ -279,7 +276,7 @@ fun ScheduleScreen(
             items.add(TimelineItem.DayHeader(dayIndex, DayNames[dayIndex]))
             if (dayAnime.isNotEmpty()) {
                 val grouped = LinkedHashMap<Int, MutableList<TimelineItem.Anime>>()
-                dayAnime.forEach { a -> grouped.getOrPut((a.airingAt / 3600).toInt()) { mutableListOf() }.add(TimelineItem.Anime(a, a.airingAt <= currentTime)) }
+                dayAnime.forEach { a -> grouped.getOrPut((a.airingAt / 3600).toInt()) { mutableListOf() }.add(TimelineItem.Anime(a)) }
                 grouped.forEach { (hour, list) ->
                     items.add(TimelineItem.HourHeader(hour, tf.format(Date(hour * 3600L * 1000L))))
                     items.addAll(list)
@@ -289,13 +286,13 @@ fun ScheduleScreen(
         items
     }
 
-    val byDayTimelineItems = remember(filteredScheduleByDay, selectedDay, currentTime, currentDayOfWeek) {
+    val byDayTimelineItems = remember(filteredScheduleByDay, selectedDay, currentDayOfWeek) {
         val items = mutableListOf<TimelineItem>()
         val tf = SimpleDateFormat("HH:mm", Locale.getDefault())
         val dayAnime = (filteredScheduleByDay[selectedDay] ?: emptyList()).sortedBy { it.airingAt }
         if (dayAnime.isNotEmpty()) {
             val grouped = LinkedHashMap<Int, MutableList<TimelineItem.Anime>>()
-            dayAnime.forEach { a -> grouped.getOrPut((a.airingAt / 3600).toInt()) { mutableListOf() }.add(TimelineItem.Anime(a, a.airingAt <= currentTime)) }
+            dayAnime.forEach { a -> grouped.getOrPut((a.airingAt / 3600).toInt()) { mutableListOf() }.add(TimelineItem.Anime(a)) }
             grouped.forEach { (hour, list) ->
                 items.add(TimelineItem.HourHeader(hour, tf.format(Date(hour * 3600L * 1000L))))
                 items.addAll(list)
@@ -535,6 +532,7 @@ fun ScheduleScreen(
                         TimelineScheduleList(
                             timelineItems = byDayTimelineItems,
                             currentDayOfWeek = currentDayOfWeek,
+                            currentTime = currentTime,
                             preferEnglishTitles = preferEnglishTitles,
                             animeStatusMap = animeStatusMap,
                             listState = listStateByDay,
@@ -553,6 +551,7 @@ fun ScheduleScreen(
                     TimelineScheduleList(
                         timelineItems = timelineItems,
                         currentDayOfWeek = currentDayOfWeek,
+                        currentTime = currentTime,
                         preferEnglishTitles = preferEnglishTitles,
                         animeStatusMap = animeStatusMap,
                         listState = currentListState,
@@ -655,6 +654,7 @@ fun ScheduleScreen(
 private fun TimelineScheduleList(
     timelineItems: List<TimelineItem>,
     currentDayOfWeek: Int,
+    currentTime: Long,
     preferEnglishTitles: Boolean,
     animeStatusMap: Map<Int, String>,
     listState: LazyListState,
@@ -674,7 +674,7 @@ private fun TimelineScheduleList(
     ) {
         itemsIndexed(
             items = timelineItems,
-            key = { _, item -> when (item) { is TimelineItem.Anime -> "anime_${item.data.id}_${item.data.airingEpisode}"; is TimelineItem.DayHeader -> "day_${item.dayIndex}"; is TimelineItem.HourHeader -> "hour_${item.hour}" } }
+            key = { index, item -> when (item) { is TimelineItem.Anime -> "anime_${item.data.id}_${item.data.airingEpisode}_${item.data.airingAt}_$index"; is TimelineItem.DayHeader -> "day_${item.dayIndex}"; is TimelineItem.HourHeader -> "hour_${item.hour}_$index" } }
         ) { index, item ->
             when (item) {
                 is TimelineItem.DayHeader -> DayHeaderItem(item.dayName, item.dayIndex == currentDayOfWeek)
@@ -698,7 +698,7 @@ private fun TimelineScheduleList(
                     val finalScale = scrollScale * introScale
                     val finalAlpha = (scrollAlpha * introAlpha).coerceIn(0f, 1f)
                     val finalTranslationY = scrollParallax + introTranslationY
-                    TimelineAnimeItem(timeFormat.format(Date(item.data.airingAt * 1000L)), item.data, item.isPast,
+                    TimelineAnimeItem(timeFormat.format(Date(item.data.airingAt * 1000L)), item.data, item.data.airingAt <= currentTime, currentTime,
                         preferEnglishTitles, animeStatusMap[item.data.id], finalScale, finalAlpha, finalTranslationY, onClick = { onAnimeClick(item.data) })
                 }
             }
@@ -800,6 +800,7 @@ private fun TimelineAnimeItem(
     timeString: String,
     anime: AiringScheduleAnime,
     isPast: Boolean,
+    currentTime: Long,
     preferEnglishTitles: Boolean,
     animeStatus: String?,
     cardScale: Float,
@@ -823,7 +824,7 @@ private fun TimelineAnimeItem(
             .padding(end = 12.dp, top = 8.dp, bottom = 8.dp)
     ) {
         Surface(
-            modifier = Modifier.padding(start = 38.dp, bottom = 4.dp).height(112.dp).graphicsLayer { scaleX = cardScale; scaleY = cardScale; alpha = cardAlpha; translationY = cardTranslationY },
+            modifier = Modifier.padding(start = 38.dp, bottom = 4.dp).graphicsLayer { scaleX = cardScale; scaleY = cardScale; alpha = cardAlpha; translationY = cardTranslationY },
             shape = RoundedCornerShape(14.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 1.dp,
@@ -856,9 +857,11 @@ private fun TimelineAnimeItem(
                         Spacer(Modifier.height(10.dp))
 
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
-                                Text("Ep ${anime.airingEpisode}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                            if (anime.airingEpisode > 0) {
+                                Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
+                                    Text("Ep ${anime.airingEpisode}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                                }
                             }
                             if (animeStatus != null) {
                                 val statusColor = StatusColors[animeStatus] ?: Color.Gray
@@ -870,19 +873,19 @@ private fun TimelineAnimeItem(
                             }
                         }
 
-                        if (!isPast && anime.timeUntilAiring != null) {
-                            Spacer(Modifier.height(8.dp))
-                            val timeUntilText = remember(anime.timeUntilAiring) {
-                                val sec = anime.timeUntilAiring; val h = sec / 3600; val m = (sec % 3600) / 60
-                                when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
-                            }
-                            Text("in $timeUntilText", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(8.dp))
+                        // Items that already aired today roll forward a week so they still show a
+                        // countdown to the next episode instead of just "Already aired".
+                        val nextAiringAt = if (isPast) anime.airingAt + 604800L else anime.airingAt
+                        val secUntil = (nextAiringAt - currentTime).coerceAtLeast(0)
+                        val timeUntilText = remember(currentTime) {
+                            val h = secUntil / 3600; val m = (secUntil % 3600) / 60
+                            when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
                         }
-
-                        if (isPast) {
-                            Spacer(Modifier.height(6.dp))
-                            Text("Already aired", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                        }
+                        Text(
+                            if (isPast) "Airs again in $timeUntilText" else "in $timeUntilText",
+                            style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
 

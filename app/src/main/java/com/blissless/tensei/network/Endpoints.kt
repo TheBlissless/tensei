@@ -60,6 +60,13 @@ object Endpoints {
 
         /** Favicon used on the login button (loaded by Coil). */
         const val FAVICON = "https://cdn.myanimelist.net/images/favicon.ico"
+
+        /** Anime search fallback used when the AniList API is unavailable. */
+        fun searchAnimeUrl(query: String, limit: Int, offset: Int, fields: String): String {
+            val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+            val encodedFields = java.net.URLEncoder.encode(fields, "UTF-8")
+            return "$API_BASE/anime?q=$encodedQuery&limit=$limit&offset=$offset&fields=$encodedFields"
+        }
     }
 
     /**
@@ -72,6 +79,25 @@ object Endpoints {
         /** Search anime by name. */
         fun searchAnime(query: String, limit: Int = 10): String =
             "$API_BASE/anime?q=$query&limit=$limit"
+    }
+
+    /**
+     * AnimeSchedule.net API — weekly airing timetable service.
+     * Used for: airing-schedule fallback when the AniList API is unavailable.
+     */
+    object AnimeSchedule {
+        const val API_BASE = "https://animeschedule.net/api/v3"
+
+        /** Prefix for the relative `imageVersionRoute` URLs returned by the API. */
+        const val IMAGE_BASE_URL = "https://img.animeschedule.net/production/assets/public/img"
+
+        /**
+         * One full week of the timetable. `airType` is `all`, `raw`, `sub` or `dub`;
+         * `raw` returns a single canonical (Japanese) entry per anime. `tz` is an
+         * IANA zone id like "Europe/Vienna" and selects which week is "now".
+         */
+        fun timetableUrl(year: Int, week: Int, airType: String, tz: String): String =
+            "$API_BASE/timetables/$airType?year=$year&week=$week&tz=$tz"
     }
 
     /**

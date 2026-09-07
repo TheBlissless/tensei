@@ -514,6 +514,36 @@ data class ExploreMedia(
 )
 
 @Serializable
+data class MalSearchResponse(val data: List<MalSearchNode>)
+
+@Serializable
+data class MalSearchNode(val node: MalAnimeNode)
+
+@Serializable
+data class MalAnimeNode(
+    val id: Int = 0,
+    val title: String? = null,
+    val alternative_titles: MalAlternativeTitles? = null,
+    val main_picture: MalPicture? = null,
+    val num_episodes: Int? = null,
+    val mean: Double? = null,
+    val start_date: String? = null,
+    val status: String? = null,
+    val nsfw: String? = null,
+    val media_type: String? = null,
+    val genres: List<MalGenre>? = null
+)
+
+@Serializable
+data class MalAlternativeTitles(val en: String? = null)
+
+@Serializable
+data class MalPicture(val medium: String? = null, val large: String? = null)
+
+@Serializable
+data class MalGenre(val id: Int? = null, val name: String? = null)
+
+@Serializable
 data class BatchedExploreResponse(val data: BatchedExploreData)
 
 @Serializable
@@ -588,6 +618,26 @@ data class AiringScheduleMedia(
     val tags: List<TagData>? = null,
     val seasonYear: Int? = null,
     val isAdult: Boolean = false
+)
+
+@Serializable
+data class AnimeScheduleTimetableEntry(
+    val title: String? = null,
+    val route: String = "",
+    val romaji: String? = null,
+    val english: String? = null,
+    val native: String? = null,
+    val status: String? = null,
+    val episodeDate: String? = null,
+    val episodeNumber: Int? = null,
+    val episodes: Int? = null,
+    val lengthMin: Int? = null,
+    val donghua: Boolean = false,
+    val airType: String? = null,
+    val airingStatus: String? = null,
+    val imageVersionRoute: String? = null,
+    val delayedFrom: String? = null,
+    val delayedUntil: String? = null
 )
 
 @Serializable

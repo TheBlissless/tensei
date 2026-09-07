@@ -387,7 +387,6 @@ class MainActivity : ComponentActivity() {
             val showMangaCardButtons by mainViewModel.showMangaCardButtons.collectAsState()
             val showMangaStatusColors by mainViewModel.showMangaStatusColors.collectAsState()
             val preferEnglishTitles by mainViewModel.preferEnglishTitles.collectAsState()
-            val preventScheduleSync by mainViewModel.preventScheduleSync.collectAsState()
 
             var isLoggedIn by remember { mutableStateOf(savedToken != null) }
             val token by mainViewModel.authToken.collectAsState()
@@ -546,7 +545,6 @@ class MainActivity : ComponentActivity() {
                     showMangaCardButtons = showMangaCardButtons,
                     showMangaStatusColors = showMangaStatusColors,
                     preferEnglishTitles = preferEnglishTitles,
-                    preventScheduleSync = preventScheduleSync,
                     isLoggedIn = isLoggedIn
                 )
             }
@@ -663,7 +661,6 @@ fun MainScreen(
     showMangaCardButtons: Boolean,
     showMangaStatusColors: Boolean,
     preferEnglishTitles: Boolean,
-    preventScheduleSync: Boolean,
     isLoggedIn: Boolean
 ) {
     val TAG_TORRENT = "MainActivity.Torrent"
@@ -2855,7 +2852,6 @@ fun MainScreen(
                         viewModel = viewModel,
                         isOled = isOled,
                         isVisible = true,
-                        preventAutoSync = preventScheduleSync,
                         hideAdultContent = hideAdultContent,
                         preferEnglishTitles = preferEnglishTitles,
                         isLoggedIn = isLoggedIn,

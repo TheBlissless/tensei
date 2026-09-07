@@ -1554,7 +1554,7 @@ private fun MangaContinueReadingCard(
     }
     val barFraction = if (hasScrollProgress) scrollProgress else overallProgress
     val progressLabel = when {
-        currentPage != null -> "Continue reading card \"page $currentPage of $pageTotal\""
+        currentPage != null -> "Page $currentPage of $pageTotal"
         hasScrollProgress -> "${(scrollProgress * 100).toInt()}% through Ch. $nextChapter"
         manga.totalChapters > 0 -> "${manga.progress} / ${manga.totalChapters} ch."
         else -> "Ch. $nextChapter"
