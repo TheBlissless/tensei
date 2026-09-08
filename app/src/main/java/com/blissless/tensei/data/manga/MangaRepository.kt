@@ -631,6 +631,7 @@ class MangaRepository {
                         manga {
                             nodes {
                                 id
+                                idMal
                                 title { romaji english }
                                 coverImage { extraLarge large }
                                 format
@@ -665,6 +666,7 @@ class MangaRepository {
                             progress
                             media {
                                 id
+                                idMal
                                 title { romaji english }
                                 coverImage { large }
                                 chapters

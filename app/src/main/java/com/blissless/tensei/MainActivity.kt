@@ -912,6 +912,33 @@ fun MainScreen(
         }
     }
 
+    // Opens the anime detail dialog AniList-first, falling back to MAL when the
+    // AniList fetch fails or the id only maps to a MAL entry (see fetchDetailedAnimeData).
+    val onShowDetailedAnime: (Int, Int) -> Unit = { animeId, malId ->
+        scope.launch {
+            val detailedData = viewModel.fetchDetailedAnimeData(animeId, malId = malId.takeIf { it > 0 })
+            if (detailedData != null) {
+                val newAnime = ExploreAnime(
+                    id = detailedData.id,
+                    title = detailedData.title,
+                    titleEnglish = detailedData.titleEnglish,
+                    cover = detailedData.cover,
+                    banner = detailedData.banner,
+                    episodes = detailedData.episodes,
+                    latestEpisode = detailedData.latestEpisode,
+                    averageScore = detailedData.averageScore,
+                    genres = detailedData.genres,
+                    year = detailedData.year,
+                    format = detailedData.format,
+                    malId = detailedData.malId
+                )
+                overlayState = OverlayState.ExploreAnimeDialog(anime = newAnime, firstAnime = newAnime, isFirstOpen = false)
+            } else {
+                context.toast("Anime not found")
+            }
+        }
+    }
+
 
     // Playback helper methods (state is inlined in this composable above)
     fun sanitizeEpisodeTitle(title: String?): String? = com.blissless.tensei.ui.screens.player.sanitizeEpisodeTitle(title)
@@ -3215,41 +3242,11 @@ fun MainScreen(
                         viewModel = viewModel,
                         preferEnglishTitles = preferEnglishTitles,
                         onBack = { showUserProfilePage = false },
-                        onShowDetailedAnimeFromMal = onShowDetailedAnimeFromMal,
-                        onShowDetailedAnimeFromAniList = { aniListId ->
-                            scope.launch {
-                                val detailedData = viewModel.fetchDetailedAnimeData(aniListId)
-                                if (detailedData != null) {
-                                    val newAnime = ExploreAnime(
-                                        id = detailedData.id,
-                                        title = detailedData.title,
-                                        titleEnglish = detailedData.titleEnglish,
-                                        cover = detailedData.cover,
-                                        banner = detailedData.banner,
-                                        episodes = detailedData.episodes,
-                                        latestEpisode = detailedData.latestEpisode,
-                                        averageScore = detailedData.averageScore,
-                                        genres = detailedData.genres,
-                                        year = detailedData.year,
-                                        format = detailedData.format
-                                    )
-                                    overlayState = OverlayState.ExploreAnimeDialog(anime = newAnime, firstAnime = newAnime, isFirstOpen = false)
-                                } else {
-                                    context.toast("Anime not found")
-                                }
-                            }
-                        },
+                        onShowDetailedAnime = onShowDetailedAnime,
                         onMangaClick = { manga ->
-                            if (selectedMangaExtension == null) {
-                                showMangaNoExtensionDialog = true
-                            } else {
-                                mangaAutoShowChapters = true
-                                mangaDetailStack = mangaDetailStack + manga
-                                mangaReaderChapterIndex = -1
-                                showMangaReader = true
-                            }
-                            },
-                        )
+                            openMangaDetail(manga)
+                        },
+                    )
                 }
 
                 com.blissless.tensei.ui.components.BottomNavigationBar(

@@ -102,14 +102,15 @@ fun MainViewModel.loadAniListFavoritesFromStorage() {
                 averageScore = cached.averageScore,
                 genres = cached.genres,
                 seasonYear = cached.year,
-                userScore = animeUserScore(cached.id)
+                userScore = animeUserScore(cached.id),
+                idMal = cached.malId
             )
         } else {
             // Try to find in currently watching lists
             val allAnime = _currentlyWatching.value + _planningToWatch.value + _completed.value + _onHold.value + _dropped.value
             val anime = allAnime.find { it.id == id }
             if (anime != null) {
-                UserFavoriteAnime(
+UserFavoriteAnime(
                     id = anime.id,
                     title = MediaTitle(romaji = anime.title, english = anime.titleEnglish),
                     coverImage = MediaCoverImage(extraLarge = anime.cover),
@@ -117,7 +118,8 @@ fun MainViewModel.loadAniListFavoritesFromStorage() {
                     averageScore = anime.averageScore,
                     genres = anime.genres,
                     seasonYear = anime.year,
-                    userScore = anime.userScore
+                    userScore = anime.userScore,
+                    idMal = anime.malId
                 )
             } else {
                 UserFavoriteAnime(

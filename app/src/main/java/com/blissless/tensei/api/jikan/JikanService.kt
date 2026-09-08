@@ -62,7 +62,8 @@ data class JikanHistoryEntry(
     val chaptersRead: Int?,
     val increment: String?,
     val date: String?,
-    val status: String? = null
+    val status: String? = null,
+    val aniListId: Int? = null
 )
 
 class JikanService {

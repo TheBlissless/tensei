@@ -3,11 +3,14 @@ package com.blissless.tensei.ui.screens.profile
 import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,7 +29,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -45,11 +54,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -125,8 +137,7 @@ fun UserProfileScreen(
     viewModel: MainViewModel,
     preferEnglishTitles: Boolean = true,
     onBack: () -> Unit,
-    onShowDetailedAnimeFromMal: (Int) -> Unit,
-    onShowDetailedAnimeFromAniList: (Int) -> Unit,
+    onShowDetailedAnime: (animeId: Int, malId: Int) -> Unit,
     onMangaClick: (MangaMedia) -> Unit = {}
 ) {
     var selectedSection by remember { mutableStateOf(UserProfileSection.ABOUT_ME) }
@@ -176,7 +187,7 @@ fun UserProfileScreen(
                 val coverUrl = aniListFavorite.coverImage?.extraLarge ?: ""
                 JikanFavoriteAnime(
                     id = aniListFavorite.id,
-                    malId = 0,
+                    malId = aniListFavorite.idMal ?: 0,
                     title = aniListFavorite.title.romaji ?: aniListFavorite.title.english ?: "",
                     titleEnglish = aniListFavorite.title.english,
                     images = JikanImages(jpg = JikanImageUrls(coverUrl)),
@@ -211,7 +222,8 @@ fun UserProfileScreen(
                 statuses.add(activity.status)
                 progress.add(episodeDisplay ?: "")
                 JikanHistoryEntry(
-                    malId = activity.mediaId,
+                    malId = activity.mediaIdMal ?: 0,
+                    aniListId = activity.mediaId,
                     title = activity.mediaTitle,
                     titleEnglish = activity.mediaTitleEnglish,
                     images = JikanImages(jpg = JikanImageUrls(activity.mediaCover)),
@@ -318,10 +330,10 @@ fun UserProfileScreen(
                     mangaFavorites = enrichedMangaFavorites,
                     preferEnglishTitles = preferEnglishTitles,
                     onAnimeClick = { anime ->
-                        if (anime.malId != 0) {
-                            onShowDetailedAnimeFromMal(anime.malId)
-                        } else if (anime.id != 0) {
-                            onShowDetailedAnimeFromAniList(anime.id)
+                        if (anime.id != 0) {
+                            onShowDetailedAnime(anime.id, anime.malId)
+                        } else if (anime.malId != 0) {
+                            onShowDetailedAnime(anime.malId, anime.malId)
                         }
                     },
                     onRemoveFavorite = {
@@ -340,7 +352,8 @@ fun UserProfileScreen(
                                 cover = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: "",
                                 totalChapters = manga.chapters ?: 0,
                                 averageScore = manga.averageScore,
-                                siteUrl = manga.siteUrl
+                                siteUrl = manga.siteUrl,
+                                malId = manga.idMal
                             )
                         )
                     },
@@ -354,10 +367,10 @@ fun UserProfileScreen(
                     mangaHistory = mangaActivity,
                     preferEnglishTitles = preferEnglishTitles,
                     onAnimeClick = { entry ->
-                        if (loginProvider == LoginProvider.MAL) {
-                            onShowDetailedAnimeFromMal(entry.malId)
-                        } else {
-                            onShowDetailedAnimeFromAniList(entry.malId)
+                        val id = entry.aniListId?.takeIf { it != 0 }
+                            ?: entry.malId.takeIf { it != 0 }
+                        if (id != null) {
+                            onShowDetailedAnime(id, entry.malId)
                         }
                     },
                     onMangaClick = { node ->
@@ -373,7 +386,8 @@ fun UserProfileScreen(
                                     titleEnglish = media.title?.english,
                                     cover = media.coverImage?.extraLarge ?: media.coverImage?.large ?: "",
                                     totalChapters = media.chapters ?: 0,
-                                    siteUrl = media.siteUrl
+                                    siteUrl = media.siteUrl,
+                                    malId = media.idMal
                                 )
                             )
                         }
@@ -758,78 +772,110 @@ private fun FavoritesContent(
     } else {
         var animeExpanded by remember { mutableStateOf(true) }
         var mangaExpanded by remember { mutableStateOf(true) }
-        val listState = rememberLazyListState()
-        LazyColumn(
+        val listState = rememberLazyGridState()
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             state = listState,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(vertical = 8.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 8.dp, horizontal = 2.dp)
         ) {
             if (favorites.isNotEmpty()) {
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { animeExpanded = !animeExpanded }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Anime", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Icon(
-                            imageVector = if (animeExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = if (animeExpanded) "Collapse" else "Expand",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    ProfileSectionHeader(
+                        title = "Anime",
+                        icon = Icons.Default.PlayArrow,
+                        count = favorites.size,
+                        expanded = animeExpanded,
+                        onClick = { animeExpanded = !animeExpanded }
+                    )
                 }
-                itemsIndexed(
-                    items = if (animeExpanded) favorites else emptyList(),
-                    key = { _, anime -> "fav_anime_${anime.malId}" }
-                ) { index, anime ->
-                    Box(modifier = Modifier.animateItem()) {
-                        FavoriteItem(
-                            anime = anime,
-                            preferEnglishTitles = preferEnglishTitles,
-                            onClick = { onAnimeClick(anime) },
-                            onRemove = { onRemoveFavorite?.invoke(anime) }
-                        )
+                if (animeExpanded) {
+                    items(favorites, key = { it.id }) { anime ->
+                        Box(modifier = Modifier.animateItem()) {
+                            FavoriteItem(
+                                anime = anime,
+                                preferEnglishTitles = preferEnglishTitles,
+                                onClick = { onAnimeClick(anime) },
+                                onRemove = { onRemoveFavorite?.invoke(anime) }
+                            )
+                        }
                     }
                 }
             }
             if (mangaFavorites.isNotEmpty()) {
-                item {
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { mangaExpanded = !mangaExpanded }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Manga", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Icon(
-                            imageVector = if (mangaExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = if (mangaExpanded) "Collapse" else "Expand",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    ProfileSectionHeader(
+                        title = "Manga",
+                        icon = Icons.Default.Bookmark,
+                        count = mangaFavorites.size,
+                        expanded = mangaExpanded,
+                        onClick = { mangaExpanded = !mangaExpanded }
+                    )
                 }
-                itemsIndexed(
-                    items = if (mangaExpanded) mangaFavorites else emptyList(),
-                    key = { _, manga -> "fav_manga_${manga.id}" }
-                ) { index, manga ->
-                    Box(modifier = Modifier.animateItem()) {
-                        MangaFavoriteItem(
-                            manga = manga,
-                            preferEnglishTitles = preferEnglishTitles,
-                            onClick = { onMangaClick(manga) },
-                            onRemove = { onRemoveMangaFavorite?.invoke(manga) }
-                        )
+                if (mangaExpanded) {
+                    items(mangaFavorites, key = { it.id }) { manga ->
+                        Box(modifier = Modifier.animateItem()) {
+                            MangaFavoriteItem(
+                                manga = manga,
+                                preferEnglishTitles = preferEnglishTitles,
+                                onClick = { onMangaClick(manga) },
+                                onRemove = { onRemoveMangaFavorite?.invoke(manga) }
+                            )
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileSectionHeader(
+    title: String,
+    icon: ImageVector,
+    count: Int,
+    expanded: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), RoundedCornerShape(9.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp, vertical = 1.dp)
+        ) {
+            Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.weight(1f))
+        Icon(
+            imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = if (expanded) "Collapse" else "Expand",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 
@@ -841,6 +887,10 @@ private fun FavoriteItem(
     onRemove: (() -> Unit)? = null
 ) {
     var showRemoveDialog by remember { mutableStateOf(false) }
+    val displayTitle = if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
+    val displayScore = anime.userScore?.let { com.blissless.tensei.dialogs.userScoreToDisplay(it) }?.takeIf { it > 0 }
+    val format = anime.format
+    val year = anime.year
 
     if (showRemoveDialog && onRemove != null) {
         AlertDialog(
@@ -860,72 +910,104 @@ private fun FavoriteItem(
         )
     }
 
-    Card(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Box {
             AsyncImage(
-                model = anime.images.jpg?.imageUrl, contentDescription = anime.title,
-                modifier = Modifier.width(60.dp).height(84.dp).clip(RoundedCornerShape(10.dp)),
+                model = anime.images.jpg?.imageUrl, contentDescription = displayTitle,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(2f / 3f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Crop
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                val displayTitle = if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
-                Text(
-                    displayTitle, color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.bodyMedium, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+            if (year != null) {
+                FavoriteCoverBadge(
+                    text = year.toString(),
+                    icon = null,
+                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp)
                 )
-                anime.year?.let { year ->
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (anime.format != null) {
-                            Text(
-                                anime.format, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            Text(" · ", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-                        }
-                        Text(
-                            year.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-                if (anime.year == null && anime.format != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        anime.format, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                        style = MaterialTheme.typography.labelSmall
-                    )
-                }
-                anime.userScore?.let { score ->
-                    if (score > 0) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            "★ ${com.blissless.tensei.dialogs.userScoreToDisplay(score)}/10", color = Color(0xFFFFD700),
-                            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+            }
+            if (displayScore != null) {
+                FavoriteCoverBadge(
+                    text = displayScore.toString(),
+                    icon = Icons.Default.Star,
+                    tintColor = Color(0xFFFFD700),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
+                )
+            }
+            format?.let { fmt ->
+                FavoriteCoverBadge(
+                    text = fmt,
+                    icon = Icons.Default.PlayArrow,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)
+                )
             }
             if (onRemove != null) {
-                IconButton(onClick = { showRemoveDialog = true }) {
-                    Icon(
-                        Icons.Filled.Favorite, "Remove from favorites",
-                        tint = Color(0xFFFF1744), modifier = Modifier.size(24.dp)
-                    )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                        .size(30.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showRemoveDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Favorite, "Remove from favorites", tint = Color(0xFFFF1744), modifier = Modifier.size(15.dp))
                 }
             }
         }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            displayTitle,
+            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
+
+@Composable
+private fun FavoriteCoverBadge(
+    text: String,
+    icon: ImageVector?,
+    modifier: Modifier = Modifier,
+    tintColor: Color = Color.White,
+    scrim: Color = Color.Black.copy(alpha = 0.6f)
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(6.dp),
+        color = scrim
+    ) {
+        Row(
+            modifier = Modifier
+                .height(24.dp)
+                .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = tintColor, modifier = Modifier.size(12.dp))
+                Spacer(Modifier.width(2.dp))
+            }
+            Text(
+                text,
+                color = tintColor,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
 @Composable
 private fun HistoryContent(
     history: List<JikanHistoryEntry>,
@@ -961,21 +1043,13 @@ private fun HistoryContent(
         ) {
             if (history.isNotEmpty()) {
                 item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { animeExpanded = !animeExpanded }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Anime", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Icon(
-                            imageVector = if (animeExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = if (animeExpanded) "Collapse" else "Expand",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    ProfileSectionHeader(
+                        title = "Anime",
+                        icon = Icons.Default.PlayArrow,
+                        count = history.size,
+                        expanded = animeExpanded,
+                        onClick = { animeExpanded = !animeExpanded }
+                    )
                 }
                 itemsIndexed(
                     items = if (animeExpanded) history else emptyList(),
@@ -994,22 +1068,13 @@ private fun HistoryContent(
             }
             if (mangaHistory.isNotEmpty()) {
                 item {
-                    Spacer(Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { mangaExpanded = !mangaExpanded }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Manga", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Icon(
-                            imageVector = if (mangaExpanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = if (mangaExpanded) "Collapse" else "Expand",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    ProfileSectionHeader(
+                        title = "Manga",
+                        icon = Icons.Default.Bookmark,
+                        count = mangaHistory.size,
+                        expanded = mangaExpanded,
+                        onClick = { mangaExpanded = !mangaExpanded }
+                    )
                 }
                 itemsIndexed(
                     items = if (mangaExpanded) mangaHistory else emptyList(),
@@ -1045,38 +1110,57 @@ private fun HistoryItem(
         else -> Triple(Icons.Default.PlayArrow, StatusCurrent, status ?: "")
     }
 
+    val displayTitle = if (preferEnglishTitles && !entry.titleEnglish.isNullOrEmpty()) entry.titleEnglish else entry.title
+
     Card(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
-                model = entry.images.jpg?.imageUrl, contentDescription = entry.title,
-                modifier = Modifier.width(60.dp).height(84.dp).clip(RoundedCornerShape(10.dp)),
+                model = entry.images.jpg?.imageUrl, contentDescription = displayTitle,
+                modifier = Modifier.width(56.dp).height(80.dp).clip(RoundedCornerShape(10.dp)),
                 contentScale = ContentScale.Crop
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                val displayTitle = if (preferEnglishTitles && !entry.titleEnglish.isNullOrEmpty()) entry.titleEnglish else entry.title
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(
                     displayTitle, color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.bodyMedium, maxLines = 1,
+                    style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(statusIcon, contentDescription = null, tint = statusColor, modifier = Modifier.size(14.dp))
-                    Text("$statusLabel $progress", color = statusColor, style = MaterialTheme.typography.bodySmall)
+                Row(
+                    modifier = Modifier
+                        .background(statusColor.copy(alpha = 0.14f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 7.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(statusIcon, contentDescription = null, tint = statusColor, modifier = Modifier.size(12.dp))
+                    Text(
+                        if (progress.isNullOrBlank()) statusLabel else "$statusLabel · $progress",
+                        color = statusColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium
+                    )
                 }
-                Spacer(modifier = Modifier.height(2.dp))
                 entry.date?.let { date ->
-                    Text(date, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        date, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
@@ -1119,67 +1203,88 @@ private fun MangaFavoriteItem(
         manga.title?.romaji ?: manga.title?.english ?: "Unknown"
     }
     val startYear = manga.startDate?.year
-    Card(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    val format = manga.format
+    val displayScore = manga.userScore?.let { com.blissless.tensei.dialogs.userScoreToDisplay(it) }?.takeIf { it > 0 }
+
+    if (showRemoveDialog && onRemove != null) {
+        AlertDialog(
+            onDismissRequest = { showRemoveDialog = false },
+            title = { Text("Remove Favorite") },
+            text = { Text("Remove $displayTitle from your favorites?") },
+            confirmButton = {
+                TextButton(onClick = { showRemoveDialog = false; onRemove() }) {
+                    Text("Remove")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Box {
             AsyncImage(
                 model = manga.coverImage?.extraLarge ?: manga.coverImage?.large,
                 contentDescription = displayTitle,
-                modifier = Modifier.width(60.dp).height(84.dp).clip(RoundedCornerShape(10.dp)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(2f / 3f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f), RoundedCornerShape(12.dp)),
                 contentScale = ContentScale.Crop
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    displayTitle, color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.bodyMedium, maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+            if (startYear != null) {
+                FavoriteCoverBadge(
+                    text = startYear.toString(),
+                    icon = null,
+                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp)
                 )
-                if (manga.format != null || startYear != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (manga.format != null) {
-                            Text(
-                                manga.format, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.labelSmall
-                            )
-                            if (startYear != null) {
-                                Text(" · ", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
-                            }
-                        }
-                        startYear?.let { year ->
-                            Text(
-                                year.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                    }
-                }
-                manga.userScore?.let { score ->
-                    if (score > 0) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            "★ ${com.blissless.tensei.dialogs.userScoreToDisplay(score)}/10", color = Color(0xFFFFD700),
-                            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+            }
+            if (displayScore != null) {
+                FavoriteCoverBadge(
+                    text = displayScore.toString(),
+                    icon = Icons.Default.Star,
+                    tintColor = Color(0xFFFFD700),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
+                )
+            }
+            format?.let { fmt ->
+                FavoriteCoverBadge(
+                    text = fmt,
+                    icon = Icons.AutoMirrored.Filled.MenuBook,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)
+                )
             }
             if (onRemove != null) {
-                IconButton(onClick = { showRemoveDialog = true }) {
-                    Icon(
-                        Icons.Filled.Favorite, "Remove from favorites",
-                        tint = Color(0xFFFF1744), modifier = Modifier.size(24.dp)
-                    )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                        .size(30.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showRemoveDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Favorite, "Remove from favorites", tint = Color(0xFFFF1744), modifier = Modifier.size(15.dp))
                 }
             }
         }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            displayTitle,
+            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -1217,38 +1322,51 @@ private fun MangaActivityItem(
     val statusText = if (progressSuffix != null) "$statusLabel $progressSuffix" else statusLabel
 
     Card(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
                 model = media?.coverImage?.extraLarge ?: media?.coverImage?.large,
                 contentDescription = displayTitle,
-                modifier = Modifier.width(60.dp).height(84.dp).clip(RoundedCornerShape(10.dp)),
+                modifier = Modifier.width(56.dp).height(80.dp).clip(RoundedCornerShape(10.dp)),
                 contentScale = ContentScale.Crop
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(
                     displayTitle, color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis
+                    style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(statusIcon, contentDescription = null, tint = statusColor, modifier = Modifier.size(14.dp))
-                    Text(statusText, color = statusColor, style = MaterialTheme.typography.bodySmall)
+                Row(
+                    modifier = Modifier
+                        .background(statusColor.copy(alpha = 0.14f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 7.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(statusIcon, contentDescription = null, tint = statusColor, modifier = Modifier.size(12.dp))
+                    Text(statusText, color = statusColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
                 }
-                Spacer(Modifier.height(2.dp))
                 Text(
                     formatTimestamp(node.createdAt),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }

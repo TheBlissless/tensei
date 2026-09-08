@@ -1537,6 +1537,7 @@ class AnimeRepository(
                             progress
                             media {
                                 id
+                                idMal
                                 title { romaji english }
                                 coverImage { extraLarge }
                             }
@@ -1558,6 +1559,7 @@ class AnimeRepository(
                             progress = activity.progress,
                             createdAt = activity.createdAt,
                             mediaId = activity.media.id,
+                            mediaIdMal = activity.media.idMal,
                             mediaTitle = activity.media.title.romaji ?: activity.media.title.english
                             ?: "Unknown",
                             mediaTitleEnglish = activity.media.title.english,
@@ -1580,6 +1582,7 @@ class AnimeRepository(
                         anime(page: 1, perPage: 30) {
                             nodes {
                                 id
+                                idMal
                                 title { romaji english }
                                 coverImage { extraLarge }
                                 episodes

@@ -81,7 +81,8 @@ data class UserActivity(
     val mediaCover: String,
     val episodes: Int?,
     val averageScore: Int?,
-    val year: Int? = null
+    val year: Int? = null,
+    val mediaIdMal: Int? = null
 )
 
 @Serializable
@@ -724,7 +725,8 @@ data class UserFavoriteAnime(
     val seasonYear: Int? = null,
     val format: String? = null,
     val status: String? = null,
-    val userScore: Int? = null
+    val userScore: Int? = null,
+    val idMal: Int? = null
 )
 
 @Serializable
@@ -768,7 +770,8 @@ data class SimpleActivityEntry(
 data class SimpleActivityMedia(
     val id: Int,
     val title: SimpleActivityTitle,
-    val coverImage: MediaCoverImage?
+    val coverImage: MediaCoverImage?,
+    val idMal: Int? = null
 )
 
 @Serializable
@@ -1655,7 +1658,8 @@ data class MangaFavorite(
     val chapters: Int? = null,
     val averageScore: Int? = null,
     val siteUrl: String? = null,
-    val userScore: Int? = null
+    val userScore: Int? = null,
+    val idMal: Int? = null
 )
 
 @Serializable
@@ -1688,7 +1692,8 @@ data class MangaActivityMedia(
     val title: MangaTitle? = null,
     val coverImage: MediaCoverImage? = null,
     val chapters: Int? = null,
-    val siteUrl: String? = null
+    val siteUrl: String? = null,
+    val idMal: Int? = null
 )
 
 @Serializable

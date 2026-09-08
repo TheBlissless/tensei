@@ -117,7 +117,7 @@ import com.blissless.tensei.util.ErrorHandler
  * instead of AniList so the outage behavior can be tested on-device.
  * TODO: flip back to false when testing is complete.
  */
-internal const val FORCE_MAL_DETAIL_FOR_TESTING = true
+internal const val FORCE_MAL_DETAIL_FOR_TESTING = false
 
 class MainViewModel : ViewModel() {
 
