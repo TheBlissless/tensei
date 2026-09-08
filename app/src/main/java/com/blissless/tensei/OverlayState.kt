@@ -79,6 +79,6 @@ sealed class MangaOverlay {
     }
     data class AllCharacters(override val mangaId: Int, val mangaTitle: String, val mangaTitleEnglish: String? = null) : MangaOverlay()
     data class AllStaff(override val mangaId: Int, val mangaTitle: String, val mangaTitleEnglish: String? = null) : MangaOverlay()
-    data class AllRelations(override val mangaId: Int, val mangaTitle: String, val mangaTitleEnglish: String? = null) : MangaOverlay()
-    data class AllRecommendations(override val mangaId: Int, val mangaTitle: String, val mangaTitleEnglish: String? = null) : MangaOverlay()
+    data class AllRelations(override val mangaId: Int, val mangaTitle: String, val mangaTitleEnglish: String? = null, val malId: Int? = null) : MangaOverlay()
+    data class AllRecommendations(override val mangaId: Int, val mangaTitle: String, val mangaTitleEnglish: String? = null, val malId: Int? = null) : MangaOverlay()
 }

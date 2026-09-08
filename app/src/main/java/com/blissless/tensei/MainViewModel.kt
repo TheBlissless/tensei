@@ -112,6 +112,13 @@ import com.blissless.tensei.data.fetchAnimeRecommendationsList
 import com.blissless.tensei.util.ErrorHandler
 
 @UnstableApi
+/**
+ * TESTING FLAG: force the anime & manga detail screens to use the MAL fallback
+ * instead of AniList so the outage behavior can be tested on-device.
+ * TODO: flip back to false when testing is complete.
+ */
+internal const val FORCE_MAL_DETAIL_FOR_TESTING = true
+
 class MainViewModel : ViewModel() {
 
     companion object {
@@ -1704,10 +1711,13 @@ private suspend fun loadHomeDataWithCache() {
 
     suspend fun fetchDetailedAnimeData(animeId: Int, malId: Int? = null): DetailedAnimeData? {
         Log.d("AnimeDetailDebug", "fetchDetailedAnimeData START id=$animeId malId=$malId")
-        var media = repository.fetchDetailedAnime(animeId)
+        // Relations/recommendations from a MAL fallback carry their MAL id as their own
+        // id, so animeId doubles as the MAL id when no explicit malId was passed.
+        val effectiveMalId = malId?.takeIf { it > 0 } ?: animeId
+        var media = if (FORCE_MAL_DETAIL_FOR_TESTING) null else repository.fetchDetailedAnime(animeId)
         
         // If not found and have MAL ID, try finding by MAL ID
-        if (media == null && malId != null && malId > 0) {
+        if (media == null && malId != null && malId > 0 && !FORCE_MAL_DETAIL_FOR_TESTING) {
             Log.d("AnimeDetailDebug", "fetchDetailedAnimeData primary fetch returned null, retrying by MAL id=$malId")
             val foundMedia = repository.findAnimeByMalId(malId)
             if (foundMedia != null) {
@@ -1716,10 +1726,11 @@ private suspend fun loadHomeDataWithCache() {
         }
         
         if (media == null) {
-            // AniList unavailable: fall back to the official MAL anime detail API.
-            if (malId != null && malId > 0) {
-                Log.w("AnimeDetailDebug", "fetchDetailedAnimeData AniList failed — trying MAL detail fallback for malId=$malId")
-                val malData = repository.fetchDetailedAnimeFromMal(malId)
+            // AniList unavailable (or forced for testing): fall back to the official MAL
+            // anime detail API.
+            if (effectiveMalId > 0) {
+                Log.w("AnimeDetailDebug", "fetchDetailedAnimeData AniList failed — trying MAL detail fallback for malId=$effectiveMalId")
+                val malData = repository.fetchDetailedAnimeFromMal(effectiveMalId)
                 if (malData != null) {
                     Log.d("AnimeDetailDebug", "fetchDetailedAnimeData MAL fallback OK id=$animeId malId=$malId title=${malData.title}")
                     _animeDetailSource.value = "mal"

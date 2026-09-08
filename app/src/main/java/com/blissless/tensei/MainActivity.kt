@@ -1994,10 +1994,10 @@ fun MainScreen(
                 mangaOverlay = MangaOverlay.AllStaff(manga.id, manga.title, manga.titleEnglish)
             },
             onViewAllRelations = {
-                mangaOverlay = MangaOverlay.AllRelations(manga.id, manga.title, manga.titleEnglish)
+                mangaOverlay = MangaOverlay.AllRelations(manga.id, manga.title, manga.titleEnglish, manga.malId)
             },
             onViewAllRecommendations = {
-                mangaOverlay = MangaOverlay.AllRecommendations(manga.id, manga.title, manga.titleEnglish)
+                mangaOverlay = MangaOverlay.AllRecommendations(manga.id, manga.title, manga.titleEnglish, manga.malId)
             },
             navigateToMangaDetail = { mangaId ->
                 // Navigate to another manga's detail — push a fresh manga onto the stack
@@ -2182,6 +2182,7 @@ fun MainScreen(
         )
         is MangaOverlay.AllRelations -> MangaAllRelationsScreen(
             mangaId = mangaOv.mangaId,
+            malId = mangaOv.malId,
             mangaTitle = mangaOv.mangaTitle,
             mangaTitleEnglish = mangaOv.mangaTitleEnglish,
             preferEnglishTitles = preferEnglishTitles,
@@ -2190,7 +2191,7 @@ fun MainScreen(
             onNavigateBack = { mangaOverlay = MangaOverlay.None },
             onRelationClick = { relation ->
                 // Suspend the grid so it can be restored when back returns to this manga
-                mangaOverlayRestoreStack = mangaOverlayRestoreStack + MangaOverlay.AllRelations(mangaOv.mangaId, mangaOv.mangaTitle, mangaOv.mangaTitleEnglish)
+                mangaOverlayRestoreStack = mangaOverlayRestoreStack + MangaOverlay.AllRelations(mangaOv.mangaId, mangaOv.mangaTitle, mangaOv.mangaTitleEnglish, mangaOv.malId)
                 mangaOverlay = MangaOverlay.None
                 if (relation.format != null && relation.format !in listOf("MANGA", "NOVEL", "ONE_SHOT", "DOUJIN", "MANHWA", "MANHUA")) {
                     scope.launch {
@@ -2241,6 +2242,7 @@ fun MainScreen(
         )
         is MangaOverlay.AllRecommendations -> MangaAllRecommendationsScreen(
             mangaId = mangaOv.mangaId,
+            malId = mangaOv.malId,
             mangaTitle = mangaOv.mangaTitle,
             mangaTitleEnglish = mangaOv.mangaTitleEnglish,
             preferEnglishTitles = preferEnglishTitles,
@@ -2249,7 +2251,7 @@ fun MainScreen(
             onNavigateBack = { mangaOverlay = MangaOverlay.None },
             onRecommendationClick = { rec ->
                 // Suspend the grid so it can be restored when back returns to this manga
-                mangaOverlayRestoreStack = mangaOverlayRestoreStack + MangaOverlay.AllRecommendations(mangaOv.mangaId, mangaOv.mangaTitle, mangaOv.mangaTitleEnglish)
+                mangaOverlayRestoreStack = mangaOverlayRestoreStack + MangaOverlay.AllRecommendations(mangaOv.mangaId, mangaOv.mangaTitle, mangaOv.mangaTitleEnglish, mangaOv.malId)
                 mangaOverlay = MangaOverlay.None
                 openMangaDetail(rec)
                 mangaAutoShowChapters = false

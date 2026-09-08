@@ -6,6 +6,7 @@ import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
 import com.blissless.tensei.api.myanimelist.MalMangaListEntry
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.FORCE_MAL_DETAIL_FOR_TESTING
 import com.blissless.tensei.data.manga.MangaDexManager
 import com.blissless.tensei.data.manga.MangaRepository
 import com.blissless.tensei.data.manga.MangaTrackManager
@@ -322,6 +323,13 @@ val MainViewModel.mangaDetail: StateFlow<MangaDetail?> get() = _mangaDetail.asSt
 // Drives automatic recovery on the detail + "View All" screens.
 private val _mangaDetailSource = MutableStateFlow<String?>(null)
 val MainViewModel.mangaDetailSource: StateFlow<String?> get() = _mangaDetailSource.asStateFlow()
+
+// In-memory copies of the "View All" relations/recommendations lists, keyed by the manga
+// id they were opened for. clearMangaDetail() wipes _mangaDetail when popping back from a
+// child detail, so these keep the restored View All screens seeded instantly instead of
+// re-spinning the loader.
+private val _mangaAllRelationsCache = MutableStateFlow<Map<Int, List<MangaRelation>>>(emptyMap())
+private val _mangaAllRecommendationsCache = MutableStateFlow<Map<Int, List<MangaMedia>>>(emptyMap())
 
 private val _mangaChapters = MutableStateFlow<List<MangaChapter>>(emptyList())
 val MainViewModel.mangaChapters: StateFlow<List<MangaChapter>> get() = _mangaChapters.asStateFlow()
@@ -660,7 +668,7 @@ suspend fun MainViewModel.fetchMangaDetail(mangaId: Int, malId: Int? = null) {
     _isLoadingManga.value = true
     _mangaDetailSource.value = null
     val token = authToken.value
-    var detail = mangaRepository?.fetchMangaDetail(mangaId, token)
+    var detail = if (FORCE_MAL_DETAIL_FOR_TESTING) null else mangaRepository?.fetchMangaDetail(mangaId, token)
     if (detail != null) _mangaDetailSource.value = "anilist"
     // AniList unavailable: fall back to the official MAL manga detail API so the
     // detail screen still renders a full page instead of only the shallow card data.
@@ -738,35 +746,51 @@ suspend fun MainViewModel.fetchMangaAllStaff(mangaId: Int): List<MangaStaffEdge>
 
 /// Entries resolved by the detail page — used to seed the "View All" relations/recommendations
 /// screens so they render instantly instead of re-hitting the network.
-fun MainViewModel.cachedMangaRelations(mangaId: Int): List<MangaRelation> =
-    mangaDetail.value?.takeIf { it.id == mangaId }?.relations.orEmpty()
+fun MainViewModel.cachedMangaRelations(mangaId: Int, malId: Int? = null): List<MangaRelation> {
+    mangaDetail.value?.takeIf { it.id == mangaId || (malId != null && malId > 0 && it.id == malId) }?.relations?.takeIf { it.isNotEmpty() }
+        ?.let { return it }
+    return _mangaAllRelationsCache.value[mangaId].orEmpty()
+}
 
-fun MainViewModel.cachedMangaRecommendations(mangaId: Int): List<MangaMedia> =
-    mangaDetail.value?.takeIf { it.id == mangaId }?.recommendations.orEmpty()
+fun MainViewModel.cachedMangaRecommendations(mangaId: Int, malId: Int? = null): List<MangaMedia> {
+    mangaDetail.value?.takeIf { it.id == mangaId || (malId != null && malId > 0 && it.id == malId) }?.recommendations?.takeIf { it.isNotEmpty() }
+        ?.let { return it }
+    return _mangaAllRecommendationsCache.value[mangaId].orEmpty()
+}
 
-suspend fun MainViewModel.fetchMangaAllRelations(mangaId: Int, force: Boolean = false): List<MangaRelation> {
+suspend fun MainViewModel.fetchMangaAllRelations(mangaId: Int, malId: Int? = null, force: Boolean = false): List<MangaRelation> {
     // The detail page already resolved relations, so serve those first — the "View All"
     // screen mirrors what the detail row already shows instead of re-hitting AniList.
     // force=true bypasses the cache so auto-recovery can re-check AniList.
-    if (!force) cachedMangaRelations(mangaId).takeIf { it.isNotEmpty() }?.let { return it }
+    if (!force) cachedMangaRelations(mangaId, malId).takeIf { it.isNotEmpty() }?.let { return it }
     val relations = mangaRepository?.fetchMangaAllRelations(mangaId) ?: emptyList()
     if (relations.isNotEmpty()) {
         _mangaDetailSource.value = "anilist"
+        _mangaAllRelationsCache.value = _mangaAllRelationsCache.value + (mangaId to relations)
         return relations
     }
-    // Nothing loaded for this id yet: fetch the MAL manga detail directly (mangaId is
-    // the MAL id for MAL-fallback items).
-    return mangaRepository?.fetchMangaMalDetail(mangaId)?.relations ?: emptyList()
+    // Nothing loaded for this id yet: fetch the MAL manga detail directly. Entries that
+    // originated from a MAL fallback carry the MAL id as their own id (see fetchMangaDetail).
+    val idToUse = malId?.takeIf { it > 0 } ?: mangaId
+    val malRelations = mangaRepository?.fetchMangaMalDetail(idToUse)?.relations.orEmpty()
+    if (malRelations.isNotEmpty()) _mangaAllRelationsCache.value = _mangaAllRelationsCache.value + (mangaId to malRelations)
+    return malRelations
 }
 
-suspend fun MainViewModel.fetchMangaAllRecommendations(mangaId: Int, force: Boolean = false): List<MangaMedia> {
-    if (!force) cachedMangaRecommendations(mangaId).takeIf { it.isNotEmpty() }?.let { return it }
+suspend fun MainViewModel.fetchMangaAllRecommendations(mangaId: Int, malId: Int? = null, force: Boolean = false): List<MangaMedia> {
+    if (!force) cachedMangaRecommendations(mangaId, malId).takeIf { it.isNotEmpty() }?.let { return it }
     val recommendations = mangaRepository?.fetchMangaAllRecommendations(mangaId) ?: emptyList()
     if (recommendations.isNotEmpty()) {
         _mangaDetailSource.value = "anilist"
+        _mangaAllRecommendationsCache.value = _mangaAllRecommendationsCache.value + (mangaId to recommendations)
         return recommendations
     }
-    return mangaRepository?.fetchMangaMalDetail(mangaId)?.recommendations ?: emptyList()
+    val idToUse = malId?.takeIf { it > 0 } ?: mangaId
+    val malRecommendations = mangaRepository?.fetchMangaMalDetail(idToUse)?.recommendations.orEmpty()
+    if (malRecommendations.isNotEmpty()) {
+        _mangaAllRecommendationsCache.value = _mangaAllRecommendationsCache.value + (mangaId to malRecommendations)
+    }
+    return malRecommendations
 }
 
 // â”€â”€â”€ Chapters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

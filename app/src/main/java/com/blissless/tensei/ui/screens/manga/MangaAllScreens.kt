@@ -366,6 +366,7 @@ fun MangaAllRelationsScreen(
     mangaId: Int,
     mangaTitle: String,
     mangaTitleEnglish: String? = null,
+    malId: Int? = null,
     preferEnglishTitles: Boolean = true,
     viewModel: MainViewModel,
     onDismiss: () -> Unit,
@@ -378,7 +379,7 @@ fun MangaAllRelationsScreen(
 
     // Seed from the data the detail page already resolved so the grid renders instantly
     // instead of re-loading; only fetch when nothing is available yet.
-    val seededRelations = remember(mangaId) { viewModel.cachedMangaRelations(mangaId) }
+    val seededRelations = remember(mangaId) { viewModel.cachedMangaRelations(mangaId, malId) }
     var relations by remember { mutableStateOf(seededRelations) }
     var isLoading by remember { mutableStateOf(seededRelations.isEmpty()) }
 
@@ -386,7 +387,7 @@ fun MangaAllRelationsScreen(
         if (relations.isNotEmpty()) return@LaunchedEffect
         isLoading = true
         relations = try {
-            viewModel.fetchMangaAllRelations(mangaId)
+            viewModel.fetchMangaAllRelations(mangaId, malId)
         } catch (_: Exception) {
             emptyList()
         }
@@ -402,7 +403,7 @@ fun MangaAllRelationsScreen(
             delay(60_000)
             isLoading = true
             relations = try {
-                viewModel.fetchMangaAllRelations(mangaId, force = true)
+                viewModel.fetchMangaAllRelations(mangaId, malId, force = true)
             } catch (_: Exception) {
                 emptyList()
             }
@@ -574,6 +575,7 @@ fun MangaAllRecommendationsScreen(
     mangaId: Int,
     mangaTitle: String,
     mangaTitleEnglish: String? = null,
+    malId: Int? = null,
     preferEnglishTitles: Boolean = true,
     viewModel: MainViewModel,
     onDismiss: () -> Unit,
@@ -584,7 +586,7 @@ fun MangaAllRecommendationsScreen(
     val navigationBarsPadding = WindowInsets.navigationBars.asPaddingValues()
     val displayTitle = if (preferEnglishTitles && !mangaTitleEnglish.isNullOrBlank()) mangaTitleEnglish else mangaTitle
 
-    val seededRecommendations = remember(mangaId) { viewModel.cachedMangaRecommendations(mangaId) }
+    val seededRecommendations = remember(mangaId) { viewModel.cachedMangaRecommendations(mangaId, malId) }
     var recommendations by remember { mutableStateOf(seededRecommendations) }
     var isLoading by remember { mutableStateOf(seededRecommendations.isEmpty()) }
 
@@ -592,7 +594,7 @@ fun MangaAllRecommendationsScreen(
         if (recommendations.isNotEmpty()) return@LaunchedEffect
         isLoading = true
         recommendations = try {
-            viewModel.fetchMangaAllRecommendations(mangaId)
+            viewModel.fetchMangaAllRecommendations(mangaId, malId)
         } catch (_: Exception) {
             emptyList()
         }
@@ -608,7 +610,7 @@ fun MangaAllRecommendationsScreen(
             delay(60_000)
             isLoading = true
             recommendations = try {
-                viewModel.fetchMangaAllRecommendations(mangaId, force = true)
+                viewModel.fetchMangaAllRecommendations(mangaId, malId, force = true)
             } catch (_: Exception) {
                 emptyList()
             }
