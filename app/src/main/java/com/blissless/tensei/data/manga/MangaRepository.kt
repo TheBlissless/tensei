@@ -528,12 +528,14 @@ class MangaRepository {
         if (genres.isNotEmpty()) vars["genres"] = genres
         if (!format.isNullOrBlank()) vars["format"] = format
         if (!status.isNullOrBlank()) vars["status"] = status
-        val raw = executeQuery(query, vars) ?: return emptyList()
-        val results = try {
-            json.decodeFromString<MangaExploreResponse>(raw).data.Page.media
-        } catch (e: Exception) {
-            ErrorHandler.ignore(TAG, "advanced search parse failed", e); emptyList()
-        }
+        val raw = executeQuery(query, vars)
+        val results = raw?.let { body ->
+            try {
+                json.decodeFromString<MangaExploreResponse>(body).data.Page.media
+            } catch (e: Exception) {
+                ErrorHandler.ignore(TAG, "advanced search parse failed", e); emptyList()
+            }
+        } ?: emptyList()
         // AniList unavailable: fall back to MAL. MAL's /manga search silently ignores
         // genre/status/format params, so those filters are applied locally against each
         // returned node's metadata. Blank queries (default "discover" browse) fall back
