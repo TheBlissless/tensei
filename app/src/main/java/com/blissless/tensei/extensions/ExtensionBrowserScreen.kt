@@ -68,6 +68,8 @@ fun ExtensionBrowserScreen(
     installedNames: Set<String> = emptySet(),
     updatablePackageNames: Set<String> = emptySet(),
     updatableNames: Set<String> = emptySet(),
+    installedPackageVersions: Map<String, String> = emptyMap(),
+    installedNameVersions: Map<String, String> = emptyMap(),
     onInstall: (RepoExtension) -> Unit,
     onBack: () -> Unit,
     onRemoveRepo: (String) -> Unit = {}
@@ -258,6 +260,8 @@ fun ExtensionBrowserScreen(
                             repoUrl = repoState.url,
                             isInstalled = ext.packageName in installedPackages || ext.name.lowercase() in installedNamesLower,
                             hasUpdate = ext.packageName in updatablePackageNames || ext.name.lowercase() in updatableNamesLower,
+                            installedVersion = installedPackageVersions[ext.packageName]
+                                ?: installedNameVersions[ext.name.lowercase()],
                             onInstall = { onInstall(ext) }
                         )
                         if (index < filteredExtensions.lastIndex) {
@@ -280,6 +284,7 @@ private fun ExtensionBrowserItem(
     repoUrl: String,
     isInstalled: Boolean,
     hasUpdate: Boolean = false,
+    installedVersion: String? = null,
     onInstall: () -> Unit
 ) {
     val iconUrl = remember(repoUrl, repoExtension) {
@@ -361,13 +366,6 @@ private fun ExtensionBrowserItem(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                     )
                 }
-                if (repoExtension.version.isNotBlank()) {
-                    Text(
-                        text = "v${repoExtension.version}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
                 if (repoExtension.nsfw) {
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
@@ -388,6 +386,26 @@ private fun ExtensionBrowserItem(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 }
+            }
+            if (repoExtension.version.isNotBlank() || repoExtension.code > 0L) {
+                Text(
+                    text = when {
+                        repoExtension.version.isNotBlank() && repoExtension.code > 0L ->
+                            "v${repoExtension.version} (code ${repoExtension.code})"
+                        repoExtension.version.isNotBlank() -> "v${repoExtension.version}"
+                        else -> "code ${repoExtension.code}"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            if (installedVersion != null) {
+                Text(
+                    text = "Installed $installedVersion",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                )
             }
         }
 

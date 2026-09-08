@@ -81,6 +81,7 @@ internal data class SettingsGroup(
 internal fun SettingsLandingPage(
     groups: List<SettingsGroup>,
     appIcon: String = "default",
+    onBack: () -> Unit,
     onGroupClick: (String) -> Unit
 ) {
     val scrollState = rememberScrollState()
@@ -97,6 +98,12 @@ internal fun SettingsLandingPage(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.padding(bottom = 20.dp)
         ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack, "Back",
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+            }
             AsyncImage(
                 model = appIconDrawable(appIcon),
                 contentDescription = "App",

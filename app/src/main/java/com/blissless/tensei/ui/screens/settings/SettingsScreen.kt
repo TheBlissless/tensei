@@ -171,7 +171,8 @@ fun SettingsScreen(
     autoPlayNextEpisode: Boolean = true,
     disableMaterialColors: Boolean = false,
     preferredCategory: String = "sub",
-    initialGroup: String? = null
+    initialGroup: String? = null,
+    onBack: () -> Unit = {}
 ) {
     var selectedGroup by remember { mutableStateOf<String?>(null) }
 
@@ -218,6 +219,7 @@ fun SettingsScreen(
             SettingsLandingPage(
                 groups = groups,
                 appIcon = appIcon,
+                onBack = onBack,
                 onGroupClick = { selectedGroup = it }
             )
         } else {

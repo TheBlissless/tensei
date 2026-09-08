@@ -2865,7 +2865,8 @@ fun MainScreen(
                         autoPlayNextEpisode = autoPlayNextEpisode,
                         disableMaterialColors = disableMaterialColors,
                         preferredCategory = preferredCategory,
-                        initialGroup = settingsInitialGroup
+                        initialGroup = settingsInitialGroup,
+                        onBack = { showSettings = false; pendingSettingsGroup = null }
                     )
                 }
             }

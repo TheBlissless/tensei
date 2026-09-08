@@ -105,6 +105,12 @@ fun ExtensionsScreen(
     var addRepoExpanded by remember { mutableStateOf(false) }
     val installedPackages = uiState.extensions.map { it.packageName }.toSet()
     val installedNames = uiState.extensions.map { it.name }.toSet()
+    val installedPackageVersions = uiState.extensions.associate {
+        it.packageName to "v${it.versionName} (code ${it.versionCode})"
+    }
+    val installedNameVersions = uiState.extensions.associate {
+        it.name.lowercase() to "v${it.versionName} (code ${it.versionCode})"
+    }
     val updatableCount = uiState.updatablePackageNames.size
 
     val context = LocalContext.current
@@ -153,6 +159,8 @@ fun ExtensionsScreen(
             installedNames = installedNames,
             updatablePackageNames = uiState.updatablePackageNames,
             updatableNames = uiState.updatableNames,
+            installedPackageVersions = installedPackageVersions,
+            installedNameVersions = installedNameVersions,
             onInstall = { viewModel.installExtension(it) },
             onBack = { onSelectRepo(null) },
             onRemoveRepo = { url -> viewModel.removeRepo(url) }
@@ -185,7 +193,9 @@ fun ExtensionsScreen(
                         modifier = Modifier.size(22.dp)
                     )
                 }
-                Column {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
                         "Extensions",
                         style = MaterialTheme.typography.headlineMedium,
@@ -196,6 +206,13 @@ fun ExtensionsScreen(
                         "Manage repositories and installed sources",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                }
+                IconButton(onClick = { viewModel.checkForUpdatesNow() }) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Check for updates",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
             }
@@ -808,7 +825,7 @@ private fun InstalledExtensionCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "v${extension.versionName}",
+                        text = "v${extension.versionName} (code ${extension.versionCode})",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                     )

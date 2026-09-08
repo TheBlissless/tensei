@@ -126,6 +126,7 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
                     extensions = extensions,
                     refreshMessage = message
                 )
+                checkForExtensionUpdates()
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -337,6 +338,32 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun checkForUpdatesNow() {
+        viewModelScope.launch {
+            _toastMessage.tryEmit("Checking for updates..." to Toast.LENGTH_SHORT)
+            val urls = _uiState.value.repos.map { it.url }
+            for (url in urls) {
+                updateRepoState(url) { copy(isLoading = true) }
+                try {
+                    val repo = fetchRepo(url)
+                    updateRepoState(url) { copy(repo = repo, isLoading = false, error = null) }
+                } catch (e: Exception) {
+                    updateRepoState(url) { copy(isLoading = false) }
+                }
+            }
+            val updatable = findUpdatableExtensions()
+            refreshUpdatableState(updatable)
+            if (updatable.isNotEmpty()) {
+                val names = updatable.map { it.second.name }
+                Log.i("ExtensionsViewModel", "Found ${updatable.size} updatable extension(s): $names")
+                showUpdatesAvailableNotification(names)
+                _toastMessage.tryEmit("${updatable.size} update${if (updatable.size > 1) "s" else ""} available" to Toast.LENGTH_LONG)
+            } else {
+                _toastMessage.tryEmit("All extensions up to date" to Toast.LENGTH_LONG)
+            }
+        }
+    }
+
     private fun findUpdatableExtensions(): List<Pair<Extension, RepoExtension>> {
         val installed = _uiState.value.extensions
         if (installed.isEmpty()) return emptyList()
@@ -348,8 +375,13 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
         return installed.mapNotNull { ext ->
             val repoExt = repoExtensionsByPkg[ext.packageName]?.firstOrNull()
                 ?: repoExtensionsByName[ext.name]
-            val installedCode = ext.versionName.split(".").lastOrNull()?.toLongOrNull() ?: ext.versionCode
+            val installedCode = ext.versionCode
             if (repoExt != null && repoExt.code > installedCode) {
+                Log.i(
+                    "ExtensionsViewModel",
+                    "Update available for ${ext.name}: installed v${ext.versionName} (code $installedCode), " +
+                        "repo v${repoExt.version} (code ${repoExt.code})"
+                )
                 ext to repoExt
             } else {
                 null
