@@ -1342,14 +1342,12 @@ private suspend fun loadHomeDataWithCache() {
                 } catch (_: AiringScheduleApiDownException) {
                     Log.w("AiringDebug", "AniList API down — using AnimeSchedule fallback")
                     lastScheduleUsedFallback = true
-                    _toastMessage.emit("AniList is unavailable — showing schedule from AnimeSchedule instead")
                     fetchAnimeScheduleWithToast()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
                     Log.w("AiringDebug", "AniList fetch failed unexpectedly (${e::class.simpleName}: ${e.message}) — using AnimeSchedule fallback", e)
                     lastScheduleUsedFallback = true
-                    _toastMessage.emit("AniList is unavailable — showing schedule from AnimeSchedule instead")
                     fetchAnimeScheduleWithToast()
                 }
 

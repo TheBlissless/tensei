@@ -631,7 +631,7 @@ class AnimeRepository(
             result.add(build(entry, airingAt))
         }
         // Already-aired episodes (e.g. a show that ran earlier today) are kept too so they
-        // still appear in the timeline as "Airs again in ...".
+        // still appear in the timeline; the card shows how long ago they aired.
         for (entry in entries) {
             if (entry.airingStatus != "aired") continue
             if (!seenRoutes.add(entry.route)) {

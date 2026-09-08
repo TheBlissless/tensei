@@ -874,18 +874,32 @@ private fun TimelineAnimeItem(
                         }
 
                         Spacer(Modifier.height(8.dp))
-                        // Items that already aired today roll forward a week so they still show a
-                        // countdown to the next episode instead of just "Already aired".
-                        val nextAiringAt = if (isPast) anime.airingAt + 604800L else anime.airingAt
-                        val secUntil = (nextAiringAt - currentTime).coerceAtLeast(0)
-                        val timeUntilText = remember(currentTime) {
-                            val h = secUntil / 3600; val m = (secUntil % 3600) / 60
-                            when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
+                        // Already-aired episodes (e.g. from the anime-schedule fallback, which has no
+                        // next-episode timestamp) show how long ago they aired instead of a fake
+                        // week-ahead countdown — matching AniList's schedule design. Upcoming
+                        // episodes keep the real countdown.
+                        if (isPast) {
+                            val secSince = (currentTime - anime.airingAt).coerceAtLeast(0)
+                            val elapsedText = remember(currentTime) {
+                                val h = secSince / 3600; val m = (secSince % 3600) / 60
+                                when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
+                            }
+                            Text(
+                                "Aired $elapsedText ago",
+                                style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            )
+                        } else {
+                            val secUntil = (anime.airingAt - currentTime).coerceAtLeast(0)
+                            val timeUntilText = remember(currentTime) {
+                                val h = secUntil / 3600; val m = (secUntil % 3600) / 60
+                                when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
+                            }
+                            Text(
+                                "in $timeUntilText",
+                                style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary
+                            )
                         }
-                        Text(
-                            if (isPast) "Airs again in $timeUntilText" else "in $timeUntilText",
-                            style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary
-                        )
                     }
                 }
 
