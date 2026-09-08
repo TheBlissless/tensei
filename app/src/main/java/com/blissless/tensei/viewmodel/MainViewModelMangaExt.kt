@@ -310,8 +310,18 @@ val MainViewModel.mangaDropped: StateFlow<List<MangaMedia>> get() = _mangaDroppe
 private val _mangaExploreSections = MutableStateFlow<Map<String, List<MangaExploreMedia>>>(emptyMap())
 val MainViewModel.mangaExploreSections: StateFlow<Map<String, List<MangaExploreMedia>>> get() = _mangaExploreSections.asStateFlow()
 
+// Latest data source driving the manga explore rows: "anilist" or "mal" (fallback while
+// AniList is down/unreachable). Drives automatic recovery — see retryMangaExploreFromMalFallback().
+private val _mangaExploreSource = MutableStateFlow<String?>(null)
+val MainViewModel.mangaExploreSource: StateFlow<String?> get() = _mangaExploreSource.asStateFlow()
+
 private val _mangaDetail = MutableStateFlow<MangaDetail?>(null)
 val MainViewModel.mangaDetail: StateFlow<MangaDetail?> get() = _mangaDetail.asStateFlow()
+
+// Latest data source for the most recently fetched manga detail: "anilist" or "mal".
+// Drives automatic recovery on the detail + "View All" screens.
+private val _mangaDetailSource = MutableStateFlow<String?>(null)
+val MainViewModel.mangaDetailSource: StateFlow<String?> get() = _mangaDetailSource.asStateFlow()
 
 private val _mangaChapters = MutableStateFlow<List<MangaChapter>>(emptyList())
 val MainViewModel.mangaChapters: StateFlow<List<MangaChapter>> get() = _mangaChapters.asStateFlow()
@@ -467,24 +477,62 @@ suspend fun MainViewModel.searchMangaAdvanced(
     return mangaRepository?.searchMangaAdvanced(search, genres, format, status, sort, page, perPage) ?: emptyList()
 }
 
-suspend fun MainViewModel.fetchMangaExplore() {
-    android.util.Log.d("MangaExplore", "fetchMangaExplore: start, mangaRepository=${mangaRepository != null}")
-    _isLoadingManga.value = true
+suspend fun MainViewModel.fetchMangaExplore(silent: Boolean = false) {
+    android.util.Log.d("MangaExplore", "fetchMangaExplore: start, silent=$silent, mangaRepository=${mangaRepository != null}")
+    if (!silent) _isLoadingManga.value = true
     // Pass the auth token when available â€” AniList may treat authenticated requests differently
     // during rate-limiting/outages (HTTP 403 "API temporarily disabled").
     val token = authToken.value
-    val sections = mangaRepository?.fetchExploreSections(token) ?: run {
+    var usedMalFallback = false
+    var sections = mangaRepository?.fetchExploreSections(token) ?: run {
         android.util.Log.w("MangaExplore", "fetchMangaExplore: mangaRepository is null or fetchExploreSections returned null")
         emptyMap()
+    }
+    // AniList unavailable: fall back to MAL manga ranking so the explore screen still
+    // shows trending/popular/top rows instead of nothing. Only sections that are currently
+    // EMPTY are filled — previously-loaded AniList rows are never replaced with MAL data.
+    // Genre rows stay empty (MAL has no genre ranking).
+    if (sections.isEmpty()) {
+        android.util.Log.w("MangaExplore", "fetchMangaExplore: AniList explore empty — using MAL ranking fallback")
+        val malSections = mangaRepository?.fetchMangaExploreFromMal() ?: emptyMap()
+        if (malSections.isNotEmpty()) {
+            usedMalFallback = true
+            // Production fallback: only fill section keys that have no data yet.
+            val existing = _mangaExploreSections.value
+            val merged = existing.toMutableMap()
+            for ((key, list) in malSections) {
+                if (list.isNotEmpty() && (existing[key] ?: emptyList()).isEmpty()) merged[key] = list
+            }
+            sections = merged
+        }
     }
     android.util.Log.d("MangaExplore", "fetchMangaExplore: got ${sections.size} sections, keys=${sections.keys}")
     // Only overwrite existing data with a successful fetch â€” never wipe cached sections
     // with an empty response (network hiccup or API outage).
     if (sections.isNotEmpty()) {
         _mangaExploreSections.value = sections
-        cacheManager.saveMangaExploreToCache(sections)
+        if (usedMalFallback) {
+            // MAL data is a transient stopgap — never let it overwrite the persisted
+            // AniList snapshot, so a restart still starts from real AniList data.
+            _mangaExploreSource.value = "mal"
+        } else {
+            cacheManager.saveMangaExploreToCache(sections)
+            _mangaExploreSource.value = "anilist"
+        }
     }
-    _isLoadingManga.value = false
+    if (!silent) _isLoadingManga.value = false
+}
+
+/**
+ * Auto-recovery from a MAL-fallback manga explore: while the manga explore screen is showing
+ * MAL ranking data (AniList unavailable), the screen periodically calls this to retry AniList.
+ * The reload is visible (loading skeleton) so the user sees the MAL → AniList swap. As soon as
+ * AniList answers, the regular success path replaces the MAL rows, the source flips back to
+ * "anilist", and the data is persisted.
+ */
+fun MainViewModel.retryMangaExploreFromMalFallback() {
+    if (_mangaExploreSource.value != "mal") return
+    viewModelScope.launch { fetchMangaExplore() }
 }
 
 /**
@@ -607,11 +655,26 @@ fun MainViewModel.isMangaFavorited(mangaId: Int): Boolean = mangaId in _favorite
 
 // â”€â”€â”€ Detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-suspend fun MainViewModel.fetchMangaDetail(mangaId: Int) {
-    android.util.Log.d("MangaDetail", "fetchMangaDetail: START mangaId=$mangaId")
+suspend fun MainViewModel.fetchMangaDetail(mangaId: Int, malId: Int? = null) {
+    android.util.Log.d("MangaDetail", "fetchMangaDetail: START mangaId=$mangaId malId=$malId")
     _isLoadingManga.value = true
+    _mangaDetailSource.value = null
     val token = authToken.value
-    val detail = mangaRepository?.fetchMangaDetail(mangaId, token)
+    var detail = mangaRepository?.fetchMangaDetail(mangaId, token)
+    if (detail != null) _mangaDetailSource.value = "anilist"
+    // AniList unavailable: fall back to the official MAL manga detail API so the
+    // detail screen still renders a full page instead of only the shallow card data.
+    // Entries that originated from a MAL fallback (explore/search/relations) carry the
+    // MAL id as their own id, so use explicit malId when present, otherwise mangaId.
+    val malIdToUse = malId?.takeIf { it > 0 } ?: mangaId
+    if (detail == null && malIdToUse > 0) {
+        android.util.Log.w("MangaDetail", "fetchMangaDetail: AniList failed — trying MAL manga detail fallback for malId=$malIdToUse")
+        detail = mangaRepository?.fetchMangaMalDetail(malIdToUse)
+        if (detail != null) {
+            _mangaDetailSource.value = "mal"
+            android.util.Log.d("MangaDetail", "fetchMangaDetail: MAL fallback OK mangaId=$mangaId title='${detail.title}'")
+        }
+    }
     _mangaDetail.value = detail
     if (detail != null) {
         mangaTrackManager?.updateMangaInfo(mangaId, detail.title, detail.cover, detail.titleEnglish)
@@ -673,11 +736,38 @@ suspend fun MainViewModel.fetchMangaAllCharacters(mangaId: Int): List<MangaChara
 suspend fun MainViewModel.fetchMangaAllStaff(mangaId: Int): List<MangaStaffEdge> =
     mangaRepository?.fetchMangaAllStaff(mangaId) ?: emptyList()
 
-suspend fun MainViewModel.fetchMangaAllRelations(mangaId: Int): List<MangaRelation> =
-    mangaRepository?.fetchMangaAllRelations(mangaId) ?: emptyList()
+/// Entries resolved by the detail page — used to seed the "View All" relations/recommendations
+/// screens so they render instantly instead of re-hitting the network.
+fun MainViewModel.cachedMangaRelations(mangaId: Int): List<MangaRelation> =
+    mangaDetail.value?.takeIf { it.id == mangaId }?.relations.orEmpty()
 
-suspend fun MainViewModel.fetchMangaAllRecommendations(mangaId: Int): List<MangaMedia> =
-    mangaRepository?.fetchMangaAllRecommendations(mangaId) ?: emptyList()
+fun MainViewModel.cachedMangaRecommendations(mangaId: Int): List<MangaMedia> =
+    mangaDetail.value?.takeIf { it.id == mangaId }?.recommendations.orEmpty()
+
+suspend fun MainViewModel.fetchMangaAllRelations(mangaId: Int, force: Boolean = false): List<MangaRelation> {
+    // The detail page already resolved relations, so serve those first — the "View All"
+    // screen mirrors what the detail row already shows instead of re-hitting AniList.
+    // force=true bypasses the cache so auto-recovery can re-check AniList.
+    if (!force) cachedMangaRelations(mangaId).takeIf { it.isNotEmpty() }?.let { return it }
+    val relations = mangaRepository?.fetchMangaAllRelations(mangaId) ?: emptyList()
+    if (relations.isNotEmpty()) {
+        _mangaDetailSource.value = "anilist"
+        return relations
+    }
+    // Nothing loaded for this id yet: fetch the MAL manga detail directly (mangaId is
+    // the MAL id for MAL-fallback items).
+    return mangaRepository?.fetchMangaMalDetail(mangaId)?.relations ?: emptyList()
+}
+
+suspend fun MainViewModel.fetchMangaAllRecommendations(mangaId: Int, force: Boolean = false): List<MangaMedia> {
+    if (!force) cachedMangaRecommendations(mangaId).takeIf { it.isNotEmpty() }?.let { return it }
+    val recommendations = mangaRepository?.fetchMangaAllRecommendations(mangaId) ?: emptyList()
+    if (recommendations.isNotEmpty()) {
+        _mangaDetailSource.value = "anilist"
+        return recommendations
+    }
+    return mangaRepository?.fetchMangaMalDetail(mangaId)?.recommendations ?: emptyList()
+}
 
 // â”€â”€â”€ Chapters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

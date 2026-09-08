@@ -68,11 +68,36 @@ object Endpoints {
             return "$API_BASE/anime?q=$encodedQuery&limit=$limit&offset=$offset&fields=$encodedFields"
         }
 
+        /** Manga search fallback used when the AniList API is unavailable. */
+        fun searchMangaUrl(query: String, limit: Int, offset: Int, fields: String): String {
+            val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+            val encodedFields = java.net.URLEncoder.encode(fields, "UTF-8")
+            return "$API_BASE/manga?q=$encodedQuery&limit=$limit&offset=$offset&fields=$encodedFields"
+        }
+
         /** Top-anime ranking fallback used for the search screen's default result set
          *  (blank query) when the AniList API is unavailable. */
-        fun rankingAnimeUrl(limit: Int, offset: Int, fields: String): String {
+        fun rankingAnimeUrl(rankingType: String = "all", limit: Int, offset: Int, fields: String): String {
             val encodedFields = java.net.URLEncoder.encode(fields, "UTF-8")
-            return "$API_BASE/anime/ranking?ranking_type=all&limit=$limit&offset=$offset&fields=$encodedFields"
+            return "$API_BASE/anime/ranking?ranking_type=$rankingType&limit=$limit&offset=$offset&fields=$encodedFields"
+        }
+
+        /** Top-manga ranking fallback used for the manga explore screen when AniList is down. */
+        fun rankingMangaUrl(rankingType: String, limit: Int, offset: Int, fields: String): String {
+            val encodedFields = java.net.URLEncoder.encode(fields, "UTF-8")
+            return "$API_BASE/manga/ranking?ranking_type=$rankingType&limit=$limit&offset=$offset&fields=$encodedFields"
+        }
+
+        /** Full anime detail fallback (single title) when AniList is unavailable. */
+        fun detailAnimeUrl(id: Int, fields: String): String {
+            val encodedFields = java.net.URLEncoder.encode(fields, "UTF-8")
+            return "$API_BASE/anime/$id?fields=$encodedFields"
+        }
+
+        /** Full manga detail fallback (single title) when AniList is unavailable. */
+        fun detailMangaUrl(id: Int, fields: String): String {
+            val encodedFields = java.net.URLEncoder.encode(fields, "UTF-8")
+            return "$API_BASE/manga/$id?fields=$encodedFields"
         }
     }
 

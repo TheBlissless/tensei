@@ -34,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +53,7 @@ import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.AnimeRelation
+import kotlinx.coroutines.delay
 
 @Composable
 fun AllRelationsScreen(
@@ -79,6 +81,23 @@ fun AllRelationsScreen(
             emptyList()
         }
         isLoading = false
+    }
+
+    // Auto-recovery: while the list is MAL-fallback data (AniList down), re-check AniList
+    // every 60s (force = bypass the stored cache). When AniList answers, the fresh list
+    // replaces the MAL one and the source flips back to "anilist".
+    val animeDetailSource by viewModel.animeDetailSource.collectAsState()
+    LaunchedEffect(animeId, animeDetailSource) {
+        while (animeDetailSource == "mal") {
+            delay(60_000)
+            isLoading = true
+            relations = try {
+                viewModel.fetchAnimeRelations(animeId, force = true) ?: emptyList()
+            } catch (_: Exception) {
+                emptyList()
+            }
+            isLoading = false
+        }
     }
 
     Dialog(

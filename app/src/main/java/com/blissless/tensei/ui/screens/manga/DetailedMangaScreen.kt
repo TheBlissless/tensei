@@ -148,6 +148,7 @@ import com.blissless.tensei.viewmodel.mangaDetail
 import com.blissless.tensei.viewmodel.mangaTotalChapters
 import com.blissless.tensei.viewmodel.isLoadingManga
 import com.blissless.tensei.viewmodel.isLoadingMangaChapters
+import com.blissless.tensei.viewmodel.mangaDetailSource
 import com.blissless.tensei.viewmodel.toggleMangaFavorite
 import com.blissless.tensei.viewmodel.favoritedMangaIds
 import com.blissless.tensei.viewmodel.updateMangaStatus
@@ -251,7 +252,7 @@ fun DetailedMangaScreen(
 
     LaunchedEffect(manga.id, selectedExtension) {
         android.util.Log.d("MangaDetail", "LaunchedEffect(manga.id=${manga.id}, ext=${selectedExtension != null}): fetching detail + chapters, title='${manga.title}'")
-        viewModel.fetchMangaDetail(manga.id)
+        viewModel.fetchMangaDetail(manga.id, manga.malId)
         android.util.Log.d("MangaDetail", "fetchMangaDetail returned; loading chapters for ${manga.id}")
         viewModel.loadMangaChapters(manga.id, manga.title)
         android.util.Log.d("MangaDetail", "loadMangaChapters done for ${manga.id}")
@@ -263,6 +264,17 @@ fun DetailedMangaScreen(
     // the already-loaded chapters and have to reload them (race condition with LaunchedEffect
     // key = manga.id, which won't re-fire). Instead, clearMangaDetail is called by
     // MainActivity when the reader is fully dismissed (onClose).
+
+    // Auto-recovery: while the detail is showing MAL-fallback data (AniList down),
+    // re-check AniList every 60s via fetchMangaDetail, which shows the loading skeleton
+    // until AniList answers and swaps the detail back to the real AniList data.
+    val mangaDetailSource by viewModel.mangaDetailSource.collectAsState()
+    LaunchedEffect(manga.id, mangaDetailSource) {
+        while (mangaDetailSource == "mal") {
+            delay(60_000)
+            viewModel.fetchMangaDetail(manga.id, manga.malId)
+        }
+    }
 
     LaunchedEffect(Unit) {
         slideOffset.animateTo(targetValue = 0f, animationSpec = tween(200, easing = LinearEasing))

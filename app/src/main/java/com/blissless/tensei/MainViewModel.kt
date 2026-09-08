@@ -363,6 +363,16 @@ class MainViewModel : ViewModel() {
     private val _offlineDropped = MutableStateFlow<List<AnimeMedia>>(emptyList())
     val offlineDropped: StateFlow<List<AnimeMedia>> = _offlineDropped.asStateFlow()
 
+    // Latest data source driving the explore rows: "anilist" or "mal" (fallback shown
+    // while AniList is down/unreachable). Drives automatic recovery — see retryExploreFromMalFallback().
+    private val _exploreDataSource = MutableStateFlow<String?>(null)
+    val exploreDataSource: StateFlow<String?> get() = _exploreDataSource.asStateFlow()
+
+    // Latest data source for the most recently fetched anime detail: "anilist" or "mal".
+    // Drives automatic recovery on the detail + "View All" screens.
+    private val _animeDetailSource = MutableStateFlow<String?>(null)
+    val animeDetailSource: StateFlow<String?> get() = _animeDetailSource.asStateFlow()
+
     // Explore data
     private val _featuredAnime = MutableStateFlow<List<ExploreAnime>>(emptyList())
     val featuredAnime: StateFlow<List<ExploreAnime>> = _featuredAnime.asStateFlow()
@@ -1168,7 +1178,7 @@ private suspend fun loadHomeDataWithCache() {
         return true
     }
 
-    fun fetchExploreData(force: Boolean = false) {
+    fun fetchExploreData(force: Boolean = false, silent: Boolean = false) {
         val now = System.currentTimeMillis()
 
         if (!force && now - lastExploreRefreshTime < MIN_REFRESH_INTERVAL_MS) {
@@ -1176,11 +1186,45 @@ private suspend fun loadHomeDataWithCache() {
         }
 
         viewModelScope.launch {
-            _isLoadingExplore.value = true
+            if (!silent) _isLoadingExplore.value = true
             val (response, error) = repository.fetchBatchedExploreWithError(useCache = !force)
             if (response == null) {
-                _isLoadingExplore.value = false
-                _apiError.value = error ?: "Failed to load content"
+                // AniList unavailable: fill the main home rows from MAL ranking so the
+                // explore screen still shows content — but ONLY the rows that are currently
+                // EMPTY. Previously-loaded AniList entries are never replaced by MAL data;
+                // genre rows are left untouched (MAL ranking has no genre filter).
+                val malSections = repository.fetchAnimeExploreFromMal()
+                val hadExisting = _featuredAnime.value.isNotEmpty() ||
+                    _seasonalAnime.value.isNotEmpty() ||
+                    _topSeries.value.isNotEmpty() ||
+                    _topMovies.value.isNotEmpty()
+                if (_featuredAnime.value.isEmpty()) {
+                    _featuredAnime.value = (malSections["featured"] ?: emptyList()).map { mapExploreMedia(it) }
+                }
+                if (_seasonalAnime.value.isEmpty()) {
+                    _seasonalAnime.value = (malSections["seasonal"] ?: emptyList()).map { mapExploreMedia(it) }
+                }
+                if (_topSeries.value.isEmpty()) {
+                    _topSeries.value = (malSections["topSeries"] ?: emptyList()).map { mapExploreMedia(it) }
+                }
+                if (_topMovies.value.isEmpty()) {
+                    _topMovies.value = (malSections["topMovies"] ?: emptyList()).map { mapExploreMedia(it) }
+                }
+                val malFilled = _featuredAnime.value.isNotEmpty() ||
+                    _seasonalAnime.value.isNotEmpty() ||
+                    _topSeries.value.isNotEmpty() ||
+                    _topMovies.value.isNotEmpty()
+                if (malFilled) {
+                    _apiError.value = null
+                    _exploreDataSource.value = "mal"
+                    // Only persist a MAL-based snapshot when there was nothing pre-existing to
+                    // preserve — never let MAL data overwrite the persisted AniList cache.
+                    if (!hadExisting) saveExploreDataToCache()
+                    lastExploreRefreshTime = System.currentTimeMillis()
+                } else {
+                    _apiError.value = error ?: "Failed to load content"
+                }
+                if (!silent) _isLoadingExplore.value = false
                 return@launch
             }
 
@@ -1196,16 +1240,29 @@ private suspend fun loadHomeDataWithCache() {
                 _scifiAnime.value = response.data.scifi.media.map { mapExploreMedia(it) }.filter { (it.averageScore ?: 0) >= 60 }
                 saveExploreDataToCache()
                 _apiError.value = null
+                _exploreDataSource.value = "anilist"
                 true
             } catch (e: Exception) {
                 _apiError.value = e.message ?: "Failed to load content"
                 false
             }
-            _isLoadingExplore.value = false
+            if (!silent) _isLoadingExplore.value = false
             if (success) {
                 lastExploreRefreshTime = System.currentTimeMillis()
             }
         }
+    }
+
+    /**
+     * Auto-recovery from a MAL-fallback explore: while the explore screen is showing MAL
+     * ranking data (AniList unavailable), the screen periodically calls this to retry AniList.
+     * The reload is visible (loading skeleton) so the user sees the MAL → AniList swap.
+     * As soon as AniList answers, the regular success path replaces the MAL rows and the
+     * source flips back to "anilist".
+     */
+    fun retryExploreFromMalFallback() {
+        if (_exploreDataSource.value != "mal") return
+        viewModelScope.launch { fetchExploreData(force = true) }
     }
 
     private fun mapExploreMedia(media: ExploreMedia): ExploreAnime {
@@ -1659,6 +1716,18 @@ private suspend fun loadHomeDataWithCache() {
         }
         
         if (media == null) {
+            // AniList unavailable: fall back to the official MAL anime detail API.
+            if (malId != null && malId > 0) {
+                Log.w("AnimeDetailDebug", "fetchDetailedAnimeData AniList failed — trying MAL detail fallback for malId=$malId")
+                val malData = repository.fetchDetailedAnimeFromMal(malId)
+                if (malData != null) {
+                    Log.d("AnimeDetailDebug", "fetchDetailedAnimeData MAL fallback OK id=$animeId malId=$malId title=${malData.title}")
+                    _animeDetailSource.value = "mal"
+                    cacheManager.cacheDetailedAnime(animeId, malData)
+                    return malData
+                }
+            }
+            _animeDetailSource.value = null
             Log.e("AnimeDetailDebug", "fetchDetailedAnimeData RESULT=null (fallback used) id=$animeId malId=$malId")
             return null
         }
@@ -1730,6 +1799,7 @@ private suspend fun loadHomeDataWithCache() {
             } ?: emptyList()
         )
         cacheManager.cacheDetailedAnime(animeId, detailedData)
+        _animeDetailSource.value = "anilist"
         Log.d(
             "AnimeDetailDebug",
             "fetchDetailedAnimeData RESULT=OK id=$animeId title=${detailedData.title} " +
@@ -1740,12 +1810,62 @@ private suspend fun loadHomeDataWithCache() {
         return detailedData
     }
 
-    suspend fun fetchAnimeRelations(animeId: Int): List<AnimeRelation>? {
-        return repository.fetchAnimeRelationsList(animeId)
+    fun cachedAnimeRelations(animeId: Int): List<AnimeRelation>? =
+        cacheManager.detailedAnimeCache.value[animeId]?.relations?.takeIf { it.isNotEmpty() }
+
+    fun cachedAnimeRecommendations(animeId: Int): List<AnimeRelation>? =
+        cacheManager.detailedAnimeCache.value[animeId]?.recommendations
+            ?.map { rec ->
+                AnimeRelation(
+                    id = rec.id,
+                    title = rec.title,
+                    titleRomaji = null,
+                    cover = rec.cover,
+                    episodes = rec.episodes.takeIf { it > 0 },
+                    averageScore = rec.averageScore,
+                    format = rec.format,
+                    relationType = "RECOMMENDATION"
+                )
+            }
+            ?.takeIf { it.isNotEmpty() }
+
+    suspend fun fetchAnimeRelations(animeId: Int, force: Boolean = false): List<AnimeRelation>? {
+        // The detail page already resolved and cached relations, so serve those first —
+        // the "View All" screen mirrors what the detail row already shows instead of
+        // re-hitting AniList. force=true bypasses the cache so auto-recovery can re-check AniList.
+        if (!force) cachedAnimeRelations(animeId)?.let { return it }
+        val relations = repository.fetchAnimeRelationsList(animeId)
+        if (!relations.isNullOrEmpty()) {
+            _animeDetailSource.value = "anilist"
+            return relations
+        }
+        // Not cached yet: fall back to the MAL detail. Entries that originated from
+        // MAL fallbacks carry the MAL id as their id, so try it as both an AniList
+        // id (above) and a MAL id here.
+        val detail = fetchDetailedAnimeData(animeId, malId = animeId)
+        return detail?.relations?.takeIf { it.isNotEmpty() }
     }
 
-    suspend fun fetchAnimeRecommendations(animeId: Int): List<AnimeRelation>? {
-        return repository.fetchAnimeRecommendationsList(animeId)
+    suspend fun fetchAnimeRecommendations(animeId: Int, force: Boolean = false): List<AnimeRelation>? {
+        if (!force) cachedAnimeRecommendations(animeId)?.let { return it }
+        val recommendations = repository.fetchAnimeRecommendationsList(animeId)
+        if (!recommendations.isNullOrEmpty()) {
+            _animeDetailSource.value = "anilist"
+            return recommendations
+        }
+        val detail = fetchDetailedAnimeData(animeId, malId = animeId)
+        return detail?.recommendations?.map { rec ->
+            AnimeRelation(
+                id = rec.id,
+                title = rec.title,
+                titleRomaji = null,
+                cover = rec.cover,
+                episodes = rec.episodes.takeIf { it > 0 },
+                averageScore = rec.averageScore,
+                format = rec.format,
+                relationType = "RECOMMENDATION"
+            )
+        }?.takeIf { it.isNotEmpty() }
     }
 
     suspend fun fetchDetailedAnimeDataByMalId(malId: Int): DetailedAnimeData? {

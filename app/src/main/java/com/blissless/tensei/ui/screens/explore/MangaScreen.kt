@@ -114,8 +114,10 @@ import com.blissless.tensei.viewmodel.isLoadingManga
 import com.blissless.tensei.viewmodel.mangaCompleted
 import com.blissless.tensei.viewmodel.mangaCurrentlyReading
 import com.blissless.tensei.viewmodel.mangaExploreSections
+import com.blissless.tensei.viewmodel.mangaExploreSource
 import com.blissless.tensei.viewmodel.mangaPlanningToRead
 import com.blissless.tensei.viewmodel.removeMangaTracking
+import com.blissless.tensei.viewmodel.retryMangaExploreFromMalFallback
 import com.blissless.tensei.viewmodel.selectedExtensionAuthority
 import com.blissless.tensei.viewmodel.updateMangaProgress
 import com.blissless.tensei.viewmodel.updateMangaStatus
@@ -283,6 +285,17 @@ fun MangaScreen(
     // Quit the failure state as soon as data arrives.
     LaunchedEffect(mangaExploreSections) {
         if (mangaExploreSections.values.any { it.isNotEmpty() }) mangaTimedOut = false
+    }
+
+    // Auto-recovery: while the manga explore rows come from the MAL fallback (AniList down),
+    // quietly re-try AniList on an interval so the screen swaps back as soon as AniList
+    // recovers — MAL is a transient stopgap, AniList is the source of truth.
+    val mangaExploreSource by viewModel.mangaExploreSource.collectAsState()
+    LaunchedEffect(isVisible, mangaExploreSource) {
+        while (isVisible && mangaExploreSource == "mal") {
+            delay(60_000)
+            viewModel.retryMangaExploreFromMalFallback()
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

@@ -34,6 +34,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,9 +58,13 @@ import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.data.models.MangaRelation
 import com.blissless.tensei.data.models.MangaStaffEdge
 import com.blissless.tensei.viewmodel.fetchMangaAllCharacters
+import com.blissless.tensei.viewmodel.cachedMangaRecommendations
+import com.blissless.tensei.viewmodel.cachedMangaRelations
 import com.blissless.tensei.viewmodel.fetchMangaAllRecommendations
 import com.blissless.tensei.viewmodel.fetchMangaAllStaff
 import com.blissless.tensei.viewmodel.fetchMangaAllRelations
+import com.blissless.tensei.viewmodel.mangaDetailSource
+import kotlinx.coroutines.delay
 
 @Composable
 fun MangaAllCharactersScreen(
@@ -367,14 +372,18 @@ fun MangaAllRelationsScreen(
     onNavigateBack: () -> Unit = onDismiss,
     onRelationClick: (MangaRelation) -> Unit
 ) {
-    var relations by remember { mutableStateOf<List<MangaRelation>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
     val statusBarsPadding = WindowInsets.statusBars.asPaddingValues()
     val navigationBarsPadding = WindowInsets.navigationBars.asPaddingValues()
     val displayTitle = if (preferEnglishTitles && !mangaTitleEnglish.isNullOrBlank()) mangaTitleEnglish else mangaTitle
 
+    // Seed from the data the detail page already resolved so the grid renders instantly
+    // instead of re-loading; only fetch when nothing is available yet.
+    val seededRelations = remember(mangaId) { viewModel.cachedMangaRelations(mangaId) }
+    var relations by remember { mutableStateOf(seededRelations) }
+    var isLoading by remember { mutableStateOf(seededRelations.isEmpty()) }
+
     LaunchedEffect(mangaId) {
+        if (relations.isNotEmpty()) return@LaunchedEffect
         isLoading = true
         relations = try {
             viewModel.fetchMangaAllRelations(mangaId)
@@ -382,6 +391,23 @@ fun MangaAllRelationsScreen(
             emptyList()
         }
         isLoading = false
+    }
+
+    // Auto-recovery: while the list is MAL-fallback data (AniList down), re-check AniList
+    // every 60s (force = bypass the stored cache). When AniList answers, the fresh list
+    // replaces the MAL one and the source flips back to "anilist".
+    val mangaDetailSource by viewModel.mangaDetailSource.collectAsState()
+    LaunchedEffect(mangaId, mangaDetailSource) {
+        while (mangaDetailSource == "mal") {
+            delay(60_000)
+            isLoading = true
+            relations = try {
+                viewModel.fetchMangaAllRelations(mangaId, force = true)
+            } catch (_: Exception) {
+                emptyList()
+            }
+            isLoading = false
+        }
     }
 
     Dialog(
@@ -554,14 +580,16 @@ fun MangaAllRecommendationsScreen(
     onNavigateBack: () -> Unit = onDismiss,
     onRecommendationClick: (MangaMedia) -> Unit
 ) {
-    var recommendations by remember { mutableStateOf<List<MangaMedia>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
     val statusBarsPadding = WindowInsets.statusBars.asPaddingValues()
     val navigationBarsPadding = WindowInsets.navigationBars.asPaddingValues()
     val displayTitle = if (preferEnglishTitles && !mangaTitleEnglish.isNullOrBlank()) mangaTitleEnglish else mangaTitle
 
+    val seededRecommendations = remember(mangaId) { viewModel.cachedMangaRecommendations(mangaId) }
+    var recommendations by remember { mutableStateOf(seededRecommendations) }
+    var isLoading by remember { mutableStateOf(seededRecommendations.isEmpty()) }
+
     LaunchedEffect(mangaId) {
+        if (recommendations.isNotEmpty()) return@LaunchedEffect
         isLoading = true
         recommendations = try {
             viewModel.fetchMangaAllRecommendations(mangaId)
@@ -569,6 +597,23 @@ fun MangaAllRecommendationsScreen(
             emptyList()
         }
         isLoading = false
+    }
+
+    // Auto-recovery: while the list is MAL-fallback data (AniList down), re-check AniList
+    // every 60s (force = bypass the stored cache). When AniList answers, the fresh list
+    // replaces the MAL one and the source flips back to "anilist".
+    val mangaDetailSource by viewModel.mangaDetailSource.collectAsState()
+    LaunchedEffect(mangaId, mangaDetailSource) {
+        while (mangaDetailSource == "mal") {
+            delay(60_000)
+            isLoading = true
+            recommendations = try {
+                viewModel.fetchMangaAllRecommendations(mangaId, force = true)
+            } catch (_: Exception) {
+                emptyList()
+            }
+            isLoading = false
+        }
     }
 
     Dialog(

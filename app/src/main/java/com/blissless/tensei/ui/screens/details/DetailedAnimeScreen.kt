@@ -331,6 +331,27 @@ fun DetailedAnimeScreen(
         }
     }
 
+    // Auto-recovery: while the detail page is showing MAL-fallback data (AniList down),
+    // re-check AniList every 60s. The reload shows the loading state; when AniList answers
+    // again the detail — and its relations/recommendations rows — swap back seamlessly.
+    val animeDetailSource by viewModel.animeDetailSource.collectAsState()
+    LaunchedEffect(anime.id, animeDetailSource) {
+        while (animeDetailSource == "mal") {
+            delay(60_000)
+            isLoadingDetails = true
+            try {
+                val refreshed = viewModel.fetchDetailedAnimeData(anime.id, anime.malId)
+                if (refreshed != null) {
+                    detailedData = refreshed
+                    relations = refreshed.relations
+                }
+            } catch (_: Exception) {
+            } finally {
+                isLoadingDetails = false
+            }
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             isLoadingDetails = false

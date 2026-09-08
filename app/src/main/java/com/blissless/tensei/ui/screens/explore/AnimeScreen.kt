@@ -196,6 +196,18 @@ fun AnimeScreen(
         filteredComedyAnime.isNotEmpty() || filteredFantasyAnime.isNotEmpty() ||
         filteredScifiAnime.isNotEmpty()
 
+    val exploreDataSource by viewModel.exploreDataSource.collectAsState()
+
+    // Auto-recovery: while the explore rows come from the MAL fallback (AniList down),
+    // quietly re-try AniList on an interval so the screen swaps back as soon as AniList
+    // recovers — MAL is a transient stopgap, AniList is the source of truth.
+    LaunchedEffect(isVisible, exploreDataSource) {
+        while (isVisible && exploreDataSource == "mal") {
+            delay(60_000)
+            viewModel.retryExploreFromMalFallback()
+        }
+    }
+
     // Create a map of animeId -> status for quick lookup
     val animeStatusMap = remember(currentlyWatching, planningToWatch, completed, onHold, dropped) {
         buildMap {
@@ -672,10 +684,11 @@ fun AnimeScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
             
-            // Featured Carousel with HorizontalPager
+            // Featured Carousel with HorizontalPager (capped to 10 items, mirroring the
+            // manga carousel which only shows the first 10 of its trending section).
             if (filteredFeaturedAnime.isNotEmpty()) {
                 FeaturedCarousel(
-                    animeList = filteredFeaturedAnime,
+                    animeList = filteredFeaturedAnime.take(10),
                     onStatusClick = { anime ->
                         selectedAnime = anime
                         showStatusDialog = true

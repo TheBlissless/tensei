@@ -126,7 +126,6 @@ val ALL_GENRES = listOf(
 
 val ALL_FORMATS = listOf("TV", "TV_SHORT", "MOVIE", "OVA", "ONA", "SPECIAL", "MUSIC")
 val ALL_STATUSES = listOf("FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS")
-val ALL_SEASONS = listOf("WINTER", "SPRING", "SUMMER", "FALL")
 val ALL_SORTS = listOf(
     "POPULARITY_DESC" to "Popularity",
     "SCORE_DESC" to "Score",
@@ -144,7 +143,6 @@ data class SearchFilters(
     val tags: List<String> = emptyList(),
     val format: String? = null,
     val status: String? = null,
-    val season: String? = null,
     val seasonYear: String = "",
     val sort: String = "POPULARITY_DESC"
 )
@@ -207,7 +205,6 @@ fun SearchScreen(
     var showFilters by remember { mutableStateOf(false) }
     var showFormatDropdown by remember { mutableStateOf(false) }
     var showStatusDropdown by remember { mutableStateOf(false) }
-    var showSeasonDropdown by remember { mutableStateOf(false) }
     var showSortDropdown by remember { mutableStateOf(false) }
     // Anime and manga pages are tracked independently so "both" mode can
     // fetch and merge the next page of each type without losing state.
@@ -306,7 +303,6 @@ fun SearchScreen(
                     tags = tagList,
                     format = filters.format,
                     status = filters.status,
-                    season = filters.season,
                     seasonYear = seasonYearVal,
                     sort = filters.sort,
                     isAdult = null,
@@ -386,7 +382,6 @@ fun SearchScreen(
                     tags = tagList,
                     format = filters.format,
                     status = filters.status,
-                    season = filters.season,
                     seasonYear = seasonYearVal,
                     sort = filters.sort,
                     isAdult = null,
@@ -432,7 +427,7 @@ fun SearchScreen(
     var autoSearchSkippedInitial by remember { mutableStateOf(false) }
     LaunchedEffect(
         filters.genres, filters.tags,
-        filters.format, filters.status, filters.season, filters.seasonYear,
+        filters.format, filters.status, filters.seasonYear,
         filters.sort
     ) {
         if (autoSearchSkippedInitial) {
@@ -462,7 +457,6 @@ fun SearchScreen(
         filters.tags.takeIf { it.isNotEmpty() }?.let { 1 },
         filters.format,
         filters.status,
-        filters.season,
         filters.seasonYear.takeIf { it.isNotBlank() }?.let { 1 },
         filters.sort.takeIf { it != "POPULARITY_DESC" }?.let { 1 }
     ).size
@@ -675,33 +669,35 @@ fun SearchScreen(
                 ) {
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    FilterRow(
-                        label = "Genres",
-                        count = filters.genres.size,
-                        onClick = { showGenreSheet = true }
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    FilterRow(
-                        label = "Tags",
-                        count = filters.tags.size,
-                        onClick = { showTagSheet = true }
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        DropdownFilter("Format", filters.format, ALL_FORMATS, showFormatDropdown, { showFormatDropdown = !showFormatDropdown; showStatusDropdown = false; showSeasonDropdown = false; showSortDropdown = false }, { showFormatDropdown = false }, { filters = filters.copy(format = it) })
-                        DropdownFilter("Status", filters.status, ALL_STATUSES, showStatusDropdown, { showStatusDropdown = !showStatusDropdown; showFormatDropdown = false; showSeasonDropdown = false; showSortDropdown = false }, { showStatusDropdown = false }, { filters = filters.copy(status = it) })
+                        Box(modifier = Modifier.weight(1f)) {
+                            FilterRow(
+                                label = "Genres",
+                                count = filters.genres.size,
+                                onClick = { showGenreSheet = true }
+                            )
+                        }
+                        Box(modifier = Modifier.weight(1f)) {
+                            FilterRow(
+                                label = "Tags",
+                                count = filters.tags.size,
+                                onClick = { showTagSheet = true }
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        DropdownFilter("Season", filters.season, ALL_SEASONS, showSeasonDropdown, { showSeasonDropdown = !showSeasonDropdown; showFormatDropdown = false; showStatusDropdown = false; showSortDropdown = false }, { showSeasonDropdown = false }, { filters = filters.copy(season = it) })
+                        DropdownFilter("Format", filters.format, ALL_FORMATS, showFormatDropdown, { showFormatDropdown = !showFormatDropdown; showStatusDropdown = false; showSortDropdown = false }, { showFormatDropdown = false }, { filters = filters.copy(format = it) })
+                        DropdownFilter("Status", filters.status, ALL_STATUSES, showStatusDropdown, { showStatusDropdown = !showStatusDropdown; showFormatDropdown = false; showSortDropdown = false }, { showStatusDropdown = false }, { filters = filters.copy(status = it) })
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Season Year", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall)
+                            Text("Year", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall)
                             BasicTextField(
                                 value = filters.seasonYear,
                                 onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 4) filters = filters.copy(seasonYear = it) },
@@ -717,16 +713,10 @@ fun SearchScreen(
                                 }
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        DropdownFilter("Sort", ALL_SORTS.find { it.first == filters.sort }?.second ?: "Popularity", ALL_SORTS.map { it.second }, showSortDropdown, { showSortDropdown = !showSortDropdown; showFormatDropdown = false; showStatusDropdown = false; showSeasonDropdown = false }, { showSortDropdown = false }) { selectedLabel ->
+                        DropdownFilter("Sort", ALL_SORTS.find { it.first == filters.sort }?.second ?: "Popularity", ALL_SORTS.map { it.second }, showSortDropdown, { showSortDropdown = !showSortDropdown; showFormatDropdown = false; showStatusDropdown = false }, { showSortDropdown = false }) { selectedLabel ->
                             val pair = ALL_SORTS.find { it.second == selectedLabel } ?: ALL_SORTS.first()
                             filters = filters.copy(sort = pair.first)
                         }
-                        Spacer(modifier = Modifier.weight(1f))
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
