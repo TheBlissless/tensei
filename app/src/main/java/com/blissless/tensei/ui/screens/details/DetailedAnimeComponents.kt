@@ -185,7 +185,6 @@ internal fun BentoSpecCell(spec: SpecEntry, modifier: Modifier = Modifier) {
  * dialog. Disabled when the anime hasn't aired yet.
  *
  * @param status            The anime's airing status (e.g. "RELEASING", "NOT_YET_RELEASED")
- * @param simplifyEpisodeMenu Whether to use the simplified episode menu
  * @param streamMethod      The configured stream method ("magnet", "direct", etc.)
  * @param hasDefaultMagnetExt Whether a default magnet extension is configured
  * @param hasDefaultExtPkg Whether a default extension package is configured
@@ -195,7 +194,6 @@ internal fun BentoSpecCell(spec: SpecEntry, modifier: Modifier = Modifier) {
 @Composable
 internal fun WatchNowButton(
     status: String?,
-    simplifyEpisodeMenu: Boolean,
     streamMethod: String,
     hasDefaultMagnetExt: Boolean,
     hasDefaultExtPkg: Boolean,
@@ -215,7 +213,7 @@ internal fun WatchNowButton(
         Box(modifier = Modifier.padding(12.dp)) {
             Button(
                 onClick = {
-                    val hasDefault = simplifyEpisodeMenu ||
+                    val hasDefault =
                         streamMethod == "magnet" && hasDefaultMagnetExt ||
                         streamMethod == "direct" && hasDefaultExtPkg
                     if (!hasDefault) {
@@ -368,8 +366,8 @@ internal fun NoDefaultExtensionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("No Default Extension") },
-        text = { Text("Set a default extension in Settings to enable streaming.") },
+        title = { Text("No Extension Selected") },
+        text = { Text("Select a default extension in Settings to load episodes for this title.") },
         confirmButton = {
             TextButton(onClick = {
                 onDismiss()
@@ -380,7 +378,7 @@ internal fun NoDefaultExtensionDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text("Close")
             }
         }
     )

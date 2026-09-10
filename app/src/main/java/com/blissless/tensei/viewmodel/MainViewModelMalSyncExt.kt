@@ -223,6 +223,7 @@ internal suspend fun MainViewModel.fetchMalList(): Boolean {
     if (!isMalActive) return false
 
     val entries = malApiService.getAnimeList()
+    android.util.Log.d("MalSync", "fetchMalList: got ${entries.size} anime entries (isMalActive=$isMalActive)")
     if (entries.isEmpty()) return false
 
     val currentlyWatching = mutableListOf<AnimeMedia>()
@@ -287,7 +288,27 @@ internal suspend fun MainViewModel.fetchMalList(): Boolean {
     _onHold.value = onHold.sortedByDescending { it.averageScore ?: 0 }
     _dropped.value = dropped.sortedByDescending { it.averageScore ?: 0 }
 
+    // Diagnostic: per-status counts and duplicate/skip detection (compare against the MAL
+    // website's own status counts; duplicates here indicate offset-pagination skips).
+    val statusCounts = mutableMapOf<String, Int>()
+    val seenIds = mutableSetOf<Int>()
+    var duplicates = 0
+    entries.forEach { entry ->
+        val st = entry.list_status?.status ?: "unknown"
+        statusCounts[st] = (statusCounts[st] ?: 0) + 1
+        if (!seenIds.add(entry.node.id)) duplicates++
+    }
+    android.util.Log.d(
+        "MalSync",
+        "fetchMalList per-status counts: watching=${statusCounts["watching"]} planning=${statusCounts["planning"]} " +
+            "completed=${statusCounts["completed"]} on_hold=${statusCounts["on_hold"]} dropped=${statusCounts["dropped"]} " +
+            "other=${statusCounts["unknown"]} duplicates=$duplicates total=${entries.size} unique=${seenIds.size} " +
+            "partitioned CURRENT=${currentlyWatching.size} PLANNING=${planningToWatch.size} COMPLETED=${completed.size} " +
+            "PAUSED=${onHold.size} DROPPED=${dropped.size}"
+    )
+
     loadMalFavoritesFromCache()
+    saveHomeDataToCache()
     return true
 }
 

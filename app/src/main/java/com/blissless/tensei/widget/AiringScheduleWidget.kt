@@ -51,7 +51,6 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.blissless.tensei.MainActivity
 import com.blissless.tensei.R
-import com.blissless.tensei.data.models.isAdultContent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -155,7 +154,6 @@ object AiringScheduleWidget : GlanceAppWidget() {
         }
 
         val userPrefs = context.getSharedPreferences(ANILIST_PREFS, Context.MODE_PRIVATE)
-        val hideAdult = userPrefs.getBoolean("hide_adult_content", true)
         val preferEnglish = userPrefs.getBoolean("prefer_english_titles", true)
         val themeMode = userPrefs.getString("theme_mode", "system") ?: "system"
         val isDark = when (themeMode) {
@@ -173,7 +171,7 @@ object AiringScheduleWidget : GlanceAppWidget() {
             triggerNow(context, bypassCooldown = true)
         schedulePeriodic(context)
 
-        provideContent { WidgetContent(context, data, coverCache, hideAdult, preferEnglish, isDark, isOled) }
+        provideContent { WidgetContent(context, data, coverCache, preferEnglish, isDark, isOled) }
     }
 
     private fun loadData(prefs: android.content.SharedPreferences): WidgetScheduleData {
@@ -209,7 +207,7 @@ object AiringScheduleWidget : GlanceAppWidget() {
     }
 
     @Composable
-    fun WidgetContent(context: Context, data: WidgetScheduleData, coverCache: Map<Int, Bitmap?>, hideAdult: Boolean = false, preferEnglish: Boolean = true, isDark: Boolean = true, isOled: Boolean = false) {
+    fun WidgetContent(context: Context, data: WidgetScheduleData, coverCache: Map<Int, Bitmap?>, preferEnglish: Boolean = true, isDark: Boolean = true, isOled: Boolean = false) {
         val cal = Calendar.getInstance()
         val dow = cal.get(Calendar.DAY_OF_WEEK) - 1
         val dayNames = listOf("Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
@@ -223,7 +221,6 @@ object AiringScheduleWidget : GlanceAppWidget() {
 
         val nowTs = System.currentTimeMillis() / 1000
         val items = data.entries
-            .filter { if (hideAdult) !isAdultContent(it.isAdult, it.genres) else true }
             .filter { it.dayOfWeek == dow && it.airingAt >= todayStart && it.airingAt < todayEnd }
             .sortedBy { it.airingAt }
 

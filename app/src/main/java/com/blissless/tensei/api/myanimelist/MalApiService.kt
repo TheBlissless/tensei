@@ -6,6 +6,7 @@ import android.util.Base64
 import com.blissless.tensei.BuildConfig
 import com.blissless.tensei.network.Endpoints
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -187,37 +188,54 @@ class MalApiService(context: Context) {
         }
     }
 
-    suspend fun getAnimeList(status: String? = null, limit: Int = 1000): List<MalAnimeListEntry> =
+    suspend fun getAnimeList(status: String? = null): List<MalAnimeListEntry> =
         withContext(Dispatchers.IO) {
             val entries = mutableListOf<MalAnimeListEntry>()
+            // Max page size for @me/animelist is 1000. A single large page avoids the known
+            // offset-pagination skips (list re-sorts mid-fetch could shift entries across pages).
+            val pageSize = 1000
             var offset = 0
-            val maxTotal = 1000
 
-            while (offset < maxTotal) {
+            while (true) {
                 val fields =
                     "list_status{status,score,num_episodes_watched,updated_at},title,main_picture,num_episodes,alternative_titles"
                 var url =
-                    "$MAL_API_BASE/users/@me/animelist?fields=$fields&limit=$limit&offset=$offset"
+                    "$MAL_API_BASE/users/@me/animelist?fields=$fields&limit=$pageSize&offset=$offset&nsfw=true"
                 if (status != null) {
                     url += "&status=$status"
                 }
 
-                val response = makeGetRequest(url) ?: break
+                var response = makeGetRequest(url)
+                if (response == null) {
+                    // A transient 429/5xx on one page previously truncated the whole list (the
+                    // loop broke and silently returned a partial result). Retry once before giving up.
+                    android.util.Log.w("MalList", "getAnimeList page offset=$offset failed (null response), retrying once")
+                    delay(1500)
+                    response = makeGetRequest(url)
+                }
+                if (response == null) {
+                    android.util.Log.e("MalList", "getAnimeList page offset=$offset failed after retry — list truncated at ${entries.size} entries")
+                    break
+                }
 
                 try {
                     val items = parseAnimeListResponse(response)
+                    android.util.Log.i("MalList", "getAnimeList page offset=$offset returned ${items.size} items (total=${entries.size + items.size})")
                     if (items.isEmpty()) {
                         break
                     }
                     entries.addAll(items)
-                    offset += limit
-
+                    offset += pageSize
+                    if (items.size < pageSize) {
+                        break
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                     break
                 }
             }
 
+            android.util.Log.i("MalList", "getAnimeList complete total=${entries.size}")
             entries
         }
 
@@ -309,37 +327,51 @@ class MalApiService(context: Context) {
         return entries
     }
 
-    suspend fun getMangaList(status: String? = null, limit: Int = 1000): List<MalMangaListEntry> =
+    suspend fun getMangaList(status: String? = null): List<MalMangaListEntry> =
         withContext(Dispatchers.IO) {
             val entries = mutableListOf<MalMangaListEntry>()
+            // Max page size for @me/mangalist is 1000 — single large page sidesteps offset shifts.
+            val pageSize = 1000
             var offset = 0
-            val maxTotal = 1000
 
-            while (offset < maxTotal) {
+            while (true) {
                 val fields =
                     "list_status{status,score,num_chapters_read,num_volumes_read,updated_at},title,main_picture,num_chapters,num_volumes,alternative_titles"
                 var url =
-                    "$MAL_API_BASE/users/@me/mangalist?fields=$fields&limit=$limit&offset=$offset"
+                    "$MAL_API_BASE/users/@me/mangalist?fields=$fields&limit=$pageSize&offset=$offset&nsfw=true"
                 if (status != null) {
                     url += "&status=$status"
                 }
 
-                val response = makeGetRequest(url) ?: break
+                var response = makeGetRequest(url)
+                if (response == null) {
+                    android.util.Log.w("MalList", "getMangaList page offset=$offset failed (null response), retrying once")
+                    delay(1500)
+                    response = makeGetRequest(url)
+                }
+                if (response == null) {
+                    android.util.Log.e("MalList", "getMangaList page offset=$offset failed after retry — list truncated at ${entries.size} entries")
+                    break
+                }
 
                 try {
                     val items = parseMangaListResponse(response)
+                    android.util.Log.i("MalList", "getMangaList page offset=$offset returned ${items.size} items (total=${entries.size + items.size})")
                     if (items.isEmpty()) {
                         break
                     }
                     entries.addAll(items)
-                    offset += limit
-
+                    offset += pageSize
+                    if (items.size < pageSize) {
+                        break
+                    }
                 } catch (e: Exception) {
                     e.printStackTrace()
                     break
                 }
             }
 
+            android.util.Log.i("MalList", "getMangaList complete total=${entries.size}")
             entries
         }
 
@@ -764,10 +796,85 @@ class MalApiService(context: Context) {
                 reader.close()
                 response
             } else {
+                val err = conn.errorStream?.bufferedReader()?.use { it.readText().take(200) } ?: ""
+                android.util.Log.w("MalList", "makeGetRequest HTTP $responseCode for $path err=$err")
                 null
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.w("MalList", "makeGetRequest failed: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Search the official MAL API (v2 /anime?q=) for an anime by title. Returns the MAL id of
+     * the best-scoring title match, or null when nothing matches. Uses only the X-MAL-CLIENT-ID
+     * header (no user token), so it works for anonymous searches too.
+     */
+    suspend fun searchAnimeByTitle(title: String): Int? = withContext(Dispatchers.IO) {
+        val cleanTitle = title.trim()
+        if (cleanTitle.isEmpty()) return@withContext null
+        try {
+            val encoded = URLEncoder.encode(cleanTitle, "UTF-8")
+            val url = "$MAL_API_BASE/anime?q=$encoded&limit=5&fields=alternative_titles,start_date"
+            val response = try {
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.setRequestProperty("X-MAL-CLIENT-ID", BuildConfig.MAL_CLIENT_ID)
+                conn.connectTimeout = TIMEOUT_MS
+                conn.readTimeout = TIMEOUT_MS
+                val code = conn.responseCode
+                if (code == HttpURLConnection.HTTP_OK) {
+                    val body = conn.inputStream.bufferedReader().use { it.readText() }
+                    android.util.Log.i("MalSearch", "searchAnimeByTitle HTTP $code rawLen=${body.length} preview=${body.take(160)}")
+                    body
+                } else {
+                    val err = conn.errorStream?.bufferedReader()?.use { it.readText().take(160) } ?: ""
+                    android.util.Log.w("MalSearch", "searchAnimeByTitle HTTP $code err=$err")
+                    null
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("MalSearch", "searchAnimeByTitle request failed: ${e.message}")
+                null
+            } ?: return@withContext null
+            val root = JSONObject(response)
+            val data = root.optJSONArray("data") ?: return@withContext null
+            val normalized = cleanTitle.lowercase()
+            var bestId: Int? = null
+            var bestScore = -1
+            for (i in 0 until data.length()) {
+                val node = data.optJSONObject(i)?.optJSONObject("node") ?: continue
+                val id = node.optInt("id", 0)
+                if (id == 0) continue
+                var score = 0
+                val hitTitle = node.optString("title", "")
+                if (hitTitle.isNotBlank()) {
+                    val nt = hitTitle.lowercase()
+                    if (nt == normalized) score = 100
+                    else if (nt.contains(normalized) || normalized.contains(nt)) score = 50
+                }
+                val altTitles = node.optJSONObject("alternative_titles")
+                if (altTitles != null) {
+                    val candidates = mutableListOf<String>().apply {
+                        altTitles.optString("en", "").takeIf { it.isNotBlank() }?.let { add(it) }
+                        altTitles.optString("ja", "").takeIf { it.isNotBlank() }?.let { add(it) }
+                        val synonyms = altTitles.optJSONArray("synonyms")
+                        if (synonyms != null) {
+                            for (s in 0 until synonyms.length()) add(synonyms.optString(s))
+                        }
+                    }
+                    for (t in candidates) {
+                        val nt = t.lowercase()
+                        if (nt == normalized) score = maxOf(score, 100)
+                        else if (nt.contains(normalized) || normalized.contains(nt)) score = maxOf(score, 50)
+                    }
+                }
+                if (score > bestScore) { bestScore = score; bestId = id }
+            }
+            android.util.Log.i("MalSearch", "searchAnimeByTitle '$title' bestScore=$bestScore malId=$bestId (hits=${data.length()})")
+            bestId
+        } catch (e: Exception) {
+            android.util.Log.w("MalSearch", "searchAnimeByTitle failed: ${e.message}")
             null
         }
     }

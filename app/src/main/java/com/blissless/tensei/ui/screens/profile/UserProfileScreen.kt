@@ -83,10 +83,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
-import com.blissless.tensei.api.jikan.JikanFavoriteAnime
-import com.blissless.tensei.api.jikan.JikanHistoryEntry
-import com.blissless.tensei.api.jikan.JikanImageUrls
-import com.blissless.tensei.api.jikan.JikanImages
 import com.blissless.tensei.api.myanimelist.LoginProvider
 import com.blissless.tensei.data.models.UserAnimeStats
 import com.blissless.tensei.ui.theme.StatusCompleted
@@ -126,7 +122,30 @@ import com.blissless.tensei.viewmodel.mangaUserProfile
 import com.blissless.tensei.viewmodel.fetchMangaUserProfile
 import com.blissless.tensei.viewmodel.toggleMangaFavorite
 
-data class HistoryData(val entries: List<JikanHistoryEntry>, val statuses: List<String>, val progressList: List<String>)
+data class ProfileFavorite(
+    val id: Int,
+    val malId: Int,
+    val title: String,
+    val titleEnglish: String?,
+    val cover: String,
+    val year: Int?,
+    val episodes: Int?,
+    val averageScore: Int?,
+    val format: String?,
+    val status: String?,
+    val userScore: Int?
+)
+
+data class HistoryEntry(
+    val malId: Int,
+    val aniListId: Int?,
+    val title: String,
+    val titleEnglish: String?,
+    val cover: String,
+    val date: String?
+)
+
+data class HistoryData(val entries: List<HistoryEntry>, val statuses: List<String>, val progressList: List<String>)
 
 enum class UserProfileSection {
     ABOUT_ME, FAVORITES, HISTORY
@@ -144,8 +163,7 @@ fun UserProfileScreen(
     val context = LocalContext.current
 
     val loginProvider by viewModel.loginProvider.collectAsState()
-    val jikanFavorites by viewModel.jikanFavorites.collectAsState()
-    val jikanHistory by viewModel.jikanHistory.collectAsState()
+    val malFavorites by viewModel.malFavorites.collectAsState()
     val aniListFavorites by viewModel.aniListFavorites.collectAsState()
     val userActivity by viewModel.userActivity.collectAsState()
     val userStats by viewModel.userStats.collectAsState()
@@ -181,16 +199,15 @@ fun UserProfileScreen(
         }
     }
 
-    val favorites: List<JikanFavoriteAnime> = when (loginProvider) {
+    val favorites: List<ProfileFavorite> = when (loginProvider) {
         LoginProvider.ANILIST, LoginProvider.BOTH -> {
             aniListFavorites.map { aniListFavorite ->
-                val coverUrl = aniListFavorite.coverImage?.extraLarge ?: ""
-                JikanFavoriteAnime(
+                ProfileFavorite(
                     id = aniListFavorite.id,
                     malId = aniListFavorite.idMal ?: 0,
                     title = aniListFavorite.title.romaji ?: aniListFavorite.title.english ?: "",
                     titleEnglish = aniListFavorite.title.english,
-                    images = JikanImages(jpg = JikanImageUrls(coverUrl)),
+                    cover = aniListFavorite.coverImage?.extraLarge ?: aniListFavorite.coverImage?.large ?: "",
                     year = aniListFavorite.seasonYear,
                     episodes = aniListFavorite.episodes,
                     averageScore = aniListFavorite.averageScore,
@@ -200,7 +217,21 @@ fun UserProfileScreen(
                 )
             }
         }
-        LoginProvider.MAL -> jikanFavorites?.anime ?: emptyList()
+        LoginProvider.MAL -> malFavorites.map { favorite ->
+            ProfileFavorite(
+                id = favorite.id,
+                malId = favorite.malId ?: 0,
+                title = favorite.title,
+                titleEnglish = favorite.titleEnglish,
+                cover = favorite.cover,
+                year = favorite.year,
+                episodes = favorite.totalEpisodes.takeIf { it > 0 },
+                averageScore = favorite.averageScore,
+                format = favorite.format,
+                status = favorite.status.takeIf { it.isNotBlank() },
+                userScore = favorite.userScore
+            )
+        }
         LoginProvider.NONE -> emptyList()
     }
 
@@ -221,23 +252,18 @@ fun UserProfileScreen(
                 }
                 statuses.add(activity.status)
                 progress.add(episodeDisplay ?: "")
-                JikanHistoryEntry(
+                HistoryEntry(
                     malId = activity.mediaIdMal ?: 0,
                     aniListId = activity.mediaId,
                     title = activity.mediaTitle,
                     titleEnglish = activity.mediaTitleEnglish,
-                    images = JikanImages(jpg = JikanImageUrls(activity.mediaCover)),
-                    episodesWatched = episodeDisplay?.filter { it.isDigit() }?.toIntOrNull(),
-                    chaptersRead = null, increment = null,
+                    cover = activity.mediaCover,
                     date = formatTimestamp(activity.createdAt)
                 )
             }
             HistoryData(entries, statuses, progress)
         }
-        LoginProvider.MAL -> {
-            val malHistory = jikanHistory?.anime?.take(50) ?: emptyList()
-            HistoryData(malHistory, malHistory.map { it.date ?: "" }, malHistory.map { "episode ${it.episodesWatched ?: 0}" })
-        }
+        LoginProvider.MAL -> HistoryData(emptyList(), emptyList(), emptyList())
         LoginProvider.NONE -> HistoryData(emptyList(), emptyList(), emptyList())
     }
 
@@ -336,9 +362,9 @@ fun UserProfileScreen(
                             onShowDetailedAnime(anime.malId, anime.malId)
                         }
                     },
-                    onRemoveFavorite = {
-                        viewModel.toggleAniListFavorite(it.id)
-                    },
+                    onRemoveFavorite = if (loginProvider == LoginProvider.ANILIST || loginProvider == LoginProvider.BOTH) {
+                        { viewModel.toggleAniListFavorite(it.id) }
+                    } else { null },
                     onMangaClick = { manga ->
                         onMangaClick(
                             MangaMedia(
@@ -749,11 +775,11 @@ private fun formatDate(timestamp: Long): String {
 
 @Composable
 private fun FavoritesContent(
-    favorites: List<JikanFavoriteAnime>,
+    favorites: List<ProfileFavorite>,
     mangaFavorites: List<MangaFavorite> = emptyList(),
     preferEnglishTitles: Boolean,
-    onAnimeClick: (JikanFavoriteAnime) -> Unit,
-    onRemoveFavorite: ((JikanFavoriteAnime) -> Unit)? = null,
+    onAnimeClick: (ProfileFavorite) -> Unit,
+    onRemoveFavorite: ((ProfileFavorite) -> Unit)? = null,
     onMangaClick: (MangaFavorite) -> Unit = {},
     onRemoveMangaFavorite: ((MangaFavorite) -> Unit)? = null
 ) {
@@ -881,7 +907,7 @@ private fun ProfileSectionHeader(
 
 @Composable
 private fun FavoriteItem(
-    anime: JikanFavoriteAnime,
+    anime: ProfileFavorite,
     preferEnglishTitles: Boolean,
     onClick: () -> Unit,
     onRemove: (() -> Unit)? = null
@@ -917,7 +943,7 @@ private fun FavoriteItem(
     ) {
         Box {
             AsyncImage(
-                model = anime.images.jpg?.imageUrl, contentDescription = displayTitle,
+                model = anime.cover, contentDescription = displayTitle,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(2f / 3f)
@@ -1010,10 +1036,10 @@ private fun FavoriteCoverBadge(
 
 @Composable
 private fun HistoryContent(
-    history: List<JikanHistoryEntry>,
+    history: List<HistoryEntry>,
     mangaHistory: List<MangaActivityNode> = emptyList(),
     preferEnglishTitles: Boolean,
-    onAnimeClick: (JikanHistoryEntry) -> Unit,
+    onAnimeClick: (HistoryEntry) -> Unit,
     onMangaClick: (MangaActivityNode) -> Unit = {},
     statuses: List<String> = emptyList(),
     progressList: List<String> = emptyList()
@@ -1091,7 +1117,7 @@ private fun HistoryContent(
 
 @Composable
 private fun HistoryItem(
-    entry: JikanHistoryEntry,
+    entry: HistoryEntry,
     preferEnglishTitles: Boolean, onClick: () -> Unit,
     status: String? = null, progress: String? = null
 ) {
@@ -1124,7 +1150,7 @@ private fun HistoryItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             AsyncImage(
-                model = entry.images.jpg?.imageUrl, contentDescription = displayTitle,
+                model = entry.cover, contentDescription = displayTitle,
                 modifier = Modifier.width(56.dp).height(80.dp).clip(RoundedCornerShape(10.dp)),
                 contentScale = ContentScale.Crop
             )

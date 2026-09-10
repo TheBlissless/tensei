@@ -574,6 +574,7 @@ suspend fun MainViewModel.fetchMangaLists(): Boolean {
     if (localTracker != null) {
         // Sync AniList entries into local tracking
         anilistCurrent?.forEach { m ->
+            if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
             localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
             localTracker.updateTrackingStatus(m.id, "CURRENT")
             // Never downgrade local progress: a stale AniList response (push still in
@@ -582,21 +583,25 @@ suspend fun MainViewModel.fetchMangaLists(): Boolean {
             if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
         }
         anilistPlanning?.forEach { m ->
+            if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
             localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
             localTracker.updateTrackingStatus(m.id, "PLANNING")
             if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
         }
         anilistCompleted?.forEach { m ->
+            if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
             localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
             localTracker.updateTrackingStatus(m.id, "COMPLETED")
             if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
         }
         anilistPaused?.forEach { m ->
+            if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
             localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
             localTracker.updateTrackingStatus(m.id, "PAUSED")
             if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
         }
         anilistDropped?.forEach { m ->
+            if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
             localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
             localTracker.updateTrackingStatus(m.id, "DROPPED")
             if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
@@ -1547,6 +1552,7 @@ internal suspend fun MainViewModel.fetchMalMangaList() {
     if (!isMalActive) return
 
     val entries = malApiService.getMangaList()
+    android.util.Log.d("MalSync", "fetchMalMangaList: got ${entries.size} manga entries (isMalActive=$isMalActive)")
     val localTracker = mangaTrackManager ?: return
 
     for (entry in entries) {
@@ -1560,7 +1566,7 @@ internal suspend fun MainViewModel.fetchMalMangaList() {
 
         val title = entry.node.alternative_titles?.en ?: entry.node.title
 
-        localTracker.ensureTrack(mangaKey, title, entry.node.main_picture?.large ?: entry.node.main_picture?.medium ?: "", entry.node.num_chapters, null)
+        localTracker.ensureTrack(mangaKey, title, entry.node.main_picture?.large ?: entry.node.main_picture?.medium ?: "", entry.node.num_chapters, null, null, null, malId)
         localTracker.updateTrackingStatus(mangaKey, mapMangaStatusFromMal(status))
         if (progress > 0) localTracker.updateChapterProgressKeepMax(mangaKey, progress.toFloat())
         if (score != null && score > 0) localTracker.updateScore(mangaKey, (score * 10).coerceAtMost(100))
@@ -1568,6 +1574,7 @@ internal suspend fun MainViewModel.fetchMalMangaList() {
 
     loadLocalMangaTracking()
     loadMalMangaFavoritesFromCache()
+    saveHomeDataToCache()
 }
 
 /** Map an AniList manga id â†’ its MAL id (idMal), using detail + tracked lists. */

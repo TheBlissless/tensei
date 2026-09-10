@@ -568,15 +568,29 @@ class MangaRepository {
     ): List<MangaExploreMedia> = withContext(Dispatchers.IO) {
         try {
             val fields = "id,title,alternative_titles,main_picture,num_chapters,num_volumes,mean,start_date,status,nsfw,media_type,genres"
-            val limit = perPage.coerceIn(1, 100)
-            val offset = (page - 1).coerceAtLeast(0) * limit
-            val url = if (!query.isNullOrBlank()) {
-                Endpoints.Mal.searchMangaUrl(query, limit, offset, fields)
-            } else {
-                Endpoints.Mal.rankingMangaUrl(malMangaRankingType(format, status), limit, offset, fields)
+            val limit = 100
+            // MAL's search/ranking API only honors the text query — genre/format/status leaks
+            // are applied client-side. A single 30-node page is usually too shallow to match
+            // a genre chip (rarely present in the top-30 slice), so keep paging through the
+            // pool until enough nodes match (or the pool is exhausted).
+            val want = (page).coerceAtLeast(1) * perPage
+            val collected = mutableListOf<MangaExploreMedia>()
+            var offset = 0
+            var poolPages = 0
+            while (collected.size < want && poolPages < 6) {
+                val url = if (!query.isNullOrBlank()) {
+                    Endpoints.Mal.searchMangaUrl(query, limit, offset, fields)
+                } else {
+                    Endpoints.Mal.rankingMangaUrl(malMangaRankingType(format, status), limit, offset, fields)
+                }
+                android.util.Log.d("MangaMal", "filtered search URL: $url")
+                val batch = fetchMalMangaNodes(url) { node -> node.matchesSearchFilters(format, status, genres) }
+                if (batch.isEmpty()) break
+                collected.addAll(batch)
+                offset += limit
+                poolPages++
             }
-            android.util.Log.d("MangaMal", "filtered search URL: $url")
-            fetchMalMangaNodes(url) { node -> node.matchesSearchFilters(format, status, genres) }
+            collected.drop((page - 1).coerceAtLeast(0) * perPage).take(perPage)
         } catch (e: Exception) {
             android.util.Log.e("MangaMal", "filtered search failed: ${e.message}", e)
             emptyList()

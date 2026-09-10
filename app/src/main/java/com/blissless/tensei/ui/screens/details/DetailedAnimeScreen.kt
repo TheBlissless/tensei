@@ -131,7 +131,6 @@ import com.blissless.tensei.dialogs.userScoreToDisplay
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
 import com.blissless.tensei.ui.theme.StatusColors
 import com.blissless.tensei.ui.theme.StatusLabels
-import com.blissless.tensei.ui.screens.episode.EpisodeSelectionDialog
 import com.blissless.tensei.ui.screens.episode.RichEpisodeScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -154,7 +153,6 @@ fun DetailedAnimeScreen(
     currentProgress: Int? = null,
     isLoggedIn: Boolean = false,
     isFavorite: Boolean = false,
-    simplifyEpisodeMenu: Boolean = false,
     onDismiss: () -> Unit,
     onNavigateBack: () -> Unit = onDismiss,
     onSwipeToClose: () -> Unit = {},
@@ -176,6 +174,7 @@ fun DetailedAnimeScreen(
     preferEnglishTitles: Boolean = true,
     onNavigateToSettings: (() -> Unit)? = null,
     onNoExtension: () -> Unit = {},
+    settingsReturnVersion: Int = 0,
     initialCardBounds: MainViewModel.CardBounds? = null
 ) {
     val context = LocalContext.current
@@ -194,6 +193,7 @@ fun DetailedAnimeScreen(
     var fullscreenImageUrl by remember { mutableStateOf<String?>(null) }
     var showEpisodeSelection by remember { mutableStateOf(false) }
     var showNoDefaultExtDialog by remember { mutableStateOf(false) }
+    var reopenEpisodePickerAfterSettings by remember { mutableStateOf(false) }
     var showStatusDialog by remember { mutableStateOf(false) }
     var showRatingSheet by remember { mutableStateOf(false) }
 
@@ -318,7 +318,7 @@ fun DetailedAnimeScreen(
 
         // Try to fetch detailed data
         try {
-            detailedData = viewModel.fetchDetailedAnimeData(anime.id, anime.malId)
+            detailedData = viewModel.fetchDetailedAnimeData(anime.id, anime.malId, title = anime.titleEnglish ?: anime.title)
             // If fetch returns null (not found or error), keep using original anime data
             if (detailedData == null) {
                 detailedData = anime
@@ -340,7 +340,7 @@ fun DetailedAnimeScreen(
             delay(60_000)
             isLoadingDetails = true
             try {
-                val refreshed = viewModel.fetchDetailedAnimeData(anime.id, anime.malId)
+                val refreshed = viewModel.fetchDetailedAnimeData(anime.id, anime.malId, title = anime.titleEnglish ?: anime.title)
                 if (refreshed != null) {
                     detailedData = refreshed
                     relations = refreshed.relations
@@ -477,36 +477,38 @@ fun DetailedAnimeScreen(
             listStatus = ""
         )
         if (showEpisodeSelection) {
-            if (simplifyEpisodeMenu) {
-                EpisodeSelectionDialog(
-                    anime = animeMedia,
-                    isOled = isOled,
-                    onDismiss = { showEpisodeSelection = false },
-                    onEpisodeSelect = { episode, _ ->
-                        showEpisodeSelection = false
-                        onPlayEpisode(episode, null)
-                    }
-                )
-            } else {
-                RichEpisodeScreen(
-                    anime = animeMedia,
-                    viewModel = viewModel,
-                    isOled = isOled,
-                    preferEnglishTitles = preferEnglishTitles,
-                    onDismiss = { showEpisodeSelection = false },
-                    onEpisodeSelect = { episode, _ ->
-                        showEpisodeSelection = false
-                        onPlayEpisode(episode, null)
-                    }
-                )
-            }
+            RichEpisodeScreen(
+                anime = animeMedia,
+                viewModel = viewModel,
+                isOled = isOled,
+                preferEnglishTitles = preferEnglishTitles,
+                onDismiss = { showEpisodeSelection = false },
+                onEpisodeSelect = { episode, _ ->
+                    showEpisodeSelection = false
+                    onPlayEpisode(episode, null)
+                }
+            )
         }
 
         if (showNoDefaultExtDialog) {
             NoDefaultExtensionDialog(
                 onDismiss = { showNoDefaultExtDialog = false },
-                onGoToSettings = onNoExtension,
+                onGoToSettings = {
+                    onNoExtension()
+                },
             )
+        }
+
+        LaunchedEffect(settingsReturnVersion) {
+            if (settingsReturnVersion > 0 && reopenEpisodePickerAfterSettings) {
+                reopenEpisodePickerAfterSettings = false
+                val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
+                if (hasDefault) {
+                    showEpisodeSelection = true
+                } else {
+                    showNoDefaultExtDialog = true
+                }
+            }
         }
 
         Box(
@@ -831,7 +833,6 @@ fun DetailedAnimeScreen(
                     Spacer(modifier = Modifier.height(20.dp))
                     WatchNowButton(
                         status = displayData.status,
-                        simplifyEpisodeMenu = simplifyEpisodeMenu,
                         streamMethod = streamMethod,
                         hasDefaultMagnetExt = defaultMagnetExt != null,
                         hasDefaultExtPkg = defaultExtPkg.isNotEmpty(),

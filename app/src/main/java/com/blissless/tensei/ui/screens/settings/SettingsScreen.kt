@@ -116,9 +116,7 @@ import com.blissless.tensei.viewmodel.setShowMangaCardButtons
 import com.blissless.tensei.viewmodel.setShowMangaStatusColors
 import com.blissless.tensei.viewmodel.setMaxPerformance
 import com.blissless.tensei.viewmodel.setPreferEnglishTitles
-import com.blissless.tensei.viewmodel.setSimplifyEpisodeMenu
 import com.blissless.tensei.viewmodel.setStartupScreen
-import com.blissless.tensei.viewmodel.setHideAdultContent
 import com.blissless.tensei.viewmodel.setMangaReaderMode
 import com.blissless.tensei.viewmodel.setMangaDataSaver
 import com.blissless.tensei.viewmodel.setMangaPageIndicator
@@ -517,7 +515,6 @@ private fun AppearanceSettingsPage(
     onBack: () -> Unit
 ) {
     val showStatusColorsState by viewModel.showStatusColors.collectAsState(initial = true)
-    val simplifyEpisodeMenuState by viewModel.simplifyEpisodeMenu.collectAsState(initial = false)
     val showAnimeCardButtons by viewModel.showAnimeCardButtons.collectAsState(initial = true)
     val showMangaCardButtons by viewModel.showMangaCardButtons.collectAsState(initial = true)
     val showMangaStatusColors by viewModel.showMangaStatusColors.collectAsState(initial = true)
@@ -668,16 +665,6 @@ private fun AppearanceSettingsPage(
                 onCheckedChange = { viewModel.setShowMangaCardButtons(it) }
             )
         }
-
-        SectionHeader("EPISODES")
-        SettingsCard {
-            SettingsToggle(
-                title = "Simple Episode Menu",
-                description = "Use compact episode grid instead of detailed cards (also affects player compact view)",
-                checked = simplifyEpisodeMenuState,
-                onCheckedChange = { viewModel.setSimplifyEpisodeMenu(it) }
-            )
-        }
     }
 }
 
@@ -689,7 +676,6 @@ private fun GeneralSettingsPage(
     onBack: () -> Unit
 ) {
     val startupScreenState by viewModel.startupScreen.collectAsState()
-    val hideAdultContentState by viewModel.hideAdultContent.collectAsState(initial = false)
     val preferEnglishTitles by viewModel.preferEnglishTitles.collectAsState(initial = true)
 
     SettingsPageScaffold(title = "General", onBack = onBack) {
@@ -748,17 +734,6 @@ private fun GeneralSettingsPage(
 
         SectionHeader("CONTENT")
         SettingsCard {
-            SettingsToggle(
-                title = "Hide Adult Content",
-                description = "Exclude 18+ anime from showing up",
-                checked = hideAdultContentState,
-                onCheckedChange = { viewModel.setHideAdultContent(it) }
-            )
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 54.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                thickness = 0.5.dp
-            )
             SettingsToggle(
                 title = "English Titles",
                 description = "Show English titles instead of Romaji",

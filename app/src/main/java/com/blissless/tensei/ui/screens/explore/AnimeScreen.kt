@@ -1,6 +1,5 @@
 package com.blissless.tensei.ui.screens.explore
 
-import com.blissless.tensei.data.models.isAdultContent
 import com.blissless.tensei.data.models.MangaMedia
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -92,7 +91,6 @@ import com.blissless.tensei.ui.components.AnimeCardBounds
 import com.blissless.tensei.ui.components.ExploreAnimeHorizontalList
 import com.blissless.tensei.ui.components.LoadingPlaceholder
 import com.blissless.tensei.ui.components.LoadingSkeleton
-import com.blissless.tensei.ui.screens.episode.EpisodeSelectionDialog
 import com.blissless.tensei.ui.screens.episode.RichEpisodeScreen
 import com.blissless.tensei.ui.components.SectionTitle
 import com.blissless.tensei.ui.screens.details.DetailedAnimeScreen
@@ -135,7 +133,6 @@ fun AnimeScreen(
     showStatusColors: Boolean = true,
     showAnimeCardButtons: Boolean = true,
     preferEnglishTitles: Boolean = true,
-    hideAdultContent: Boolean = true,
     favoriteIds: Set<Int> = emptySet(),
     onPlayEpisode: (AnimeMedia, Int, String?) -> Unit = { _, _, _ -> },
     currentlyWatching: List<AnimeMedia> = emptyList(),
@@ -153,6 +150,7 @@ fun AnimeScreen(
     onViewAllRecommendations: (Int, String, String?) -> Unit = { _, _, _ -> },
     onSearchClick: () -> Unit = {},
     onNoExtension: () -> Unit = {},
+    settingsReturnVersion: Int = 0,
     onAnimeDetailMangaClick: (MangaMedia) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -168,26 +166,21 @@ fun AnimeScreen(
     val isLoading by viewModel.isLoadingExplore.collectAsState()
     val apiError by viewModel.apiError.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
-    val simplifyEpisodeMenu by viewModel.simplifyEpisodeMenu.collectAsState(initial = true)
     val defaultMagnetExt by viewModel.defaultMagnetExtension.collectAsState()
     val streamMethod by viewModel.streamMethod.collectAsState()
     val defaultExtPkg by viewModel.defaultExtensionPackage.collectAsState()
     val appIcon by viewModel.appIcon.collectAsState()
     val localAnimeStatus by viewModel.localAnimeStatus.collectAsState()
     
-    val filteredFeaturedAnime = remember(featuredAnime, hideAdultContent) {
-        if (hideAdultContent) featuredAnime.filter { !isAdultContent(it.isAdult, it.genres) } else featuredAnime
-    }
-    val filteredSeasonalAnime = remember(seasonalAnime, hideAdultContent) {
-        if (hideAdultContent) seasonalAnime.filter { !isAdultContent(it.isAdult, it.genres) } else seasonalAnime
-    }
-    val filteredTopSeries = remember(topSeries, hideAdultContent) { if (hideAdultContent) topSeries.filter { !isAdultContent(it.isAdult, it.genres) } else topSeries }
-    val filteredTopMovies = remember(topMovies, hideAdultContent) { if (hideAdultContent) topMovies.filter { !isAdultContent(it.isAdult, it.genres) } else topMovies }
-    val filteredActionAnime = remember(actionAnime, hideAdultContent) { if (hideAdultContent) actionAnime.filter { !isAdultContent(it.isAdult, it.genres) } else actionAnime }
-    val filteredRomanceAnime = remember(romanceAnime, hideAdultContent) { if (hideAdultContent) romanceAnime.filter { !isAdultContent(it.isAdult, it.genres) } else romanceAnime }
-    val filteredComedyAnime = remember(comedyAnime, hideAdultContent) { if (hideAdultContent) comedyAnime.filter { !isAdultContent(it.isAdult, it.genres) } else comedyAnime }
-    val filteredFantasyAnime = remember(fantasyAnime, hideAdultContent) { if (hideAdultContent) fantasyAnime.filter { !isAdultContent(it.isAdult, it.genres) } else fantasyAnime }
-    val filteredScifiAnime = remember(scifiAnime, hideAdultContent) { if (hideAdultContent) scifiAnime.filter { !isAdultContent(it.isAdult, it.genres) } else scifiAnime }
+    val filteredFeaturedAnime = featuredAnime
+    val filteredSeasonalAnime = seasonalAnime
+    val filteredTopSeries = topSeries
+    val filteredTopMovies = topMovies
+    val filteredActionAnime = actionAnime
+    val filteredRomanceAnime = romanceAnime
+    val filteredComedyAnime = comedyAnime
+    val filteredFantasyAnime = fantasyAnime
+    val filteredScifiAnime = scifiAnime
 
     // True once the AniList API has returned anything at all (anime batch or manga sections).
     val hasAnyExploreData = filteredFeaturedAnime.isNotEmpty() || filteredSeasonalAnime.isNotEmpty() ||
@@ -236,6 +229,7 @@ fun AnimeScreen(
     var showEpisodeSelection by remember { mutableStateOf(false) }
     var showStatusDialog by remember { mutableStateOf(false) }
     var showNoExtensionDialog by remember { mutableStateOf(false) }
+    var reopenEpisodePickerAfterSettings by remember { mutableStateOf(false) }
     
     // Force recomposition when lists change by tracking a version counter
     var listVersion by remember { mutableIntStateOf(0) }
@@ -294,6 +288,7 @@ fun AnimeScreen(
             anime = anime.toDetailedAnimeData(),
             viewModel = viewModel,
             isOled = isOled,
+            settingsReturnVersion = settingsReturnVersion,
             currentStatus = animeStatus,
             currentProgress = animeProgress,
             isFavorite = isAnimeFavorite,
@@ -445,7 +440,6 @@ fun AnimeScreen(
                 onViewAllRecommendations(animeId, title, titleEnglish)
             },
             onNoExtension = {
-                showDialog = false
                 onNoExtension()
             }
         )
@@ -468,18 +462,7 @@ fun AnimeScreen(
             listStatus = "",
             listEntryId = 0
         )
-        if (simplifyEpisodeMenu) {
-            EpisodeSelectionDialog(
-                anime = animeMedia,
-                isOled = isOled,
-                onDismiss = { showEpisodeSelection = false },
-                onEpisodeSelect = { episode, _ ->
-                    onPlayEpisode(animeMedia, episode, null)
-                    showEpisodeSelection = false
-                }
-            )
-        } else {
-            RichEpisodeScreen(
+        RichEpisodeScreen(
                 anime = animeMedia,
                 viewModel = viewModel,
                 isOled = isOled,
@@ -490,7 +473,6 @@ fun AnimeScreen(
                     showEpisodeSelection = false
                 }
             )
-        }
     }
 
     // Status dialog for carousel Save button
@@ -569,11 +551,25 @@ fun AnimeScreen(
         { anime ->
             selectedAnime = anime
             val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
-            if (simplifyEpisodeMenu || hasDefault) {
+            if (hasDefault) {
                 showEpisodeSelection = true
             } else {
                 showEpisodeSelection = false
                 showNoExtensionDialog = true
+            }
+        }
+    }
+
+    LaunchedEffect(settingsReturnVersion) {
+        if (settingsReturnVersion > 0 && reopenEpisodePickerAfterSettings) {
+            reopenEpisodePickerAfterSettings = false
+            val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
+            if (selectedAnime != null) {
+                if (hasDefault) {
+                    showEpisodeSelection = true
+                } else {
+                    showNoExtensionDialog = true
+                }
             }
         }
     }
@@ -696,7 +692,7 @@ fun AnimeScreen(
                     onPlayClick = { anime ->
                         selectedAnime = anime
                         val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
-                        if (simplifyEpisodeMenu || hasDefault) {
+                        if (hasDefault) {
                             showEpisodeSelection = true
                         } else {
                             showEpisodeSelection = false

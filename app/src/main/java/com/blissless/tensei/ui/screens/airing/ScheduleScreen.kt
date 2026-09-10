@@ -81,7 +81,6 @@ import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.AiringScheduleAnime
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.ExploreAnime
-import com.blissless.tensei.data.models.isAdultContent
 import com.blissless.tensei.data.models.toDetailedAnimeData
 import com.blissless.tensei.ui.components.appIconDrawable
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
@@ -147,7 +146,6 @@ fun ScheduleScreen(
     viewModel: MainViewModel,
     isOled: Boolean = false,
     isVisible: Boolean = false,
-    hideAdultContent: Boolean = false,
     preferEnglishTitles: Boolean = true,
     isLoggedIn: Boolean = false,
     onPlayEpisode: (AnimeMedia, Int, String?) -> Unit = { _, _, _ -> },
@@ -159,6 +157,7 @@ fun ScheduleScreen(
     onViewAllRelations: (Int, String, String?) -> Unit = { _, _, _ -> },
     onViewAllRecommendations: (Int, String, String?) -> Unit = { _, _, _ -> },
     onNoExtension: () -> Unit = {},
+    settingsReturnVersion: Int = 0,
     onAnimeDetailMangaClick: (MangaMedia) -> Unit = {},
     onSearchClick: () -> Unit = {}
 ) {
@@ -257,22 +256,22 @@ fun ScheduleScreen(
     val endOfToday = remember(startOfToday) { startOfToday + 86400L }
     val sevenDaysFromNow = remember(startOfToday) { endOfToday + 6 * 86400L }
 
-    val filteredScheduleByDay = remember(scheduleByDay, startOfToday, endOfToday, sevenDaysFromNow, currentDayOfWeek, hideAdultContent) {
+    val filteredScheduleByDay = remember(scheduleByDay, startOfToday, endOfToday, sevenDaysFromNow, currentDayOfWeek) {
         val result = mutableMapOf<Int, MutableList<AiringScheduleAnime>>()
         for (i in 0..6) result[i] = mutableListOf()
-        scheduleByDay.values.flatten().filter { !hideAdultContent || (!isAdultContent(it.isAdult, it.genres)) }.forEach { anime ->
+        scheduleByDay.values.flatten().forEach { anime ->
             val ac = Calendar.getInstance(); ac.timeInMillis = anime.airingAt * 1000L; val animeDow = ac.get(Calendar.DAY_OF_WEEK) - 1
             if (animeDow == currentDayOfWeek) { if (anime.airingAt in startOfToday..endOfToday) result[animeDow]?.add(anime) }
             else { if (anime.airingAt in endOfToday..sevenDaysFromNow) result[animeDow]?.add(anime) }
         }
-        result.forEach { (_, list) -> list.sortBy { it.airingAt } }; result
+        result.forEach { (_, list) -> list.sortWith(compareBy<AiringScheduleAnime> { it.airingAt }.thenBy { it.title.lowercase() }) }; result
     }
 
     val allUpcomingTimelineItems = remember(filteredScheduleByDay, orderedDays, currentDayOfWeek) {
         val items = mutableListOf<TimelineItem>()
         val tf = SimpleDateFormat("HH:mm", Locale.getDefault())
         orderedDays.forEach { dayIndex ->
-            val dayAnime = (filteredScheduleByDay[dayIndex] ?: emptyList()).sortedBy { it.airingAt }
+            val dayAnime = (filteredScheduleByDay[dayIndex] ?: emptyList()).sortedWith(compareBy<AiringScheduleAnime> { it.airingAt }.thenBy { it.title.lowercase() })
             items.add(TimelineItem.DayHeader(dayIndex, DayNames[dayIndex]))
             if (dayAnime.isNotEmpty()) {
                 val grouped = LinkedHashMap<Int, MutableList<TimelineItem.Anime>>()
@@ -576,6 +575,7 @@ fun ScheduleScreen(
         val isFavorite by remember(listVersion, favoriteIds, selectedAnime!!.id) { derivedStateOf { favoriteIds.contains(selectedAnime!!.id) } }
         DetailedAnimeScreen(
             anime = selectedAnime!!.toDetailedAnimeData(), viewModel = viewModel, isOled = isOled,
+            settingsReturnVersion = settingsReturnVersion,
             currentStatus = currentStatus, currentProgress = currentProgress, isFavorite = isFavorite, isLoggedIn = isLoggedIn,
             onDismiss = { if (firstOpenedAnime != null && selectedAnime!!.id != firstOpenedAnime!!.id) selectedAnime = firstOpenedAnime else { showAnimeDialog = false; selectedAnime = null; firstOpenedAnime = null; onAnimeDialogOpen(false) } },
             onSwipeToClose = { showAnimeDialog = false; selectedAnime = null; firstOpenedAnime = null; onAnimeDialogOpen(false) },
@@ -643,7 +643,6 @@ fun ScheduleScreen(
             onViewAllRelations = { id, title, titleEnglish -> onViewAllRelations(id, title, titleEnglish) },
             onViewAllRecommendations = { id, title, titleEnglish -> onViewAllRecommendations(id, title, titleEnglish) },
             onNoExtension = {
-                showAnimeDialog = false
                 onNoExtension()
             }
         )
@@ -843,18 +842,18 @@ private fun TimelineAnimeItem(
 
                     Spacer(Modifier.width(12.dp))
 
-                    Column(modifier = Modifier.weight(1f).padding(bottom = 30.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
                         val displayTitle = if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
                         Text(
                             displayTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = contentAlpha)
                         )
 
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(6.dp))
 
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (anime.airingEpisode > 0) {
@@ -872,44 +871,43 @@ private fun TimelineAnimeItem(
                                 }
                             }
                         }
-
-                        Spacer(Modifier.height(8.dp))
-                        // Already-aired episodes (e.g. from the anime-schedule fallback, which has no
-                        // next-episode timestamp) show how long ago they aired instead of a fake
-                        // week-ahead countdown — matching AniList's schedule design. Upcoming
-                        // episodes keep the real countdown.
-                        if (isPast) {
-                            val secSince = (currentTime - anime.airingAt).coerceAtLeast(0)
-                            val elapsedText = remember(currentTime) {
-                                val h = secSince / 3600; val m = (secSince % 3600) / 60
-                                when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
-                            }
-                            Text(
-                                "Aired $elapsedText ago",
-                                style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                            )
-                        } else {
-                            val secUntil = (anime.airingAt - currentTime).coerceAtLeast(0)
-                            val timeUntilText = remember(currentTime) {
-                                val h = secUntil / 3600; val m = (secUntil % 3600) / 60
-                                when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
-                            }
-                            Text(
-                                "in $timeUntilText",
-                                style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
                 }
 
-                Text(
-                    text = timeString,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isPast) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 8.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(start = 90.dp, end = 18.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isPast) {
+                        val secSince = (currentTime - anime.airingAt).coerceAtLeast(0)
+                        val elapsedText = remember(currentTime) {
+                            val h = secSince / 3600; val m = (secSince % 3600) / 60
+                            when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
+                        }
+                        Text(
+                            "Aired $elapsedText ago",
+                            style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                        )
+                    } else {
+                        val secUntil = (anime.airingAt - currentTime).coerceAtLeast(0)
+                        val timeUntilText = remember(currentTime) {
+                            val h = secUntil / 3600; val m = (secUntil % 3600) / 60
+                            when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
+                        }
+                        Text(
+                            "in $timeUntilText",
+                            style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Text(
+                        text = timeString,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isPast) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }

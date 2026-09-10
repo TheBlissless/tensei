@@ -100,7 +100,6 @@ import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.LocalAnimeEntry
 import com.blissless.tensei.data.models.MangaExploreMedia
 import com.blissless.tensei.data.models.MediaTag
-import com.blissless.tensei.data.models.isAdultContent
 import com.blissless.tensei.data.models.toDetailedAnimeData
 import com.blissless.tensei.ui.screens.details.DetailedAnimeScreen
 import com.blissless.tensei.ui.theme.StatusColors
@@ -176,7 +175,6 @@ fun SearchScreen(
     isOled: Boolean,
     isLoggedIn: Boolean,
     preferEnglishTitles: Boolean,
-    hideAdultContent: Boolean,
     currentlyWatching: List<AnimeMedia>,
     planningToWatch: List<AnimeMedia>,
     completed: List<AnimeMedia>,
@@ -193,6 +191,7 @@ fun SearchScreen(
     onViewAllRelations: (Int, String, String?) -> Unit = { _, _, _ -> },
     onViewAllRecommendations: (Int, String, String?) -> Unit = { _, _, _ -> },
     onNoExtension: () -> Unit = {},
+    settingsReturnVersion: Int = 0,
     onMangaClick: (MangaExploreMedia) -> Unit = {},
     onAnimeDetailMangaClick: (MangaMedia) -> Unit = {}
 ) {
@@ -437,18 +436,12 @@ fun SearchScreen(
         }
     }
 
-    LaunchedEffect(filters.query) {
-        if (filters.query.isNotBlank()) {
-            delay(400.milliseconds)
-            performSearch()
-        }
-    }
-
-    // On first open, run a default search with an empty query so the screen
-    // shows results immediately (popular/trending by default sort) instead of
-    // a blank "type to search" state.
-    LaunchedEffect(Unit) {
-        delay(250.milliseconds)
+    // Re-run the search whenever the query text changes — including clearing it
+    // back to blank, which must restore the default (popular/trending) results
+    // instead of leaving stale or empty results behind. Keying on searchType too
+    // means toggling the Anime/Manga/Both chips also (re)fetches the active set.
+    LaunchedEffect(filters.query, searchType) {
+        delay(400.milliseconds)
         performSearch()
     }
 
@@ -478,16 +471,9 @@ fun SearchScreen(
         focusRequester.requestFocus()
     }
 
-    val filteredResults = remember(results, hideAdultContent) {
-        if (hideAdultContent) results.filter { !isAdultContent(it.isAdult, it.genres) } else results
-    }
+    val filteredResults = results
 
-    // Manga results filtered by adult-content preference. MangaExploreMedia
-    // exposes a simple `isAdult` flag (no genre inference like anime), so we
-    // only need a straightforward filter here.
-    val filteredMangaResults = remember(mangaResults, hideAdultContent) {
-        if (hideAdultContent) mangaResults.filter { !it.isAdult } else mangaResults
-    }
+    val filteredMangaResults = mangaResults
 
     // Heterogeneous list used by the "both" grid. We interleave anime and
     // manga items (anime first, then manga on the same row) so neither type
@@ -901,6 +887,7 @@ fun SearchScreen(
             anime = selectedAnime!!.toDetailedAnimeData(),
             viewModel = viewModel,
             isOled = isOled,
+            settingsReturnVersion = settingsReturnVersion,
             isLoggedIn = isLoggedIn,
             currentStatus = currentStatus,
             currentProgress = currentProgress,
@@ -977,14 +964,13 @@ fun SearchScreen(
             onViewAllRelations = { animeId, title, titleEnglish -> onViewAllRelations(animeId, title, titleEnglish) },
             onViewAllRecommendations = { animeId, title, titleEnglish -> onViewAllRecommendations(animeId, title, titleEnglish) },
             onNoExtension = {
-                showDetailDialog = false
                 onNoExtension()
             }
         )
     }
 
-    val visibleTags = remember(allTags, hideAdultContent) {
-        allTags.filter { !hideAdultContent || !it.isAdult }.sortedBy { it.name }
+    val visibleTags = remember(allTags) {
+        allTags.sortedBy { it.name }
     }
 
     if (showGenreSheet) {

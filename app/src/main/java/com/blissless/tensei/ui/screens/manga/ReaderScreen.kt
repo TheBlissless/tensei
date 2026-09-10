@@ -870,67 +870,22 @@ fun MangaReaderScreen(
             }
         }
 
-        // No manga extension selected — replace the entire reader content (including the
-        // chapter selection screen) so the user is forced to pick a source first.
         if (selectedExtension == null) {
-            MangaNoExtensionScreen(
-                isOled = isOled,
-                onClose = onClose,
-                onOpenSettings = onOpenSettings
+            AlertDialog(
+                onDismissRequest = onClose,
+                title = { Text("No Extension Selected") },
+                text = { Text("Select a default manga extension in Settings to load chapters for this title.") },
+                confirmButton = {
+                    TextButton(onClick = onOpenSettings) {
+                        Text("Go to Settings")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onClose) {
+                        Text("Close")
+                    }
+                }
             )
-        }
-    }
-}
-
-@Composable
-private fun MangaNoExtensionScreen(
-    isOled: Boolean,
-    onClose: () -> Unit,
-    onOpenSettings: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(if (isOled) Color.Black else Color(0xFF1a1a1a)),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(horizontal = 32.dp)
-        ) {
-            Icon(
-                Icons.Default.Extension,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.size(48.dp)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "No extension selected",
-                color = Color.White,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Select a manga extension in Reader Settings to load chapters for this title.",
-                color = Color.White.copy(alpha = 0.7f),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(
-                onClick = onOpenSettings,
-                modifier = Modifier.height(48.dp),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Go to Settings")
-            }
-            TextButton(onClick = onClose) {
-                Text("Close", color = Color.White.copy(alpha = 0.8f))
-            }
         }
     }
 }

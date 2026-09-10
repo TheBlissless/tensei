@@ -144,7 +144,8 @@ fun MangaScreen(
     onSearchClick: () -> Unit = {},
     onMangaClick: (MangaExploreMedia) -> Unit = {},
     onMangaReadClick: (MangaExploreMedia) -> Unit = {},
-    onMangaNoExtension: () -> Unit = {}
+    onMangaNoExtension: () -> Unit = {},
+    settingsReturnVersion: Int = 0
 ) {
     val mangaExploreSections by viewModel.mangaExploreSections.collectAsState()
     val isLoadingManga by viewModel.isLoadingManga.collectAsState()
@@ -172,6 +173,7 @@ fun MangaScreen(
     }
 
     var showMangaNoExtensionDialog by remember { mutableStateOf(false) }
+    var pendingMangaReadAfterSettings by remember { mutableStateOf<MangaExploreMedia?>(null) }
     var showMangaStatusDialog by remember { mutableStateOf(false) }
     var selectedMangaForStatus by remember { mutableStateOf<MangaExploreMedia?>(null) }
 
@@ -197,7 +199,7 @@ fun MangaScreen(
     // the chapter selection only after a manga extension has been chosen.
     if (showMangaNoExtensionDialog) {
         AlertDialog(
-            onDismissRequest = { showMangaNoExtensionDialog = false },
+            onDismissRequest = { showMangaNoExtensionDialog = false; pendingMangaReadAfterSettings = null },
             title = { Text("No Extension Selected") },
             text = { Text("Select a default manga extension in Settings to load chapters for this title.") },
             confirmButton = {
@@ -209,11 +211,23 @@ fun MangaScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showMangaNoExtensionDialog = false }) {
+                TextButton(onClick = { showMangaNoExtensionDialog = false; pendingMangaReadAfterSettings = null }) {
                     Text("Close")
                 }
             }
         )
+    }
+
+    LaunchedEffect(settingsReturnVersion) {
+        val pending = pendingMangaReadAfterSettings
+        if (settingsReturnVersion > 0 && pending != null) {
+            pendingMangaReadAfterSettings = null
+            if (selectedMangaExtension == null) {
+                showMangaNoExtensionDialog = true
+            } else {
+                onMangaReadClick(pending)
+            }
+        }
     }
 
     // Status dialog for manga carousel Save button
@@ -403,6 +417,7 @@ fun MangaScreen(
                         },
                         onReadClick = { manga ->
                             if (selectedMangaExtension == null) {
+                                pendingMangaReadAfterSettings = manga
                                 showMangaNoExtensionDialog = true
                             } else {
                                 onMangaReadClick(manga)
@@ -451,6 +466,7 @@ fun MangaScreen(
                             },
                             onReadClick = { manga ->
                                 if (selectedMangaExtension == null) {
+                                    pendingMangaReadAfterSettings = manga
                                     showMangaNoExtensionDialog = true
                                 } else {
                                     onMangaReadClick(manga)

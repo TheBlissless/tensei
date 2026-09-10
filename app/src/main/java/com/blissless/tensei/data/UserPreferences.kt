@@ -33,7 +33,6 @@ class UserPreferences(context: Context) {
         private const val KEY_FORWARD_SKIP_SECONDS = "forward_skip_seconds"
         private const val KEY_BACKWARD_SKIP_SECONDS = "backward_skip_seconds"
         private const val KEY_HIDE_NAVBAR_TEXT = "hide_navbar_text"
-        private const val KEY_SIMPLIFY_EPISODE_MENU = "simplify_episode_menu"
         private const val KEY_SIMPLIFY_ANIME_DETAILS = "simplify_anime_details"
         private const val KEY_AUTO_SKIP_OPENING = "auto_skip_opening"
         private const val KEY_AUTO_SKIP_ENDING = "auto_skip_ending"
@@ -44,7 +43,6 @@ class UserPreferences(context: Context) {
         private const val KEY_ANILIST_FAVORITES = "anilist_favorites"
         private const val KEY_PREFERRED_SCRAPER = "preferred_scraper"
         private const val KEY_DEFAULT_EXTENSION = "default_extension_package"
-        private const val KEY_HIDE_ADULT_CONTENT = "hide_adult_content"
         private const val KEY_STREAM_PROVIDER = "stream_provider"
         private const val KEY_STARTUP_SCREEN = "startup_screen"
         private const val KEY_BUFFER_AHEAD_SECONDS = "buffer_ahead_seconds"
@@ -140,9 +138,6 @@ class UserPreferences(context: Context) {
     private val _hideNavbarText = MutableStateFlow(false)
     val hideNavbarText: StateFlow<Boolean> = _hideNavbarText.asStateFlow()
 
-    private val _simplifyEpisodeMenu = MutableStateFlow(true)
-    val simplifyEpisodeMenu: StateFlow<Boolean> = _simplifyEpisodeMenu.asStateFlow()
-
     private val _simplifyAnimeDetails = MutableStateFlow(true)
     val simplifyAnimeDetails: StateFlow<Boolean> = _simplifyAnimeDetails.asStateFlow()
 
@@ -175,10 +170,6 @@ class UserPreferences(context: Context) {
     // Default Subtitle Language
     private val _defaultSubtitleLang = MutableStateFlow("English")
     val defaultSubtitleLang: StateFlow<String> = _defaultSubtitleLang.asStateFlow()
-
-    // Hide Adult Content
-    private val _hideAdultContent = MutableStateFlow(false)
-    val hideAdultContent: StateFlow<Boolean> = _hideAdultContent.asStateFlow()
 
     // Stream Provider (1 = Miruro, 2 = Animekai)
     private val _streamProvider = MutableStateFlow(1)
@@ -319,7 +310,6 @@ class UserPreferences(context: Context) {
         _forwardSkipSeconds.value = sharedPreferences.getInt(KEY_FORWARD_SKIP_SECONDS, 10)
         _backwardSkipSeconds.value = sharedPreferences.getInt(KEY_BACKWARD_SKIP_SECONDS, 10)
         _hideNavbarText.value = sharedPreferences.getBoolean(KEY_HIDE_NAVBAR_TEXT, false)
-        _simplifyEpisodeMenu.value = sharedPreferences.getBoolean(KEY_SIMPLIFY_EPISODE_MENU, false)
         _simplifyAnimeDetails.value = sharedPreferences.getBoolean(KEY_SIMPLIFY_ANIME_DETAILS, false)
         _autoSkipOpening.value = sharedPreferences.getBoolean(KEY_AUTO_SKIP_OPENING, false)
         _autoSkipEnding.value = sharedPreferences.getBoolean(KEY_AUTO_SKIP_ENDING, false)
@@ -330,7 +320,6 @@ class UserPreferences(context: Context) {
         _preferredScraper.value = sharedPreferences.getString(KEY_PREFERRED_SCRAPER, "Animekai") ?: "Animekai"
         _defaultExtensionPackage.value = sharedPreferences.getString(KEY_DEFAULT_EXTENSION, "") ?: ""
         _defaultSubtitleLang.value = sharedPreferences.getString(KEY_DEFAULT_SUBTITLE_LANG, "English") ?: "English"
-        _hideAdultContent.value = sharedPreferences.getBoolean(KEY_HIDE_ADULT_CONTENT, true)
         _streamProvider.value = sharedPreferences.getInt(KEY_STREAM_PROVIDER, 1)
         _streamMethod.value = sharedPreferences.getString(KEY_STREAM_METHOD, "magnet") ?: "magnet"
         val savedMagnetExt = sharedPreferences.getString(KEY_DEFAULT_MAGNET_EXTENSION, null)
@@ -472,11 +461,6 @@ class UserPreferences(context: Context) {
         sharedPreferences.edit {putBoolean(KEY_HIDE_NAVBAR_TEXT, enabled) }
     }
 
-    fun setSimplifyEpisodeMenu(enabled: Boolean) {
-        _simplifyEpisodeMenu.value = enabled
-        sharedPreferences.edit { putBoolean(KEY_SIMPLIFY_EPISODE_MENU, enabled) }
-    }
-
     fun setSimplifyAnimeDetails(enabled: Boolean) {
         _simplifyAnimeDetails.value = enabled
         sharedPreferences.edit { putBoolean(KEY_SIMPLIFY_ANIME_DETAILS, enabled) }
@@ -529,11 +513,6 @@ class UserPreferences(context: Context) {
     fun setDefaultSubtitleLang(lang: String) {
         _defaultSubtitleLang.value = lang
         sharedPreferences.edit { putString(KEY_DEFAULT_SUBTITLE_LANG, lang) }
-    }
-
-    fun setHideAdultContent(enabled: Boolean) {
-        _hideAdultContent.value = enabled
-        sharedPreferences.edit { putBoolean(KEY_HIDE_ADULT_CONTENT, enabled) }
     }
 
     fun setStreamProvider(provider: Int) {

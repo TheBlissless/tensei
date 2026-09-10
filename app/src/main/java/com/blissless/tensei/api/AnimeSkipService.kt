@@ -251,17 +251,21 @@ class AnimeSkipService(private val context: Context? = null) {
 
     // ==================== HELPERS ====================
 
+    // Resolve a MAL id for AniSkip by searching the official MAL v2 API (requires only the
+    // client id — no user token).
     private suspend fun searchMalId(animeName: String, targetYear: Int? = null): Int? = withContext(Dispatchers.IO) {
         try {
             val encodedName = URLEncoder.encode(animeName, "UTF-8")
-            val url = com.blissless.tensei.network.Endpoints.Jikan.searchAnime(encodedName, 10)
-            executeGetRequest(url)?.let { response ->
-                val data = json.decodeFromString<JikanSearchResponse>(response)
-                val candidates = data.data
+            val url = "https://api.myanimelist.net/v2/anime?q=$encodedName&limit=10"
+            val clientId = com.blissless.tensei.BuildConfig.MAL_CLIENT_ID
+            if (clientId.isBlank()) return@withContext null
+            executeGetRequest(url, mapOf("X-MAL-CLIENT-ID" to clientId))?.let { response ->
+                val data = json.decodeFromString<MalSearchResponse>(response)
+                val candidates = data.data.mapNotNull { it.node }
                 if (candidates.isEmpty()) return@withContext null
 
                 val normalizedQuery = animeName.lowercase().trim()
-                var bestMatch: JikanAnime? = null
+                var bestMatch: MalSearchAnime? = null
                 var highestScore = -1
 
                 for (candidate in candidates) {
@@ -273,11 +277,14 @@ class AnimeSkipService(private val context: Context? = null) {
                         else if (nt.contains(normalizedQuery) || normalizedQuery.contains(nt)) score = maxOf(score, 50)
                     }
                     scoreTitle(candidate.title)
-                    candidate.titles?.forEach { scoreTitle(it.title) }
+                    candidate.alternativeTitles?.let { alt ->
+                        listOfNotNull(alt.en, alt.ja, alt.jaRo).forEach { scoreTitle(it) }
+                        alt.synonyms?.forEach { scoreTitle(it) }
+                    }
                     if (targetYear != null && candidate.startYear == targetYear) score += 20
                     if (score > highestScore) { highestScore = score; bestMatch = candidate }
                 }
-                bestMatch?.malId ?: candidates.firstOrNull()?.malId
+                bestMatch?.id ?: candidates.firstOrNull()?.id
             }
         } catch (e: Exception) { ErrorHandler.report("AnimeSkipService", "operation failed, returning null", e); null }
     }
@@ -311,11 +318,12 @@ class AnimeSkipService(private val context: Context? = null) {
         } catch (e: Exception) { ErrorHandler.report("AnimeSkipService", "operation failed, returning null", e); null }
     }
 
-    private suspend fun executeGetRequest(urlString: String): String? = withContext(Dispatchers.IO) {
+    private suspend fun executeGetRequest(urlString: String, extraHeaders: Map<String, String> = emptyMap()): String? = withContext(Dispatchers.IO) {
         try {
             val connection = URL(urlString).openConnection() as HttpsURLConnection
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept", "application/json")
+            extraHeaders.forEach { (key, value) -> connection.setRequestProperty(key, value) }
             connection.connectTimeout = 15000
             connection.readTimeout = 15000
             if (connection.responseCode == 200) {
@@ -337,23 +345,27 @@ data class AniSkipResult(val skipType: String, val interval: AniSkipInterval)
 data class AniSkipInterval(val startTime: Double, val endTime: Double)
 
 @Serializable
-data class JikanSearchResponse(val data: List<JikanAnime>)
+data class MalSearchResponse(val data: List<MalSearchNodeWrapper>)
 
 @Serializable
-data class JikanAnime(
-    @SerialName("mal_id") val malId: Int,
+data class MalSearchNodeWrapper(val node: MalSearchAnime? = null)
+
+@Serializable
+data class MalSearchAnime(
+    val id: Int,
     val title: String,
-    val titles: List<JikanTitle>? = null,
-    val year: Int? = null,
-    val aired: JikanAired? = null
+    @SerialName("alternative_titles") val alternativeTitles: MalSearchAltTitles? = null,
+    @SerialName("start_date") val startDate: String? = null
 ) {
-    val startYear: Int? get() = year ?: aired?.from?.take(4)?.toIntOrNull()
+    val startYear: Int? get() = startDate?.take(4)?.toIntOrNull()
 }
 
 @Serializable
-data class JikanAired(val from: String? = null)
-
-@Serializable
-data class JikanTitle(val type: String, val title: String)
+data class MalSearchAltTitles(
+    val en: String? = null,
+    val ja: String? = null,
+    @SerialName("ja_ro") val jaRo: String? = null,
+    val synonyms: List<String>? = null
+)
 
 

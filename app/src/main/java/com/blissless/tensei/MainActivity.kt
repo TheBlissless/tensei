@@ -100,7 +100,6 @@ import com.blissless.tensei.ui.screens.explore.AnimeScreen
 import com.blissless.tensei.ui.screens.explore.MangaScreen
 import com.blissless.tensei.ui.screens.home.HomeScreen
 import com.blissless.tensei.ui.screens.episode.RichEpisodeList
-import com.blissless.tensei.ui.screens.episode.SimpleEpisodeGrid
 import com.blissless.tensei.ui.screens.player.PlayerScreen
 import com.blissless.tensei.ui.screens.profile.UserProfileScreen
 import com.blissless.tensei.ui.screens.relations.AllRecommendationsScreen
@@ -691,9 +690,6 @@ fun MainScreen(
     val forwardSkipSeconds by viewModel.forwardSkipSeconds.collectAsState(initial = 10)
     val backwardSkipSeconds by viewModel.backwardSkipSeconds.collectAsState(initial = 10)
 
-    val simplifyEpisodeMenu by viewModel.simplifyEpisodeMenu.collectAsState(initial = true)
-    val hideAdultContent by viewModel.hideAdultContent.collectAsState(initial = false)
-
     val aniListFavorites by viewModel.aniListFavorites.collectAsState()
     val aniListFavoriteIds = remember(aniListFavorites) { aniListFavorites.map { it.id }.toSet() }
     val malFavorites by viewModel.malFavorites.collectAsState()
@@ -799,6 +795,9 @@ fun MainScreen(
     var showNoExtDialog2 by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var pendingSettingsGroup by remember { mutableStateOf<String?>(null) }
+    var settingsReturnVersion by remember { mutableStateOf(0) }
+    var pendingMangaAfterSettings by remember { mutableStateOf<MangaMedia?>(null) }
+    var pendingMangaResumeAfterSettings by remember { mutableStateOf(false) }
     var selectedAnimeState by remember { mutableStateOf<AnimeMedia?>(null) }
     var showDetailedAnimeScreen by remember { mutableStateOf(false) }
     var currentCardBounds by remember { mutableStateOf<MainViewModel.CardBounds?>(null) }
@@ -1523,6 +1522,7 @@ fun MainScreen(
             anime = exploreDialog.anime.toDetailedAnimeData(),
             viewModel = viewModel,
             isOled = isOled,
+            settingsReturnVersion = settingsReturnVersion,
             currentStatus = animeStatusMap[exploreDialog.anime.id],
             currentProgress = animeProgressMap[exploreDialog.anime.id],
             isFavorite = isAnimeFavorite,
@@ -1754,6 +1754,7 @@ fun MainScreen(
             anime = selectedAnimeState!!.toDetailedAnimeData(),
             viewModel = viewModel,
             isOled = isOled,
+            settingsReturnVersion = settingsReturnVersion,
             currentStatus = currentStatusForAnime,
             currentProgress = currentProgressForAnime,
             isFavorite = isAnimeFavorite,
@@ -2097,9 +2098,31 @@ fun MainScreen(
     // Scaffold. Before this, the reader was composed directly in the main window
     // and the Scaffold (composed later, always on top) covered it — the reader
     // opened (state/logs) but was never visible.
+
+    // After returning from Settings, resume the pending manga read/open-chapters
+    // action if a manga default extension was just configured.
+    LaunchedEffect(settingsReturnVersion) {
+        val pending = pendingMangaAfterSettings
+        if (settingsReturnVersion > 0 && pending != null) {
+            pendingMangaAfterSettings = null
+            val resume = pendingMangaResumeAfterSettings
+            pendingMangaResumeAfterSettings = false
+            if (selectedMangaExtension == null) {
+                showMangaNoExtensionDialog = true
+            } else {
+                mangaAutoShowChapters = !resume
+                if (mangaDetailStack.lastOrNull()?.id != pending.id || !showMangaDetailScreen) {
+                    mangaDetailStack = mangaDetailStack + pending
+                }
+                mangaReaderChapterIndex = if (resume) pending.progress.coerceAtLeast(0) else -1
+                showMangaReader = true
+            }
+        }
+    }
+
     if (showMangaNoExtensionDialog) {
         AlertDialog(
-            onDismissRequest = { showMangaNoExtensionDialog = false },
+            onDismissRequest = { showMangaNoExtensionDialog = false; pendingMangaAfterSettings = null; pendingMangaResumeAfterSettings = false },
             title = { Text("No Extension Selected") },
             text = { Text("Select a default manga extension in Settings to load chapters for this title.") },
             confirmButton = {
@@ -2112,14 +2135,24 @@ fun MainScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showMangaNoExtensionDialog = false }) {
+                TextButton(onClick = { showMangaNoExtensionDialog = false; pendingMangaAfterSettings = null; pendingMangaResumeAfterSettings = false }) {
                     Text("Close")
                 }
             }
         )
     }
 
-    if (showMangaReader && currentManga != null) {
+    if (showMangaReader && currentManga != null && selectedMangaExtension == null) {
+        // No default manga extension: never compose the reader here (composing it for even one
+        // frame caused a flash — reader pops up then instantly closes). Surface the simple
+        // no-extension dialog over whatever is behind instead.
+        LaunchedEffect(showMangaReader, currentManga) {
+            android.util.Log.d("MangaNav", "READER SKIPPED (no manga extension) — showing no-extension dialog instead of reader")
+            mangaAutoShowChapters = false
+            showMangaReader = false
+            showMangaNoExtensionDialog = true
+        }
+    } else if (showMangaReader && currentManga != null) {
         val readerManga = currentManga
         val closeReader: () -> Unit = {
             if (showMangaReader) {
@@ -2162,6 +2195,8 @@ fun MainScreen(
                 onClose = closeReader,
                 onOpenSettings = {
                     android.util.Log.d("MangaNav", "READER onOpenSettings — closing reader and opening Settings → Reader")
+                    pendingMangaAfterSettings = readerManga
+                    pendingMangaResumeAfterSettings = false
                     closeReader()
                     showSettings = true
                     pendingSettingsGroup = "reader"
@@ -2586,9 +2621,9 @@ fun MainScreen(
     if (showNoExtDialog) {
         AlertDialog(
             onDismissRequest = { showNoExtDialog = false },
-            title = { Text("No Default Extension") },
+            title = { Text("No Extension Selected") },
             text = {
-                Text("Set a default extension in Settings to enable streaming.")
+                Text("Select a default extension in Settings to load episodes for this title.")
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -2597,12 +2632,12 @@ fun MainScreen(
                     showSettings = true
                     pendingSettingsGroup = if (extUiState.extensions.isEmpty()) "extensions" else "stream"
                 }) {
-                    Text(if (extUiState.extensions.isEmpty()) "Go to Extensions" else "Go to Stream Settings")
+                    Text("Go to Settings")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showNoExtDialog = false }) {
-                    Text("Cancel")
+                    Text("Close")
                 }
             }
         )
@@ -2760,34 +2795,7 @@ fun MainScreen(
                     PlayerUi()
                 }
                 if (!playerFullscreen) {
-                    if (simplifyEpisodeMenu) {
-                        SimpleEpisodeGrid(
-                            episodeCount = maxOf(totalEpisodes, currentEpisode, released),
-                            releasedCount = released,
-                            currentEpisode = currentEpisode,
-                            currentProgress = maxOf(animeProgressMap[anime.id] ?: 0, currentEpisode - 1),
-                            isOled = isOled,
-                            animeTitle = playerDisplayTitle,
-                            episodeTitle = currentEpisodeTitle,
-                            onEpisodeSelect = { ep -> loadAndPlayEpisode(anime, ep) },
-                            onClose = {
-                                showPlayer = false
-                                currentVideoUrl = null
-                                pendingSeekPosition = null
-                                extensionOkHttpClient = null
-                                extensionVideoHeaders = emptyMap()
-                                extensionHosters = null
-                                extensionServers = emptyList()
-                                extensionStreamEntries = emptyList()
-                                cachedExtensionNext = null
-                                PlayerData.extensionSource = null
-                                PlayerData.extensionEpisode = null
-                                PlayerData.allHosters = emptyList()
-                            },
-                            onEnterFullscreen = { playerFullscreen = true },
-                        )
-                    } else {
-                        RichEpisodeList(
+                    RichEpisodeList(
                             episodeCount = maxOf(totalEpisodes, currentEpisode, released),
                             releasedCount = released,
                             currentEpisode = currentEpisode,
@@ -2816,7 +2824,6 @@ fun MainScreen(
                             },
                             onEnterFullscreen = { playerFullscreen = true },
                         )
-                    }
                 }
             }
         }
@@ -2851,7 +2858,7 @@ fun MainScreen(
         if (showSettings) {
             val settingsInitialGroup = pendingSettingsGroup
             Dialog(
-                onDismissRequest = { showSettings = false; pendingSettingsGroup = null },
+                onDismissRequest = { showSettings = false; pendingSettingsGroup = null; settingsReturnVersion++ },
                 properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
             ) {
                 Surface(
@@ -2866,7 +2873,7 @@ fun MainScreen(
                         disableMaterialColors = disableMaterialColors,
                         preferredCategory = preferredCategory,
                         initialGroup = settingsInitialGroup,
-                        onBack = { showSettings = false; pendingSettingsGroup = null }
+                        onBack = { showSettings = false; pendingSettingsGroup = null; settingsReturnVersion++ }
                     )
                 }
             }
@@ -2882,7 +2889,6 @@ fun MainScreen(
                         viewModel = viewModel,
                         isOled = isOled,
                         isVisible = true,
-                        hideAdultContent = hideAdultContent,
                         preferEnglishTitles = preferEnglishTitles,
                         isLoggedIn = isLoggedIn,
                         onPlayEpisode = onPlayEpisode,
@@ -2909,6 +2915,7 @@ fun MainScreen(
                                 showSettings = true
                                 pendingSettingsGroup = if (extUiState.extensions.isEmpty()) "extensions" else "stream"
                             },
+                            settingsReturnVersion = settingsReturnVersion,
                             onAnimeDetailMangaClick = openMangaDetail,
                             onSearchClick = { showSearchScreen = true }
                         )
@@ -2919,7 +2926,6 @@ fun MainScreen(
                             showStatusColors = showStatusColors,
                             showAnimeCardButtons = showAnimeCardButtons,
                             preferEnglishTitles = preferEnglishTitles,
-                            hideAdultContent = hideAdultContent,
                             favoriteIds = if (viewModel.loginProvider.collectAsState().value == LoginProvider.MAL) malFavorites.map { it.id }.toSet() else aniListFavoriteIds,
                             onPlayEpisode = onPlayEpisode,
                             currentlyWatching = currentlyWatching,
@@ -2952,6 +2958,7 @@ fun MainScreen(
                                 showSettings = true
                                 pendingSettingsGroup = if (extUiState.extensions.isEmpty()) "extensions" else "stream"
                             },
+                            settingsReturnVersion = settingsReturnVersion,
                             onAnimeDetailMangaClick = openMangaDetail
                         )
                         3 -> MangaScreen(
@@ -2993,14 +3000,14 @@ fun MainScreen(
                             onMangaNoExtension = {
                                 showSettings = true
                                 pendingSettingsGroup = "reader"
-                            }
+                            },
+                            settingsReturnVersion = settingsReturnVersion
                         )
                         1 -> HomeScreen(
                             viewModel = viewModel,
                             isLoggedIn = isLoggedIn,
                             isOled = isOled,
                             showStatusColors = showStatusColors,
-                            simplifyEpisodeMenu = simplifyEpisodeMenu,
                             preferEnglishTitles = preferEnglishTitles,
                             onOverlayOpenChange = { overlayOpen = it },
                             onNavigateToSettings = {
@@ -3010,6 +3017,7 @@ fun MainScreen(
                                 showSettings = true
                                 pendingSettingsGroup = if (extUiState.extensions.isEmpty()) "extensions" else "stream"
                             },
+                            settingsReturnVersion = settingsReturnVersion,
                             favoriteIds = if (viewModel.loginProvider.collectAsState().value == LoginProvider.MAL) malFavorites.map { it.id }.toSet() else aniListFavoriteIds,
                             onPlayEpisode = onPlayEpisode,
                             onLoginClick = { viewModel.loginWithAniList() },
@@ -3064,6 +3072,8 @@ fun MainScreen(
                                     "progress=${manga.progress} scrollProgress=${manga.scrollProgress}")
                                 if (selectedMangaExtension == null) {
                                     android.util.Log.d("MangaNav", "HOME onMangaClick: no manga extension selected — showing dialog")
+                                    pendingMangaAfterSettings = manga
+                                    pendingMangaResumeAfterSettings = false
                                     showMangaNoExtensionDialog = true
                                 } else {
                                     mangaAutoShowChapters = true
@@ -3082,6 +3092,8 @@ fun MainScreen(
                                     "progress=${manga.progress} scrollProgress=${manga.scrollProgress}")
                                 if (selectedMangaExtension == null) {
                                     android.util.Log.d("MangaNav", "HOME onMangaContinueReading: no manga extension selected — showing dialog")
+                                    pendingMangaAfterSettings = manga
+                                    pendingMangaResumeAfterSettings = true
                                     showMangaNoExtensionDialog = true
                                 } else {
                                     mangaAutoShowChapters = false
@@ -3110,7 +3122,6 @@ fun MainScreen(
                         isOled = isOled,
                         isLoggedIn = isLoggedIn,
                         preferEnglishTitles = preferEnglishTitles,
-                        hideAdultContent = hideAdultContent,
                         currentlyWatching = currentlyWatching,
                         planningToWatch = planningToWatch,
                         completed = completed,
@@ -3142,6 +3153,7 @@ fun MainScreen(
                                 showSettings = true
                                 pendingSettingsGroup = if (extUiState.extensions.isEmpty()) "extensions" else "stream"
                             },
+                            settingsReturnVersion = settingsReturnVersion,
                             onMangaClick = { manga ->
                                 android.util.Log.d("MangaNav", "SEARCH onMangaClick: id=${manga.id} title='${manga.title.romaji ?: manga.title.english}' -> DETAIL")
                                 openMangaDetail(

@@ -100,7 +100,6 @@ import com.blissless.tensei.data.models.toDetailedAnimeData
 import com.blissless.tensei.dialogs.HomeAnimeStatusDialog
 import com.blissless.tensei.dialogs.OfflineFavoritesDialog
 import com.blissless.tensei.ui.screens.manga.MangaStatusDialog
-import com.blissless.tensei.ui.screens.episode.EpisodeSelectionDialog
 import com.blissless.tensei.ui.screens.episode.RichEpisodeScreen
 import com.blissless.tensei.ui.components.HomeAnimeCardBounds
 import com.blissless.tensei.ui.components.HomeAnimeHorizontalList
@@ -138,7 +137,6 @@ fun HomeScreen(
     isLoggedIn: Boolean,
     isOled: Boolean = false,
     showStatusColors: Boolean = true,
-    simplifyEpisodeMenu: Boolean = true,
     preferEnglishTitles: Boolean = true,
     favoriteIds: Set<Int> = emptySet(),
     onPlayEpisode: (AnimeMedia, Int, String?) -> Unit = { _, _, _ -> },
@@ -155,6 +153,7 @@ fun HomeScreen(
     onOverlayOpenChange: (Boolean) -> Unit = {},
     onNavigateToSettings: (() -> Unit)? = null,
     onNoExtension: () -> Unit = {},
+    settingsReturnVersion: Int = 0,
     onNavigateToSearch: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onMangaClick: (MangaMedia) -> Unit = {},
@@ -200,6 +199,7 @@ fun HomeScreen(
 
     var selectedAnime by remember { mutableStateOf<AnimeMedia?>(null) }
     var showEpisodeSheet by remember { mutableStateOf(false) }
+    var reopenEpisodePickerAfterSettings by remember { mutableStateOf(false) }
     var showStatusDialog by remember { mutableStateOf(false) }
     var showMangaStatusDialog by remember { mutableStateOf(false) }
     var statusListMangaForDialog by remember { mutableStateOf<MangaMedia?>(null) }
@@ -1026,18 +1026,7 @@ fun HomeScreen(
 
     // Dialogs
     if (showEpisodeSheet && selectedAnime != null) {
-        if (simplifyEpisodeMenu) {
-            EpisodeSelectionDialog(
-                anime = selectedAnime!!,
-                isOled = isOled,
-                disableMaterialColors = disableMaterialColors,
-                onDismiss = { showEpisodeSheet = false },
-                onEpisodeSelect = { episode, title ->
-                    onPlayEpisode(selectedAnime!!, episode, title)
-                    showEpisodeSheet = false
-                }
-            )
-        } else if (streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultPkg.isNotEmpty()) {
+        if (streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultPkg.isNotEmpty()) {
             RichEpisodeScreen(
                 anime = selectedAnime!!,
                 viewModel = viewModel,
@@ -1053,18 +1042,27 @@ fun HomeScreen(
     }
 
     LaunchedEffect(showEpisodeSheet, selectedAnime) {
-        val hasDefault = simplifyEpisodeMenu || streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultPkg.isNotEmpty()
+        val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultPkg.isNotEmpty()
         if (showEpisodeSheet && selectedAnime != null && !hasDefault) {
             showEpisodeSheet = false
             showNoExtensionDialog = true
         }
     }
 
+    LaunchedEffect(settingsReturnVersion) {
+        if (settingsReturnVersion > 0 && reopenEpisodePickerAfterSettings) {
+            reopenEpisodePickerAfterSettings = false
+            if (selectedAnime != null) {
+                showEpisodeSheet = true
+            }
+        }
+    }
+
     if (showNoExtensionDialog) {
         AlertDialog(
             onDismissRequest = { showNoExtensionDialog = false },
-            title = { Text("No Default Extension") },
-            text = { Text("Set a default extension in Settings to enable streaming.") },
+            title = { Text("No Extension Selected") },
+            text = { Text("Select a default extension in Settings to load episodes for this title.") },
             confirmButton = {
                 TextButton(onClick = {
                     showNoExtensionDialog = false
@@ -1075,7 +1073,7 @@ fun HomeScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showNoExtensionDialog = false }) {
-                    Text("Cancel")
+                    Text("Close")
                 }
             }
         )
@@ -1146,6 +1144,7 @@ fun HomeScreen(
             anime = detailedAnimeData,
             viewModel = viewModel,
             isOled = isOled,
+            settingsReturnVersion = settingsReturnVersion,
             currentStatus = currentStatus,
             currentProgress = currentProgress,
             isLoggedIn = isLoggedIn,
@@ -1286,7 +1285,6 @@ fun HomeScreen(
                 }
             },
             onNoExtension = {
-                showDetailedAnimeScreen = false
                 onNoExtension()
             },
             onCharacterClick = onCharacterClick,

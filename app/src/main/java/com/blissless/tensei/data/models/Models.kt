@@ -2,11 +2,6 @@ package com.blissless.tensei.data.models
 
 import kotlinx.serialization.Serializable
 
-private val ADULT_GENRES = setOf("hentai", "nudity")
-
-fun isAdultContent(isAdult: Boolean, genres: List<String>): Boolean =
-    isAdult || genres.any { it.lowercase() in ADULT_GENRES }
-
 // ============================================
 // CORE ANIME MODELS
 // ============================================

@@ -48,10 +48,12 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.temporal.IsoFields
+import java.time.temporal.TemporalAdjusters
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
@@ -560,29 +562,38 @@ class AnimeRepository(
 
     private suspend fun requestAnimeScheduleWeek(): List<AnimeScheduleTimetableEntry>? = try {
         val today = LocalDate.now()
-        val year = today.get(IsoFields.WEEK_BASED_YEAR)
-        val week = today.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+        val mondayOfCurrentWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val tz = ZoneId.systemDefault().id
-        val url = Endpoints.AnimeSchedule.timetableUrl(year, week, "raw", tz)
-        Log.d("AiringDebug", "AnimeSchedule URL: $url")
-        val request = Request.Builder().url(url)
-            .header("Authorization", "Bearer ${BuildConfig.ANIME_SCHEDULE_API_KEY}")
-            .header("Accept", "application/json")
-            .header("User-Agent", "Tensei/1.0")
-            .build()
-        val response = withContext(Dispatchers.IO) { animeScheduleClient.newCall(request).execute() }
-        response.use {
-            val code = it.code
-            if (code == 200) {
-                val body = it.body?.string() ?: ""
-                Log.d("AiringDebug", "AnimeSchedule HTTP $code bodyLen=${body.length} preview=${body.take(120)}")
-                json.decodeFromString<List<AnimeScheduleTimetableEntry>>(body)
-            } else {
-                val errBody = it.body?.string().orEmpty()
-                Log.w("AiringDebug", "AnimeSchedule HTTP $code body=${errBody.take(300)}")
-                null
+        val combined = mutableListOf<AnimeScheduleTimetableEntry>()
+        // Fetch the current week AND the following week. The 7-day schedule grid starts
+        // today and extends into next week (e.g. Mon/Tue/Wed columns when today is
+        // Thursday), so the following week's timetable fills those trailing columns.
+        // mapAnimeScheduleToAiring dedupes by route, keeping the earlier airing.
+        for (offset in 0L..1L) {
+            val mondayOfWeek = mondayOfCurrentWeek.plusWeeks(offset)
+            val year = mondayOfWeek.get(IsoFields.WEEK_BASED_YEAR)
+            val week = mondayOfWeek.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+            val url = Endpoints.AnimeSchedule.timetableUrl(year, week, "raw", tz)
+            Log.d("AiringDebug", "AnimeSchedule URL: $url")
+            val request = Request.Builder().url(url)
+                .header("Authorization", "Bearer ${BuildConfig.ANIME_SCHEDULE_API_KEY}")
+                .header("Accept", "application/json")
+                .header("User-Agent", "Tensei/1.0")
+                .build()
+            val response = withContext(Dispatchers.IO) { animeScheduleClient.newCall(request).execute() }
+            response.use {
+                val code = it.code
+                if (code == 200) {
+                    val body = it.body?.string() ?: ""
+                    Log.d("AiringDebug", "AnimeSchedule HTTP $code bodyLen=${body.length} preview=${body.take(120)}")
+                    combined.addAll(json.decodeFromString<List<AnimeScheduleTimetableEntry>>(body))
+                } else {
+                    val errBody = it.body?.string().orEmpty()
+                    Log.w("AiringDebug", "AnimeSchedule HTTP $code body=${errBody.take(300)}")
+                }
             }
         }
+        combined.ifEmpty { null }
     } catch (e: Exception) {
         Log.e("AiringDebug", "AnimeSchedule request failed: ${e.message}", e)
         null
@@ -619,8 +630,8 @@ class AnimeRepository(
             year = entry.episodeDate?.take(4)?.toIntOrNull(),
             isAdult = false
         )
-        // Only took entries that haven't aired yet this week are matched first so a series
-        // with a later episode this week keeps its countdown over an already-aired one.
+        // Entries that haven't aired yet are matched first so a series with a later episode
+        // in the fetched weeks keeps its countdown over an already-aired one.
         val upcoming = entries.filter { it.airingStatus != "aired" }
         for (entry in upcoming) {
             if (!seenRoutes.add(entry.route)) {
@@ -643,7 +654,7 @@ class AnimeRepository(
             airedShown++
         }
         Log.d("AiringDebug", "AnimeSchedule map summary: total=${entries.size} kept=${result.size} dropped(seen=$droppedSeen, noDate=$droppedNoDate, badDate=$droppedBadDate) airedShown=$airedShown airedSkipped=$airedSkipped")
-        return result.sortedBy { it.airingAt }
+        return result.sortedWith(compareBy<AiringScheduleAnime> { it.airingAt }.thenBy { it.title.lowercase() })
     }
 
     private fun parseAnimeScheduleDate(iso: String): Long? {
@@ -818,17 +829,31 @@ class AnimeRepository(
     ): List<ExploreMedia> = withContext(Dispatchers.IO) {
         try {
             val fields = "id,title,alternative_titles,main_picture,num_episodes,mean,start_date,status,nsfw,media_type,genres"
-            val limit = perPage.coerceIn(1, 100)
-            val offset = (page - 1).coerceAtLeast(0) * limit
-            val url = if (!query.isNullOrBlank()) {
-                Endpoints.Mal.searchAnimeUrl(query, limit, offset, fields)
-            } else {
-                Endpoints.Mal.rankingAnimeUrl(malAnimeRankingType(format, status), limit, offset, fields)
+            val limit = 100
+            // MAL's search/ranking API only honors the text query — every other filter
+            // (genre/format/status/year) is applied client-side. A single page of 30 raw
+            // nodes is usually too shallow (e.g. a genre that is rarely in the top-30
+            // ranking slice), so keep paging through the pool until enough nodes match.
+            val want = (page).coerceAtLeast(1) * perPage
+            val collected = mutableListOf<ExploreMedia>()
+            var offset = 0
+            var poolPages = 0
+            while (collected.size < want && poolPages < 6) {
+                val url = if (!query.isNullOrBlank()) {
+                    Endpoints.Mal.searchAnimeUrl(query, limit, offset, fields)
+                } else {
+                    Endpoints.Mal.rankingAnimeUrl(malAnimeRankingType(format, status), limit, offset, fields)
+                }
+                Log.d("SearchDebug", "MAL filtered fallback URL: $url")
+                val batch = requestMalNodes(url) { node ->
+                    node.matchesSearchFilters(year, format, status, genres)
+                }
+                if (batch.isEmpty()) break
+                collected.addAll(batch)
+                offset += limit
+                poolPages++
             }
-            Log.d("SearchDebug", "MAL filtered fallback URL: $url")
-            requestMalNodes(url) { node ->
-                node.matchesSearchFilters(year, format, status, genres)
-            }
+            collected.drop((page - 1).coerceAtLeast(0) * perPage).take(perPage)
         } catch (e: Exception) {
             Log.e("SearchDebug", "MAL filtered fallback failed: ${e.message}", e)
             emptyList()

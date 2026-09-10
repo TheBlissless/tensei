@@ -102,18 +102,6 @@ object Endpoints {
     }
 
     /**
-     * Jikan API — unofficial MyAnimeList REST mirror.
-     * Used for: user favorites/history when logged in via MAL.
-     */
-    object Jikan {
-        const val API_BASE = "https://api.jikan.moe/v4"
-
-        /** Search anime by name. */
-        fun searchAnime(query: String, limit: Int = 10): String =
-            "$API_BASE/anime?q=$query&limit=$limit"
-    }
-
-    /**
      * AnimeSchedule.net API — weekly airing timetable service.
      * Used for: airing-schedule fallback when the AniList API is unavailable.
      */

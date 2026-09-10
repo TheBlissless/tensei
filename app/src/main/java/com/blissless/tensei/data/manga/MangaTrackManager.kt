@@ -243,6 +243,37 @@ class MangaTrackManager(context: Context) {
         saveTracks(tracks)
     }
 
+    /**
+     * Merge a legacy duplicate track into its canonical AniList track. Before AniList and MAL
+     * were reconciled, MAL-origin manga tracks were keyed by the raw MAL id (with `malId`
+     * left null), so the same series ended up twice once AniList data was merged under the
+     * AniList id. The duplicate is matched either by its recorded `malId` (newer tracks) or
+     * by its `mangaId` being the MAL id itself (legacy tracks). Progress/scroll are merged
+     * taking the maximum, duplicates are removed, and the canonical track keeps the MAL id.
+     */
+    fun mergeDuplicateMangaTrack(canonicalId: Int, malId: Int) {
+        val tracks = getTracks().toMutableList()
+        val dupIndex = tracks.indexOfFirst { it.mangaId != canonicalId && (it.malId == malId || it.mangaId == malId) }
+        if (dupIndex < 0) return
+        val dup = tracks.removeAt(dupIndex)
+        val canonicalIndex = tracks.indexOfFirst { it.mangaId == canonicalId }
+        if (canonicalIndex >= 0) {
+            val canonical = tracks[canonicalIndex]
+            tracks[canonicalIndex] = canonical.copy(
+                progress = maxOf(canonical.progress, dup.progress),
+                scrollProgress = maxOf(canonical.scrollProgress, dup.scrollProgress),
+                status = if (canonical.status == "PLANNING") dup.status else canonical.status,
+                listEntryId = canonical.listEntryId ?: dup.listEntryId,
+                score = canonical.score ?: dup.score,
+                cover = canonical.cover.ifBlank { dup.cover },
+                malId = malId
+            )
+        } else {
+            tracks.add(dup.copy(mangaId = canonicalId, malId = malId))
+        }
+        saveTracks(tracks)
+    }
+
     fun updateChapterPages(mangaId: Int, pages: Int) {
         if (pages <= 0) return
         val tracks = getTracks().toMutableList()

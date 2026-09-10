@@ -58,9 +58,6 @@ fun MainViewModel.setForwardSkipSeconds(seconds: Int) =
 fun MainViewModel.setBackwardSkipSeconds(seconds: Int) =
     userPreferences.setBackwardSkipSeconds(seconds)
 
-fun MainViewModel.setSimplifyEpisodeMenu(enabled: Boolean) =
-    userPreferences.setSimplifyEpisodeMenu(enabled)
-
 fun MainViewModel.setAutoSkipOpening(enabled: Boolean) =
     userPreferences.setAutoSkipOpening(enabled)
 
@@ -85,9 +82,6 @@ fun MainViewModel.setDiscordRichPresence(enabled: Boolean) {
 
 fun MainViewModel.setDefaultSubtitleLang(lang: String) =
     userPreferences.setDefaultSubtitleLang(lang)
-
-fun MainViewModel.setHideAdultContent(enabled: Boolean) =
-    userPreferences.setHideAdultContent(enabled)
 
 fun MainViewModel.setStartupScreen(screen: Int) =
     userPreferences.setStartupScreen(screen)

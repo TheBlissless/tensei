@@ -14,9 +14,6 @@ import com.blissless.tensei.data.AnimeRepository
 import com.blissless.tensei.data.AiringScheduleApiDownException
 import com.blissless.tensei.data.CacheManager
 import com.blissless.tensei.data.AnimeScheduleUnavailableException
-import com.blissless.tensei.api.jikan.JikanService
-import com.blissless.tensei.api.jikan.JikanUserFavorites
-import com.blissless.tensei.api.jikan.JikanUserHistory
 import com.blissless.tensei.api.myanimelist.LoginProvider
 import com.blissless.tensei.api.myanimelist.MalApiService
 import com.blissless.tensei.data.UserPreferences
@@ -80,6 +77,7 @@ import com.blissless.tensei.viewmodel.initManga
 import com.blissless.tensei.viewmodel.clearMangaUserData
 import com.blissless.tensei.viewmodel.fetchMangaExplore
 import com.blissless.tensei.viewmodel.restoreMangaExploreFromCache
+import com.blissless.tensei.viewmodel.fetchMalMangaList
 import com.blissless.tensei.viewmodel.fetchMangaLists
 import com.blissless.tensei.viewmodel._mangaContinueReading
 import com.blissless.tensei.viewmodel._mangaCurrentlyReading
@@ -426,14 +424,6 @@ class MainViewModel : ViewModel() {
     internal val _aniListFavorites = MutableStateFlow<List<UserFavoriteAnime>>(emptyList())
     val aniListFavorites: StateFlow<List<UserFavoriteAnime>> = _aniListFavorites.asStateFlow()
 
-    // Jikan (MAL) Favorites and History
-    private val _jikanFavorites = MutableStateFlow<JikanUserFavorites?>(null)
-    val jikanFavorites: StateFlow<JikanUserFavorites?> = _jikanFavorites.asStateFlow()
-
-    private val _jikanHistory = MutableStateFlow<JikanUserHistory?>(null)
-    val jikanHistory: StateFlow<JikanUserHistory?> = _jikanHistory.asStateFlow()
-
-    private var jikanService: JikanService? = null
     private var malUsername: String? = null
     private val _malUsername = MutableStateFlow<String?>(null)
     val malUsernameFlow: StateFlow<String?> = _malUsername.asStateFlow()
@@ -459,7 +449,6 @@ class MainViewModel : ViewModel() {
     val trackingPercentage: StateFlow<Int> get() = userPreferences.trackingPercentage
     val forwardSkipSeconds: StateFlow<Int> get() = userPreferences.forwardSkipSeconds
     val backwardSkipSeconds: StateFlow<Int> get() = userPreferences.backwardSkipSeconds
-    val simplifyEpisodeMenu: StateFlow<Boolean> get() = userPreferences.simplifyEpisodeMenu
     val autoSkipOpening: StateFlow<Boolean> get() = userPreferences.autoSkipOpening
     val autoSkipEnding: StateFlow<Boolean> get() = userPreferences.autoSkipEnding
     val autoPlayNextEpisode: StateFlow<Boolean> get() = userPreferences.autoPlayNextEpisode
@@ -469,7 +458,6 @@ class MainViewModel : ViewModel() {
     val localAnimeStatus: StateFlow<Map<Int, LocalAnimeEntry>> get() = userPreferences.localAnimeStatus
     val defaultExtensionPackage: StateFlow<String> get() = userPreferences.defaultExtensionPackage
     val defaultSubtitleLang: StateFlow<String> get() = userPreferences.defaultSubtitleLang
-    val hideAdultContent: StateFlow<Boolean> get() = userPreferences.hideAdultContent
     val startupScreen: StateFlow<Int> get() = userPreferences.startupScreen
 
     // Buffer Settings
@@ -575,7 +563,6 @@ class MainViewModel : ViewModel() {
         cacheManager = CacheManager(userPreferences.getSharedPreferences())
         repository = AnimeRepository(userPreferences, cacheManager)
         malApiService = MalApiService(context)
-        jikanService = JikanService()
         sourceManager = com.blissless.tensei.stream.SourceManager(context)
 
         // Initialize manga managers
@@ -713,15 +700,6 @@ class MainViewModel : ViewModel() {
             malUsername = userInfo.name
             _malUsername.value = userInfo.name
             _malAvatar.value = userInfo.picture
-            fetchJikanUserData()
-        }
-    }
-
-    fun fetchJikanUserData() {
-        val username = malUsername ?: return
-        viewModelScope.launch {
-            _jikanFavorites.value = jikanService?.getUserFavorites(username)
-            _jikanHistory.value = jikanService?.getUserHistory(username)
         }
     }
 
@@ -763,10 +741,9 @@ class MainViewModel : ViewModel() {
                 // AniList is the primary home list provider whenever it's logged in — never let
                 // the MAL list overwrite the AniList home lists on login. Only fetch MAL as the
                 // list source when MAL is the sole provider.
-                if (anilistStillLoggedIn) {
-                    fetchJikanUserData()
-                } else {
+                if (!anilistStillLoggedIn) {
                     fetchMalList()
+                    fetchMalMangaList()
                 }
                 // prefetchOfflineWatchingStreams() // Disabled for now
                 _toastMessage.emit("Successfully logged into MyAnimeList!")
@@ -826,8 +803,6 @@ class MainViewModel : ViewModel() {
                 userPreferences.clearMalFavorites()
                 userPreferences.clearMalMangaFavorites()
                 _malFavorites.value = emptyList()
-                _jikanFavorites.value = null
-                _jikanHistory.value = null
                 malUsername = null
                 _malUsername.value = null
                 _malAvatar.value = null
@@ -840,8 +815,6 @@ class MainViewModel : ViewModel() {
             userPreferences.clearMalFavorites()
             userPreferences.clearMalMangaFavorites()
             _malFavorites.value = emptyList()
-            _jikanFavorites.value = null
-            _jikanHistory.value = null
             malUsername = null
             _malUsername.value = null
             _malAvatar.value = null
@@ -890,8 +863,6 @@ class MainViewModel : ViewModel() {
                 userPreferences.clearMalFavorites()
                 userPreferences.clearMalMangaFavorites()
                 _malFavorites.value = emptyList()
-                _jikanFavorites.value = null
-                _jikanHistory.value = null
                 malUsername = null
                 _malUsername.value = null
                 _malAvatar.value = null
@@ -1005,8 +976,11 @@ private suspend fun loadHomeDataWithCache() {
             // Manga home lists are restored from the home cache and also mirrored in the
             // local track database, so a fresh window skips the AniList re-sync entirely.
             // Only sync when the cache has no manga data at all (e.g. first run after login).
-            if (isAniListActive && shouldSyncMangaListsOnFreshWindow(homeData)) {
-                viewModelScope.launch { fetchMangaLists() }
+            if (shouldSyncMangaListsOnFreshWindow(homeData)) {
+                viewModelScope.launch {
+                    if (isAniListActive) fetchMangaLists()
+                    else if (isMalActive) fetchMalMangaList()
+                }
             }
             return
         }
@@ -1022,7 +996,11 @@ private suspend fun loadHomeDataWithCache() {
                 // overwrite the home lists with AniList data.
                 userSuccess = async { if (isAniListActive) fetchUser() else true }.await()
                 listsSuccess = async { fetchMalList() }.await()
-                mangaListsSuccess = async { if (isAniListActive) fetchMangaLists() else true }.await()
+                mangaListsSuccess = async {
+                    if (isAniListActive) fetchMangaLists()
+                    else if (isMalActive) { fetchMalMangaList(); true }
+                    else true
+                }.await()
             } else {
                 // fetchUser MUST complete before fetchLists/fetchMangaLists — both need _userId
                 // which is set by fetchUser. Running them in parallel was a bug that caused
@@ -1422,7 +1400,7 @@ private suspend fun loadHomeDataWithCache() {
                     val allAnime = _currentlyWatching.value + _planningToWatch.value + _completed.value + _onHold.value + _dropped.value
                     val animeFromList = allAnime.find { it.id == mediaId }
                     if (animeFromList != null) {
-                        resolvedMalId = jikanService?.searchAnimeByTitle(animeFromList.title)
+                        resolvedMalId = malApiService.searchAnimeByTitle(animeFromList.title)
                     }
                 }
 
@@ -1476,10 +1454,10 @@ private suspend fun loadHomeDataWithCache() {
                     val allAnime = _currentlyWatching.value + _planningToWatch.value + _completed.value + _onHold.value + _dropped.value
                     val animeFromList = allAnime.find { it.id == mediaId }
                     if (animeFromList != null) {
-                        resolvedMalId = jikanService?.searchAnimeByTitle(animeFromList.title)
+                        resolvedMalId = malApiService.searchAnimeByTitle(animeFromList.title)
                     }
                 } else if (resolvedMalId == null) {
-                    resolvedMalId = jikanService?.searchAnimeByTitle(details.title)
+                    resolvedMalId = malApiService.searchAnimeByTitle(details.title)
                 }
 
                 setLocalAnimeStatus(
@@ -1707,11 +1685,14 @@ private suspend fun loadHomeDataWithCache() {
      * Get stream using Miruro. Scrapes preferred first, then other in background.
      */
 
-    suspend fun fetchDetailedAnimeData(animeId: Int, malId: Int? = null): DetailedAnimeData? {
+    suspend fun fetchDetailedAnimeData(animeId: Int, malId: Int? = null, title: String? = null): DetailedAnimeData? {
         Log.d("AnimeDetailDebug", "fetchDetailedAnimeData START id=$animeId malId=$malId")
         // Relations/recommendations from a MAL fallback carry their MAL id as their own
-        // id, so animeId doubles as the MAL id when no explicit malId was passed.
-        val effectiveMalId = malId?.takeIf { it > 0 } ?: animeId
+        // id, so animeId doubles as the MAL id only when no title is known (those items
+        // never pass a title). Schedule-fallback items carry a fabricated route.hashCode()
+        // id — when a title IS provided, never reuse that id as a MAL id.
+        val effectiveMalId = malId?.takeIf { it > 0 }
+            ?: animeId.takeIf { title.isNullOrBlank() }
         var media = if (FORCE_MAL_DETAIL_FOR_TESTING) null else repository.fetchDetailedAnime(animeId)
         
         // If not found and have MAL ID, try finding by MAL ID
@@ -1726,7 +1707,7 @@ private suspend fun loadHomeDataWithCache() {
         if (media == null) {
             // AniList unavailable (or forced for testing): fall back to the official MAL
             // anime detail API.
-            if (effectiveMalId > 0) {
+            if (effectiveMalId != null && effectiveMalId > 0) {
                 Log.w("AnimeDetailDebug", "fetchDetailedAnimeData AniList failed — trying MAL detail fallback for malId=$effectiveMalId")
                 val malData = repository.fetchDetailedAnimeFromMal(effectiveMalId)
                 if (malData != null) {
@@ -1736,9 +1717,54 @@ private suspend fun loadHomeDataWithCache() {
                     return malData
                 }
             }
-            _animeDetailSource.value = null
-            Log.e("AnimeDetailDebug", "fetchDetailedAnimeData RESULT=null (fallback used) id=$animeId malId=$malId")
-            return null
+            // IDs unusable (e.g. AnimeSchedule fallback items carry a fabricated id and no MAL
+            // id): resolve the anime by title search as a last resort before giving up.
+            if (!title.isNullOrBlank()) {
+                Log.w("AnimeDetailDebug", "fetchDetailedAnimeData IDs failed — trying title search '$title'")
+                try {
+                    val hits = repository.searchAnime(title)
+                    Log.d("AnimeDetailDebug", "fetchDetailedAnimeData AniList title search '$title' hits=${hits.size}")
+                    var hitIndex = 0
+                    while (media == null && hitIndex < hits.size) {
+                        val hit = hits[hitIndex]
+                        hitIndex++
+                        media = repository.fetchDetailedAnime(hit.id)
+                        if (media != null) {
+                            Log.d("AnimeDetailDebug", "fetchDetailedAnimeData title search OK hit=$hitIndex id=${hit.id}")
+                            _animeDetailSource.value = "anilist"
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w("AnimeDetailDebug", "fetchDetailedAnimeData title search failed: ${e.message}")
+                }
+            }
+            if (media == null) {
+                // AniList title search failed too — fall back to the official MAL title search,
+                // mirroring the usual AniList-first / MAL-fallback order used elsewhere.
+                if (!title.isNullOrBlank()) {
+                    Log.w("AnimeDetailDebug", "fetchDetailedAnimeData AniList title search failed — trying MAL title search '$title'")
+                    try {
+                        val malIdByTitle = malApiService.searchAnimeByTitle(title)
+                        if (malIdByTitle != null && malIdByTitle > 0) {
+                            Log.d("AnimeDetailDebug", "fetchDetailedAnimeData MAL title search OK malId=$malIdByTitle")
+                            val malData = repository.fetchDetailedAnimeFromMal(malIdByTitle)
+                            if (malData != null) {
+                                Log.d("AnimeDetailDebug", "fetchDetailedAnimeData MAL fallback OK via MAL title id=$animeId malId=$malIdByTitle title=${malData.title}")
+                                _animeDetailSource.value = "mal"
+                                cacheManager.cacheDetailedAnime(animeId, malData)
+                                return malData
+                            }
+                        } else {
+                            Log.w("AnimeDetailDebug", "fetchDetailedAnimeData MAL title search returned no malId for '$title'")
+                        }
+                    } catch (e: Exception) {
+                        Log.w("AnimeDetailDebug", "fetchDetailedAnimeData MAL title search failed: ${e.message}")
+                    }
+                }
+                _animeDetailSource.value = null
+                Log.e("AnimeDetailDebug", "fetchDetailedAnimeData RESULT=null (fallback used) id=$animeId malId=$malId")
+                return null
+            }
         }
         val relationsList = media.relations?.edges?.mapNotNull { edge ->
             edge.node?.let { node ->
@@ -1961,7 +1987,9 @@ private suspend fun loadHomeDataWithCache() {
         if (!force && now - lastHomeRefreshTime < MIN_REFRESH_INTERVAL_MS) {
             // Still re-sync manga tracking — it's a single lightweight AniList query, and the
             // pull-to-refresh gesture should reflect AniList-tracked manga even inside the window.
-            if (_loginProvider.value != LoginProvider.MAL) {
+            if (_loginProvider.value == LoginProvider.MAL) {
+                viewModelScope.launch { fetchMalMangaList() }
+            } else {
                 viewModelScope.launch { fetchMangaLists() }
             }
             return
@@ -1978,12 +2006,13 @@ private suspend fun loadHomeDataWithCache() {
             if (malMain) {
                 // MAL is the main provider: pull its list first, fall back to AniList.
                 val malOk = fetchMalList()
-                fetchJikanUserData()
                 if (!malOk && isAniListActive) {
                     fetchLists()
                 }
                 if (isAniListActive) {
                     fetchMangaLists()
+                } else {
+                    fetchMalMangaList()
                 }
             } else {
                 // AniList is the main provider; only fall back to MAL when it fails.
