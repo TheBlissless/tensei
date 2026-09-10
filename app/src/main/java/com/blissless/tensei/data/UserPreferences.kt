@@ -56,8 +56,6 @@ class UserPreferences(context: Context) {
         private const val KEY_MAL_FAVORITES = "mal_favorites"
         private const val KEY_MAL_MANGA_FAVORITES = "mal_manga_favorites"
         private const val KEY_CROSS_PROVIDER_COPY_DONE = "cross_provider_copy_done"
-        private const val KEY_AUTO_SYNC_CROSS_PROVIDER_STARTUP = "auto_sync_cross_provider_startup"
-        private const val KEY_AUTO_SYNC_CROSS_PROVIDER_DIRECTION = "auto_sync_cross_provider_direction"
         private const val KEY_MAL_AS_MAIN_PROVIDER = "mal_as_main_provider"
         private const val KEY_CHECK_UPDATES_ON_START = "check_updates_on_start"
         private const val KEY_SWIPE_VOLUME = "swipe_volume"
@@ -339,8 +337,6 @@ class UserPreferences(context: Context) {
         _bufferSizeMb.value = sharedPreferences.getInt(KEY_BUFFER_SIZE_MB, 200)
         _showBufferIndicator.value = sharedPreferences.getBoolean(KEY_SHOW_BUFFER_INDICATOR, true)
         _checkUpdatesOnStart.value = sharedPreferences.getBoolean(KEY_CHECK_UPDATES_ON_START, true)
-        _autoSyncCrossProviderStartup.value = sharedPreferences.getBoolean(KEY_AUTO_SYNC_CROSS_PROVIDER_STARTUP, false)
-        _autoSyncCrossProviderDirection.value = sharedPreferences.getBoolean(KEY_AUTO_SYNC_CROSS_PROVIDER_DIRECTION, true)
         _malAsMainProvider.value = sharedPreferences.getBoolean(KEY_MAL_AS_MAIN_PROVIDER, false)
         _swipeVolume.value = sharedPreferences.getBoolean(KEY_SWIPE_VOLUME, false)
         _swipeBrightness.value = sharedPreferences.getBoolean(KEY_SWIPE_BRIGHTNESS, false)
@@ -784,14 +780,6 @@ class UserPreferences(context: Context) {
     private val _checkUpdatesOnStart = MutableStateFlow(true)
     val checkUpdatesOnStart: StateFlow<Boolean> = _checkUpdatesOnStart.asStateFlow()
 
-    // Auto-sync AniList <-> MAL on startup (default OFF)
-    private val _autoSyncCrossProviderStartup = MutableStateFlow(false)
-    val autoSyncCrossProviderStartup: StateFlow<Boolean> = _autoSyncCrossProviderStartup.asStateFlow()
-
-    // Direction to auto-sync on startup: true = AniList -> MAL, false = MAL -> AniList (default AniList -> MAL)
-    private val _autoSyncCrossProviderDirection = MutableStateFlow(true)
-    val autoSyncCrossProviderDirection: StateFlow<Boolean> = _autoSyncCrossProviderDirection.asStateFlow()
-
     // Main list provider when both are logged in: false = AniList (default), true = MyAnimeList.
     // The main provider drives which list populates the home screen.
     private val _malAsMainProvider = MutableStateFlow(false)
@@ -877,16 +865,6 @@ class UserPreferences(context: Context) {
     fun setCheckUpdatesOnStart(enabled: Boolean) {
         _checkUpdatesOnStart.value = enabled
         sharedPreferences.edit { putBoolean(KEY_CHECK_UPDATES_ON_START, enabled) }
-    }
-
-    fun setAutoSyncCrossProviderStartup(enabled: Boolean) {
-        _autoSyncCrossProviderStartup.value = enabled
-        sharedPreferences.edit { putBoolean(KEY_AUTO_SYNC_CROSS_PROVIDER_STARTUP, enabled) }
-    }
-
-    fun setAutoSyncCrossProviderDirection(toMal: Boolean) {
-        _autoSyncCrossProviderDirection.value = toMal
-        sharedPreferences.edit { putBoolean(KEY_AUTO_SYNC_CROSS_PROVIDER_DIRECTION, toMal) }
     }
 
     fun setMalAsMainProvider(enabled: Boolean) {

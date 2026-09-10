@@ -40,7 +40,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -456,80 +455,18 @@ class MainActivity : ComponentActivity() {
 
             val dialogThemeMode = remember(themeModeStr) { ThemeMode.fromValue(themeModeStr) }
             AppTheme(themeMode = dialogThemeMode, useMonochrome = disableMaterialColors) {
-            crossCopyPrompt?.takeIf { it.visible }?.let { _ ->
-                Dialog(
-                    onDismissRequest = { mainViewModel.dismissCrossProviderCopyPrompt() },
-                    properties = DialogProperties(usePlatformDefaultWidth = false)
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(24.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 6.dp,
-                        modifier = Modifier.fillMaxWidth(0.92f)
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Text(
-                                "Sync Between Providers?",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "You're logged into both AniList and MyAnimeList. " +
-                                    "Choose how your existing entries should be synced:",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(
-                                onClick = { mainViewModel.applyCrossProviderCopy(toMal = true) },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalAlignment = Alignment.Start) {
-                                    Text("AniList → MyAnimeList", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        "AniList is your main list. Your AniList entries overwrite your MAL entries (status, score, progress).",
-                                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(
-                                onClick = { mainViewModel.applyCrossProviderCopy(toMal = false) },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                            ) {
-                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalAlignment = Alignment.Start) {
-                                    Text("MyAnimeList → AniList", color = MaterialTheme.colorScheme.onSecondary, fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        "MyAnimeList is your main list. Your MAL entries overwrite your AniList entries (status, score, progress).",
-                                        color = MaterialTheme.colorScheme.onSecondary.copy(alpha = 0.8f),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            OutlinedButton(
-                                onClick = { mainViewModel.dismissCrossProviderCopyPrompt() },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(10.dp)
-                            ) {
-                                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalAlignment = Alignment.Start) {
-                                    Text("Don't sync existing entries", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                                    Text(
-                                        "Keep both lists as they are. AniList stays your main list and new changes still apply to both providers.",
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+            crossCopyPrompt?.takeIf { it.visible }?.let { prompt ->
+                com.blissless.tensei.ui.components.CrossProviderSyncDialog(
+                    aniToMalAnime = prompt.aniToMalAnime,
+                    aniToMalManga = prompt.aniToMalManga,
+                    malToAniAnime = prompt.malToAniAnime,
+                    malToAniManga = prompt.malToAniManga,
+                    useMonochrome = disableMaterialColors,
+                    isOled = isOled,
+                    onDismiss = { mainViewModel.dismissCrossProviderCopyPrompt() },
+                    onSyncAniListToMal = { mainViewModel.applyCrossProviderCopy(toMal = true) },
+                    onSyncMalToAniList = { mainViewModel.applyCrossProviderCopy(toMal = false) }
+                )
             }
 
             } // end AppTheme wrapping the cross-provider dialogs

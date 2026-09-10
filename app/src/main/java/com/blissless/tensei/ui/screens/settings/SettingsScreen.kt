@@ -145,7 +145,6 @@ import com.blissless.tensei.viewmodel.setSwipeSwap
 import com.blissless.tensei.viewmodel.setSupportsPiP
 import com.blissless.tensei.viewmodel.setDiscordRichPresence
 import com.blissless.tensei.viewmodel.setCheckUpdatesOnStart
-import com.blissless.tensei.viewmodel.setMalAsMainProvider
 import com.blissless.tensei.viewmodel.setAutoUpdateExtensions
 import com.blissless.tensei.viewmodel.loadAvailableMagnetExtensions
 import com.blissless.tensei.viewmodel.loadAvailableStreamExtensions
@@ -156,7 +155,6 @@ import com.blissless.tensei.viewmodel.installedExtensions
 import com.blissless.tensei.viewmodel.InstalledExtension
 import com.blissless.tensei.viewmodel.selectedExtensionAuthority
 import com.blissless.tensei.viewmodel.selectExtension
-import com.blissless.tensei.viewmodel.showCrossProviderCopyDialog
 import com.blissless.tensei.util.ErrorHandler
 import com.blissless.tensei.util.toast
 import com.blissless.tensei.util.longToast
@@ -253,7 +251,6 @@ private fun AccountSettingsPage(
     val trackingPercentage by viewModel.trackingPercentage.collectAsState(initial = 85)
     val mangaSyncThreshold by viewModel.mangaSyncThreshold.collectAsState()
     val discordRichPresence by viewModel.discordRichPresence.collectAsState(initial = false)
-    val malAsMainProvider by viewModel.malAsMainProvider.collectAsState(initial = false)
 
     val userName by viewModel.userName.collectAsState()
     val userAvatar by viewModel.userAvatar.collectAsState()
@@ -358,22 +355,6 @@ private fun AccountSettingsPage(
             if (loginProvider == LoginProvider.MAL) {
                 Spacer(modifier = Modifier.height(8.dp))
                 AniListLoginButton(viewModel)
-            }
-        }
-
-        if (loginProvider == LoginProvider.BOTH) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Button(
-                onClick = { viewModel.showCrossProviderCopyDialog() },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
-                )
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (malAsMainProvider) "Sync Now (MAL to AniList)" else "Sync Now (AniList to MAL)")
             }
         }
 

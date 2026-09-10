@@ -66,7 +66,7 @@ import okhttp3.OkHttpClient
 // Extension functions on MainViewModel (defined in com.blissless.tensei.viewmodel)
 import com.blissless.tensei.viewmodel.startApiRetryLoop
 import com.blissless.tensei.viewmodel.offerCrossProviderSync
-import com.blissless.tensei.viewmodel.runCrossProviderStartupSync
+import com.blissless.tensei.viewmodel.showCrossProviderCopyDialog
 import com.blissless.tensei.viewmodel.runCrossProviderDiffSync
 import com.blissless.tensei.viewmodel.isAniListActive
 import com.blissless.tensei.viewmodel.isMalActive
@@ -465,8 +465,6 @@ class MainViewModel : ViewModel() {
     val bufferSizeMb: StateFlow<Int> get() = userPreferences.bufferSizeMb
     val showBufferIndicator: StateFlow<Boolean> get() = userPreferences.showBufferIndicator
     val checkUpdatesOnStart: StateFlow<Boolean> get() = userPreferences.checkUpdatesOnStart
-    val autoSyncCrossProviderStartup: StateFlow<Boolean> get() = userPreferences.autoSyncCrossProviderStartup
-    val autoSyncCrossProviderDirection: StateFlow<Boolean> get() = userPreferences.autoSyncCrossProviderDirection
     val malAsMainProvider: StateFlow<Boolean> get() = userPreferences.malAsMainProvider
     val autoUpdateExtensions: StateFlow<Boolean> get() = userPreferences.autoUpdateExtensions
     val streamMethod: StateFlow<String> get() = userPreferences.streamMethod
@@ -621,11 +619,11 @@ class MainViewModel : ViewModel() {
                 fetchMangaExplore()
             }
 
-            // On app start with both providers logged in, run a directional sync (AniList -> MAL
-            // or MAL -> AniList per the chosen preference) to reconcile lists.
+            // On app start with both providers logged in, ask the user whether they want to run
+            // the one-way cross-provider copy. Never auto-sync on start; syncing is manual only.
             launch {
                 if (_loginProvider.value == LoginProvider.BOTH) {
-                    runCrossProviderStartupSync(userPreferences.autoSyncCrossProviderDirection.value)
+                    showCrossProviderCopyDialog(markDoneOnDismiss = false)
                 }
             }
 

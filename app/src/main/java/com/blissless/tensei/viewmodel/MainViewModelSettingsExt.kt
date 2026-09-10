@@ -98,12 +98,6 @@ fun MainViewModel.setShowBufferIndicator(show: Boolean) =
 fun MainViewModel.setCheckUpdatesOnStart(enabled: Boolean) =
     userPreferences.setCheckUpdatesOnStart(enabled)
 
-fun MainViewModel.setAutoSyncCrossProviderStartup(enabled: Boolean) =
-    userPreferences.setAutoSyncCrossProviderStartup(enabled)
-
-fun MainViewModel.setAutoSyncCrossProviderDirection(toMal: Boolean) =
-    userPreferences.setAutoSyncCrossProviderDirection(toMal)
-
 fun MainViewModel.setMalAsMainProvider(enabled: Boolean) =
     userPreferences.setMalAsMainProvider(enabled)
 
