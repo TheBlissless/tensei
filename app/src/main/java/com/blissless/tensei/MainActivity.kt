@@ -2009,7 +2009,7 @@ fun MainScreen(
                 }
             },
             onUpdateStatus = { status, progress ->
-                if (status != null) viewModel.updateMangaStatus(manga.id, status, progress)
+                if (status != null) viewModel.updateMangaStatus(manga.id, status, progress, malId = manga.malId, title = manga.title, cover = manga.cover)
             },
             onUpdateProgress = { progress ->
                 viewModel.updateMangaProgress(manga.id, progress.toFloat())

@@ -1634,7 +1634,7 @@ fun DetailedMangaScreen(
             onDismiss = { showRatingSheet = false },
             onScoreSaved = { score ->
                 if (score != null) {
-                    viewModel.updateMangaScore(manga.id, score)
+                    viewModel.updateMangaScore(manga.id, score, malId = manga.malId)
                 }
                 showRatingSheet = false
             }

@@ -1108,7 +1108,7 @@ fun HomeScreen(
             isOled = isOled,
             onUpdate = { status, progress ->
                 android.util.Log.d("MangaSyncDebug", "MangaStatusDialog onUpdate: mangaId=${sm.id} status='$status' progress=$progress")
-                viewModel.updateMangaStatus(sm.id, status, progress, null)
+                viewModel.updateMangaStatus(sm.id, status, progress, null, malId = sm.malId, title = sm.title, cover = sm.cover)
                 if (progress != null) viewModel.updateMangaProgress(sm.id, progress.toFloat())
                 showMangaStatusDialog = false
             },

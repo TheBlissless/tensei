@@ -740,6 +740,51 @@ class MangaRepository {
         return ok
     }
 
+    /**
+     * Resolve an AniList manga Media from its MAL id. Used to translate manga that arrived
+     * through a MAL fallback (search/explore/detail while AniList was down) — those entries
+     * carry the MAL id as their own id, which is NOT a real AniList Media id, so status
+     * pushes to AniList would otherwise fail forever. Returns null when AniList is
+     * unreachable or no Media has that idMal.
+     */
+    suspend fun findMangaByMalId(malId: Int, token: String? = null): MangaExploreMedia? {
+        val query = """
+            query (${'$'}idMal: Int) {
+                Media(idMal: ${'$'}idMal, type: MANGA) {
+                    id
+                    idMal
+                    title { romaji english }
+                    coverImage { extraLarge large }
+                }
+            }
+        """.trimIndent()
+        // Read queries are the part of AniList that gets rate-limited/disabled during stability
+        // incidents, and authenticated reads are far more likely to pass than anonymous ones —
+        // use the caller's token and retry a couple of times before giving up.
+        val raw = executeWithRetry(query, mapOf("idMal" to malId), token) ?: return null
+        if (raw.contains("\"errors\"")) return null
+        return try {
+            val media = json.decodeFromString<JsonObject>(raw)["data"]?.jsonObject?.get("Media")?.jsonObject ?: return null
+            val id = media["id"]?.jsonPrimitive?.content?.toIntOrNull() ?: return null
+            MangaExploreMedia(
+                id = id,
+                idMal = media["idMal"]?.jsonPrimitive?.content?.toIntOrNull(),
+                title = com.blissless.tensei.data.models.MangaTitle(
+                    romaji = media["title"]?.jsonObject?.get("romaji")?.jsonPrimitive?.content,
+                    english = media["title"]?.jsonObject?.get("english")?.jsonPrimitive?.content
+                ),
+                coverImage = com.blissless.tensei.data.models.MediaCoverImage(
+                    extraLarge = media["coverImage"]?.jsonObject?.get("extraLarge")?.jsonPrimitive?.content,
+                    large = media["coverImage"]?.jsonObject?.get("large")?.jsonPrimitive?.content,
+                    medium = null
+                )
+            )
+        } catch (e: Exception) {
+            ErrorHandler.ignore(TAG, "findMangaByMalId parse failed", e)
+            null
+        }
+    }
+
     suspend fun toggleMangaFavorite(mediaId: Int, token: String): Boolean {
         val query = """
             mutation (${'$'}mediaId: Int) { ToggleFavourite(mangaId: ${'$'}mediaId) { manga { favourites } } }

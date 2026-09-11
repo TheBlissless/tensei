@@ -1853,7 +1853,16 @@ private fun MangaChapterRow(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (chapter.title.length > 10 && !chapter.title.startsWith("Chapter")) chapter.title else "Chapter $chNum",
+                    text = if (chapter.title.length > 10 && !chapter.title.startsWith("Chapter")) {
+                        chapter.title
+                    } else {
+                        // Chapter titles are built as "Chapter N: <name>". Show the name
+                        // part (e.g. "Dragon Ball 194") next to the number badge, falling
+                        // back to "Chapter N" when there's no actual name.
+                        val namePart = Regex("^Chapter\\s*${Regex.escape(chNum)}\\s*:\\s*")
+                            .replaceFirst(chapter.title, "").trim()
+                        if (namePart.isNotBlank()) namePart else "Chapter $chNum"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = when {
                         isNextToRead -> MaterialTheme.colorScheme.onBackground

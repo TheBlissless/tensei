@@ -1177,6 +1177,7 @@ private var mangaSyncJob: Job? = null
 // (full JSON encode of every track) on every scroll frame â€” that per-frame write, plus the
 // repeated threshold-crossing work, was the source of jank once the autosync threshold hit.
 private const val MANGA_SCROLL_PERSIST_INTERVAL_MS = 500L
+private const val MANGA_SYNC_RETRY_MS = 30_000L
 private var lastMangaScrollPersistTime = 0L
 
 // Mangas whose local track was already ensured this session. Lets the first real scroll
@@ -1254,7 +1255,9 @@ private suspend fun MainViewModel.executeMangaPendingSyncs() {
                 var result = true
                 // Push to AniList whenever AniList is active (alone or as part of BOTH).
                 if (isAniListActive && token != null) {
-                    val r = mangaRepository?.updateMangaStatus(sync.mediaId, status, token, sync.progress, score = sync.score)
+                    val aniListId = resolveMangaAniListIdForPush(sync)
+                    if (aniListId != sync.mediaId) rekeyMangaTrackIfNeeded(sync.mediaId, aniListId, sync.malId)
+                    val r = mangaRepository?.updateMangaStatus(aniListId, status, token, sync.progress, score = sync.score)
                     result = result && (r == true)
                 }
                 // Push to MAL whenever MAL is active (using the AniList manga's idMal).
@@ -1279,7 +1282,9 @@ private suspend fun MainViewModel.executeMangaPendingSyncs() {
                     ?: "CURRENT"
                 var result = true
                 if (isAniListActive && token != null) {
-                    val r = mangaRepository?.updateMangaStatus(sync.mediaId, status, token, sync.progress, score = score)
+                    val aniListId = resolveMangaAniListIdForPush(sync)
+                    if (aniListId != sync.mediaId) rekeyMangaTrackIfNeeded(sync.mediaId, aniListId, sync.malId)
+                    val r = mangaRepository?.updateMangaStatus(aniListId, status, token, sync.progress, score = score)
                     result = result && (r == true)
                 }
                 if (isMalActive && malMangaId != null) {
@@ -1338,6 +1343,17 @@ private suspend fun MainViewModel.executeMangaPendingSyncs() {
             runCrossProviderDiffSync()
         }
     }
+
+    // Retry anything that failed (e.g. the AniList API being down during the debounce) on a
+    // short cycle so the change lands automatically once the API recovers — a failed push is
+    // otherwise only retried when the user makes another change.
+    if (pendingMangaSyncs.isNotEmpty()) {
+        mangaSyncJob?.cancel()
+        mangaSyncJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(MANGA_SYNC_RETRY_MS)
+            withContext(NonCancellable) { executeMangaPendingSyncs() }
+        }
+    }
 }
 
 /** Resolve the MAL manga id for an AniList manga (the manga's `idMal`). */
@@ -1347,6 +1363,65 @@ private fun MainViewModel.resolveMalMangaId(animeMangaId: Int): Int? {
         _mangaPlanningToRead.value + _mangaCompleted.value +
         _mangaPaused.value + _mangaDropped.value
     return inLists.firstOrNull { it.id == animeMangaId }?.malId
+}
+
+/**
+ * Resolve the real AniList manga id for a pending AniList push. Manga opened/added through a
+ * MAL fallback (search/explore/detail while AniList was down) carry the MAL id as their own
+ * id, and AniList has no Media under that number — pushing it unchanged would fail forever and
+ * the manga would never land on AniList. Whenever the local id is really a MAL id
+ * (idMal == id, as threaded through [MainViewModel.updateMangaStatus]), the id is translated
+ * to AniList's id via the idMal lookup. Genuine AniList ids are returned unchanged.
+ */
+private suspend fun MainViewModel.resolveMangaAniListIdForPush(sync: PendingMangaSync): Int {
+    val mediaId = sync.mediaId
+    val known = _mangaContinueReading.value + _mangaCurrentlyReading.value +
+        _mangaPlanningToRead.value + _mangaCompleted.value +
+        _mangaPaused.value + _mangaDropped.value
+    // A list entry whose id is mediaId with a DIFFERENT malId → genuine AniList id.
+    known.firstOrNull { it.id == mediaId && it.malId != null && it.malId != mediaId }?.let { return mediaId }
+    // A list entry that holds mediaId as its MAL id → that entry's own id is the AniList id
+    // (covers reader/progress pushes for a manga that was already re-keyed).
+    known.firstOrNull { it.malId != null && it.malId == mediaId }?.let { e ->
+        if (e.id != mediaId) return e.id
+    }
+    // Id verbatim from a caller that carried the manga's detail context (falls back to the
+    // track's stored malId). Null → no way to translate, keep the id as-is.
+    val track = mangaTrackManager?.getTrack(mediaId)
+    val malId = sync.malId ?: track?.malId
+    if (malId == null || malId <= 0) return mediaId
+    if (malId != mediaId) return mediaId // genuine AniList id with a different MAL id.
+    // mediaId == malId → MAL-origin entry added through a fallback (its local id IS the MAL
+    // id). Present in the lists under this id does NOT make it genuine — translate by idMal so
+    // the add actually lands on AniList's entry for this manga.
+    val resolved = mangaRepository?.findMangaByMalId(malId, authToken.value)
+    val aniListId = resolved?.id?.takeIf { it > 0 } ?: mediaId
+    if (aniListId != mediaId) {
+        android.util.Log.d("MangaSyncDebug", "resolveMangaAniListIdForPush: mediaId=$mediaId is the MAL id → AniList id=$aniListId")
+    }
+    return aniListId
+}
+
+/**
+ * Re-key a local manga track from its MAL-origin id to its real AniList id once the id is
+ * known, so the AniList list merge can't create a duplicate track and future pushes reuse the
+ * correct id. Read-chapter bookkeeping moves with the id so already-synced chapters are not
+ * pushed twice after the re-key.
+ */
+private fun MainViewModel.rekeyMangaTrackIfNeeded(oldId: Int, newId: Int, malId: Int?) {
+    if (oldId == newId) return
+    val tracker = mangaTrackManager ?: return
+    val track = tracker.getTrack(oldId) ?: return
+    android.util.Log.d("MangaSyncDebug", "rekeyMangaTrackIfNeeded: $oldId -> $newId title='${track.title}'")
+    tracker.removeTrack(oldId)
+    tracker.addTrack(track.copy(mangaId = newId, malId = malId ?: track.malId))
+    mangaTrackEnsured.remove(oldId)
+    mangaTrackEnsured.add(newId)
+    val prefixOld = "$oldId:"
+    val moved = mangaReadSyncedChapters.filter { it.startsWith(prefixOld) }
+    mangaReadSyncedChapters.removeAll { it.startsWith(prefixOld) }
+    mangaReadSyncedChapters.addAll(moved.map { newId.toString() + it.removePrefix(prefixOld) })
+    loadLocalMangaTracking()
 }
 
 /** Map an AniList manga status (CURRENT/PLANNING/COMPLETED/PAUSED/DROPPED) to MAL. */
@@ -1443,11 +1518,14 @@ fun MainViewModel.updateMangaChapterPages(mangaId: Int, pages: Int) {
     mangaTrackManager?.updateChapterPages(mangaId, pages)
 }
 
-fun MainViewModel.updateMangaStatus(mangaId: Int, status: String, progress: Int? = null, score: Int? = null) {
+fun MainViewModel.updateMangaStatus(mangaId: Int, status: String, progress: Int? = null, score: Int? = null, malId: Int? = null, title: String = "", cover: String = "") {
     val effectiveStatus = status.ifBlank { "CURRENT" }
-    android.util.Log.d("MangaSyncDebug", "updateMangaStatus mangaId=$mangaId status='$status' effectiveStatus='$effectiveStatus' progress=$progress score=$score")
+    android.util.Log.d("MangaSyncDebug", "updateMangaStatus mangaId=$mangaId status='$status' effectiveStatus='$effectiveStatus' progress=$progress score=$score malId=$malId title='$title'")
     // Local-first: apply the change immediately so the UI reacts instantly, then
-    // queue the AniList push for the background debounced sync.
+    // queue the AniList push for the background debounced sync. Create the track WITH the
+    // manga's title/cover so the home/library cards render real data instead of an empty
+    // placeholder (a bare status change used to mint a blank track).
+    mangaTrackManager?.ensureTrack(mangaId, title = title, cover = cover, malId = malId)
     mangaTrackManager?.updateTrackingStatus(mangaId, effectiveStatus)
     if (progress != null) {
         mangaTrackManager?.updateChapterProgress(mangaId, progress.toFloat())
@@ -1456,15 +1534,15 @@ fun MainViewModel.updateMangaStatus(mangaId: Int, status: String, progress: Int?
         mangaTrackManager?.updateScore(mangaId, score)
     }
     loadLocalMangaTracking()
-    queueMangaSync(mangaId, "status", status = effectiveStatus, progress = progress, score = score)
+    queueMangaSync(mangaId, "status", status = effectiveStatus, progress = progress, score = score, malId = malId)
 }
 
 /** Set the AniList score (0-100) for a manga, local-first with a debounced remote push. */
-fun MainViewModel.updateMangaScore(mangaId: Int, score: Int) {
-    android.util.Log.d("MangaSyncDebug", "updateMangaScore mangaId=$mangaId score=$score")
+fun MainViewModel.updateMangaScore(mangaId: Int, score: Int, malId: Int? = null) {
+    android.util.Log.d("MangaSyncDebug", "updateMangaScore mangaId=$mangaId score=$score malId=$malId")
     mangaTrackManager?.updateScore(mangaId, score)
     loadLocalMangaTracking()
-    queueMangaSync(mangaId, "score", score = score)
+    queueMangaSync(mangaId, "score", score = score, malId = malId)
 }
 
 fun MainViewModel.removeMangaTracking(mangaId: Int) {

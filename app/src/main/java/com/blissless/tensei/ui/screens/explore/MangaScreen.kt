@@ -248,7 +248,7 @@ fun MangaScreen(
                 showMangaStatusDialog = false
             },
             onUpdate = { status, progress ->
-                viewModel.updateMangaStatus(manga.id, status, progress, null)
+                viewModel.updateMangaStatus(manga.id, status, progress, null, malId = manga.idMal, title = manga.title.romaji ?: manga.title.english ?: "", cover = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: "")
                 if (progress != null) {
                     viewModel.updateMangaProgress(manga.id, progress.toFloat())
                 }

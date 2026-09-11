@@ -104,6 +104,7 @@ import com.blissless.tensei.data.models.toDetailedAnimeData
 import com.blissless.tensei.ui.screens.details.DetailedAnimeScreen
 import com.blissless.tensei.ui.theme.StatusColors
 import com.blissless.tensei.ui.theme.StatusLabels
+import com.blissless.tensei.ui.theme.MangaStatusLabels
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -249,6 +250,19 @@ fun SearchScreen(
         map
     }
 
+    // MAL-fallback results (AniList search/detail down) carry the MAL id as their own id, so the
+    // id-keyed maps above miss. Build malId-keyed mirrors of the AniList-sourced lists so those
+    // cards still resolve their status badge.
+    val savedAnimeByMalMap = remember(currentlyWatching, planningToWatch, completed, onHold, dropped) {
+        val map = mutableMapOf<Int, String>()
+        currentlyWatching.forEach { it.malId?.let { m -> map[m] = "CURRENT" } }
+        planningToWatch.forEach { it.malId?.let { m -> map[m] = "PLANNING" } }
+        completed.forEach { it.malId?.let { m -> map[m] = "COMPLETED" } }
+        onHold.forEach { it.malId?.let { m -> map[m] = "PAUSED" } }
+        dropped.forEach { it.malId?.let { m -> map[m] = "DROPPED" } }
+        map
+    }
+
     // ── Manga tracking state ───────────────────────────────────────────
     // Read from the VM's StateFlows so manga cards in the unified grid can
     // show the same list-status badges as anime cards.
@@ -264,6 +278,14 @@ fun SearchScreen(
         map
     }
 
+    val mangaTrackByMalMap = remember(mangaCurrentlyReadingList, mangaPlanningToReadList, mangaCompletedList) {
+        val map = mutableMapOf<Int, String>()
+        mangaCurrentlyReadingList.forEach { it.malId?.let { m -> map[m] = "CURRENT" } }
+        mangaPlanningToReadList.forEach { it.malId?.let { m -> map[m] = "PLANNING" } }
+        mangaCompletedList.forEach { it.malId?.let { m -> map[m] = "COMPLETED" } }
+        map
+    }
+
     val savedAnimeProgressMap = remember(currentlyWatching, planningToWatch, completed, onHold, dropped, localAnimeStatus) {
         val map = mutableMapOf<Int, Int>()
         currentlyWatching.forEach { if (it.progress > 0) map[it.id] = it.progress }
@@ -272,6 +294,16 @@ fun SearchScreen(
         onHold.forEach { if (it.progress > 0) map[it.id] = it.progress }
         dropped.forEach { if (it.progress > 0) map[it.id] = it.progress }
         localAnimeStatus.forEach { (id, entry) -> if (entry.progress > 0 && !map.containsKey(id)) map[id] = entry.progress }
+        map
+    }
+
+    val savedAnimeProgressByMalMap = remember(currentlyWatching, planningToWatch, completed, onHold, dropped) {
+        val map = mutableMapOf<Int, Int>()
+        currentlyWatching.forEach { if (it.progress > 0) it.malId?.let { m -> map[m] = it.progress } }
+        planningToWatch.forEach { if (it.progress > 0) it.malId?.let { m -> map[m] = it.progress } }
+        completed.forEach { if (it.progress > 0) it.malId?.let { m -> map[m] = it.progress } }
+        onHold.forEach { if (it.progress > 0) it.malId?.let { m -> map[m] = it.progress } }
+        dropped.forEach { if (it.progress > 0) it.malId?.let { m -> map[m] = it.progress } }
         map
     }
 
@@ -759,7 +791,7 @@ fun SearchScreen(
                             mangaScore = manga.averageScore,
                             mangaYear = manga.seasonYear ?: manga.startDate?.year,
                             mangaChapters = manga.chapters,
-                            listStatus = mangaTrackMap[manga.id],
+                            listStatus = mangaTrackMap[manga.id] ?: mangaTrackByMalMap[manga.idMal],
                             onClick = { onMangaClick(manga) }
                         )
                     }
@@ -796,7 +828,7 @@ fun SearchScreen(
                             is UnifiedSearchItem.Anime -> MediaSearchResultCard(
                                 isAnime = true,
                                 anime = item.item,
-                                listStatus = savedAnimeMap[item.item.id],
+                                listStatus = savedAnimeMap[item.item.id] ?: savedAnimeByMalMap[item.item.malId ?: item.item.id],
                                 preferEnglishTitles = preferEnglishTitles,
                                 onClick = {
                                     keyboardController?.hide()
@@ -810,7 +842,7 @@ fun SearchScreen(
                                 MediaSearchResultCard(
                                     isAnime = false,
                                     manga = manga,
-                                    listStatus = mangaTrackMap[manga.id],
+                                    listStatus = mangaTrackMap[manga.id] ?: mangaTrackByMalMap[manga.idMal],
                                     preferEnglishTitles = preferEnglishTitles,
                                     onClick = { onMangaClick(manga) }
                                 )
@@ -848,7 +880,7 @@ fun SearchScreen(
                     items(filteredResults, key = { it.id }) { anime ->
                         SearchResultCard(
                             anime = anime,
-                            listStatus = savedAnimeMap[anime.id],
+                            listStatus = savedAnimeMap[anime.id] ?: savedAnimeByMalMap[anime.malId ?: anime.id],
                             preferEnglishTitles = preferEnglishTitles,
                             onClick = {
                                 keyboardController?.hide()
@@ -879,8 +911,8 @@ fun SearchScreen(
     }
 
     if (showDetailDialog && selectedAnime != null) {
-        val currentStatus by remember(listVersion, selectedAnime!!.id) { derivedStateOf { savedAnimeMap[selectedAnime!!.id] } }
-        val currentProgress by remember(listVersion, selectedAnime!!.id) { derivedStateOf { savedAnimeProgressMap[selectedAnime!!.id] } }
+        val currentStatus by remember(listVersion, selectedAnime!!.id) { derivedStateOf { savedAnimeMap[selectedAnime!!.id] ?: savedAnimeByMalMap[selectedAnime!!.malId ?: selectedAnime!!.id] } }
+        val currentProgress by remember(listVersion, selectedAnime!!.id) { derivedStateOf { savedAnimeProgressMap[selectedAnime!!.id] ?: savedAnimeProgressByMalMap[selectedAnime!!.malId ?: selectedAnime!!.id] } }
         val isAnimeFavorite by remember(listVersion, favoriteIds, selectedAnime!!.id) { derivedStateOf { favoriteIds.contains(selectedAnime!!.id) } }
 
         DetailedAnimeScreen(
@@ -1041,8 +1073,8 @@ private fun SearchResultCard(
                         shape = RoundedCornerShape(6.dp),
                         color = Color.Black.copy(alpha = 0.6f)
                     ) {
-                        Text(
-                            StatusLabels[listStatus] ?: listStatus,
+Text(
+                            if (anime == null) MangaStatusLabels[listStatus] ?: listStatus else StatusLabels[listStatus] ?: listStatus,
                             color = StatusColors[listStatus] ?: Color.Transparent,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
@@ -1158,7 +1190,7 @@ private fun MediaSearchResultCard(
                         color = Color.Black.copy(alpha = 0.6f)
                     ) {
                         Text(
-                            StatusLabels[listStatus] ?: listStatus,
+                            if (isAnime) StatusLabels[listStatus] ?: listStatus else MangaStatusLabels[listStatus] ?: listStatus,
                             color = StatusColors[listStatus] ?: Color.Transparent,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
