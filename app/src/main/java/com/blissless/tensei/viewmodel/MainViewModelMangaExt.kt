@@ -451,6 +451,8 @@ private fun toMangaMedia(track: MangaTrack): MangaMedia {
         malId = track.malId,
         scrollProgress = track.scrollProgress,
         currentChapterPages = track.currentChapterPages,
+        scrollChapterId = track.scrollChapterId,
+        scrollChapterNumber = track.scrollChapterNumber,
         userScore = track.score,
         averageScore = track.averageScore
     )
@@ -1461,7 +1463,7 @@ fun MainViewModel.onMangaScrollProgress(
     if (!scrollPercent.isFinite()) return false
 
     // Always save scroll progress locally (this also lazily creates the track on first progress)
-    updateMangaScrollProgress(mangaId, scrollPercent, mangaTitle, mangaCover)
+    updateMangaScrollProgress(mangaId, scrollPercent, mangaTitle, mangaCover, chapter)
 
     val threshold = userPreferences.mangaSyncThreshold.value / 100f
     if (scrollPercent >= threshold) {
@@ -1474,6 +1476,10 @@ fun MainViewModel.onMangaScrollProgress(
             android.util.Log.d("MangaSyncDebug", "THRESHOLD CROSSED mangaId=$mangaId scrollPercent=$scrollPercent chapterNumber=${chapter.chapterNumber}")
             // Mark chapter as read (creates track if needed, updates local progress)
             markMangaChapterRead(mangaId, chapter, mangaTitle, mangaCover)
+            // The chapter is now consumed by the auto-sync (progress pushed to AniList). Rule:
+            // it must NOT leave a Continue Reading card behind — and any pre-threshold scroll
+            // saved for it is dropped here so no stale card lingers.
+            mangaTrackManager?.updateScrollProgress(mangaId, 0f)
 
             // Schedule the AniList progress push through the debounced sync queue.
             // Only for integer chapter numbers (skip partial chapters like 12.5)
@@ -1493,21 +1499,41 @@ fun MainViewModel.setMangaSyncThreshold(percent: Int) {
     userPreferences.setMangaSyncThreshold(percent)
 }
 
-fun MainViewModel.updateMangaScrollProgress(mangaId: Int, scrollProgress: Float, mangaTitle: String = "", mangaCover: String = "") {
-    // Guard against NaN/Infinity â€” same defensive pattern as oni's TrackingManager
+fun MainViewModel.updateMangaScrollProgress(mangaId: Int, scrollProgress: Float, mangaTitle: String = "", mangaCover: String = "", chapter: MangaChapter? = null) {
+    // Guard against NaN/Infinity — same defensive pattern as oni's TrackingManager
     val safe = if (scrollProgress.isNaN() || scrollProgress.isInfinite()) 0f else scrollProgress
-    // NOTE: Track creation is intentionally NOT done here â€” it was previously called on first
-    // scroll progress (safe > 0f) which caused every opened chapter to appear in "Continue
-    // Reading" immediately, even without the user reading enough. Track creation is now handled
-    // exclusively by markMangaChapterRead, which fires only when the sync threshold is crossed.
-    // Persist scroll progress â€” throttled, because writing SharedPreferences (full JSON encode of
+    // In-chapter resume card: created lazily on the FIRST real scroll (past page 1), so closing
+    // the reader mid-chapter BEFORE the sync threshold leaves a "continue at this spot" card.
+    // Opening a chapter alone (scroll stays 0) still never tracks. Once a chapter is consumed by
+    // the auto-sync — the sync threshold crossed this session, or progress already covers it from
+    // an earlier session — it must NOT produce a card again, even if the user scrolls back below
+    // the threshold; only the status/progress update applies from then on.
+    var suppressCard = false
+    val chapterKey = if (chapter != null) "$mangaId:${chapter.chapterId}" else null
+    if (chapterKey != null && chapterKey in mangaReadSyncedChapters) {
+        suppressCard = true
+    } else if (safe > 0f && chapter != null && mangaId !in mangaTrackEnsured) {
+        // First real scroll for this manga this session: decide once (with a single track
+        // decode) whether this chapter can card. Progress-covered chapters are treated like
+        // already-synced ones; otherwise create the track so the stop position can be saved.
+        val track = mangaTrackManager?.ensureTrack(mangaId, mangaTitle, mangaCover)
+        if (track != null && chapter.chapterNumber > 0f && chapter.chapterNumber <= track.progress) {
+            mangaReadSyncedChapters.add(chapterKey!!)
+            suppressCard = true
+        } else {
+            mangaTrackEnsured.add(mangaId)
+        }
+    }
+    // Persist scroll progress — throttled, because writing SharedPreferences (full JSON encode of
     // all tracks) on every scroll frame is the jank source once the reader is at/over the sync
     // threshold. Resets to 0 (opening a non-resume chapter) are rare and must land immediately so
     // stale Continue Reading cards clear correctly; the final persisted value of a scroll gesture
-    // stays within one interval of the actual position, which is plenty for resume.
+    // stays within one interval of the actual position, which is plenty for resume. The chapter is
+    // stored alongside the fraction so Continue Reading stays attached to the chapter the scroll
+    // was made in.
     val now = SystemClock.elapsedRealtime()
-    if (safe <= 0f || now - lastMangaScrollPersistTime >= MANGA_SCROLL_PERSIST_INTERVAL_MS) {
-        mangaTrackManager?.updateScrollProgress(mangaId, safe)
+    if (!suppressCard && (safe <= 0f || now - lastMangaScrollPersistTime >= MANGA_SCROLL_PERSIST_INTERVAL_MS)) {
+        mangaTrackManager?.updateScrollProgress(mangaId, safe, chapter)
         lastMangaScrollPersistTime = now
     }
 }

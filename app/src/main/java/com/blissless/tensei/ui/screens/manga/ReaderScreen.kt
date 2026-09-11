@@ -193,6 +193,32 @@ fun MangaReaderScreen(
     val currentChapter = chapters.getOrNull(currentChapterIndex)
     val isFirstChapter = currentChapterIndex == 0
     val isLastChapter = currentChapterIndex >= chapters.lastIndex
+    // Index of the chapter the saved scroll position belongs to. Progress races ahead once the
+    // sync threshold is crossed (a completed chapter), while the user may still be inside it —
+    // so resume must target the scroll's chapter, not progress+1 (the "Ch. 21 · Page 26/27" bug).
+    val scrollChapterIndex = remember(chapters, manga.scrollChapterId) {
+        if (manga.scrollChapterId != null) chapters.indexOfFirst { it.chapterId == manga.scrollChapterId } else -1
+    }
+    // Entry redirect: Continue Reading hands us index == progress (the next unread chapter once
+    // the previous crossed the sync threshold). If the saved scroll belongs to a different
+    // chapter, open THAT one instead (restoring the true reading position) before anything else
+    // is put on screen. Only applies when the reader is opened directly into a chapter (not into
+    // the chapter list), and runs once per reader session.
+    var entryRedirectDone by remember { mutableStateOf(initialChapterIndex < 0) }
+    LaunchedEffect(chapters, scrollChapterIndex, showChapterList) {
+        if (entryRedirectDone || showChapterList || chapters.isEmpty()) return@LaunchedEffect
+        entryRedirectDone = true
+        if (scrollChapterIndex >= 0 && currentChapterIndex != scrollChapterIndex) {
+            android.util.Log.d("MangaReader", "Entry redirect: progress-index=$currentChapterIndex -> scroll-chapter-index=$scrollChapterIndex scrollProgress=${manga.scrollProgress}")
+            currentChapterIndex = scrollChapterIndex
+            currentPageIndex = 0
+            scrollProgress = 0f
+            pendingResumeProgress = manga.scrollProgress
+            suppressResumeRestore = false
+            pendingChapterLoad = false
+            pendingChapterIndex = -1
+        }
+    }
     val useDataSaver = viewModel.mangaDataSaver.value
     val isLoadingChapters by viewModel.isLoadingMangaChapters.collectAsState()
     val hasLoadedChapters by viewModel.hasLoadedMangaChapters.collectAsState()
@@ -272,7 +298,9 @@ fun MangaReaderScreen(
             displayedImages = chapterImages
             displayedImagesError = chapterImagesError
             displayedChapterIndex = currentChapterIndex
-            if (pendingResumeProgress < 0f && manga.scrollProgress > 0f && currentChapterIndex == manga.progress) {
+            if (pendingResumeProgress < 0f && manga.scrollProgress > 0f &&
+                (currentChapterIndex == scrollChapterIndex || (scrollChapterIndex < 0 && currentChapterIndex == manga.progress))
+            ) {
                 pendingResumeProgress = manga.scrollProgress
                 android.util.Log.d("MangaReader", "Initial entry resume: set pendingResumeProgress=${manga.scrollProgress}")
             }
@@ -332,12 +360,14 @@ fun MangaReaderScreen(
         }
     }
 
-    // When a chapter is opened that isn't the Continue-Reading resume target (index == progress),
-    // clear the saved scroll position so backing out of a merely-opened chapter never leaves a
-    // stale Continue Reading card (the page count is set on load, but scrollProgress 0 means the
-    // card won't show). Covers direct opens (Read Now / home card) that skip selectChapter.
+    // When a chapter is opened that isn't the Continue-Reading resume target (index == progress
+    // OR the saved scroll's chapter), clear the saved scroll position so backing out of a
+    // merely-opened chapter never leaves a stale Continue Reading card (the page count is set
+    // on load, but scrollProgress 0 means the card won't show). Covers direct opens (Read Now /
+    // home card) that skip selectChapter. Opening the scroll's own chapter must NOT clear it.
     LaunchedEffect(currentChapterIndex) {
-        if (currentChapterIndex != manga.progress) {
+        val isScrollChapterOpened = scrollChapterIndex >= 0 && currentChapterIndex == scrollChapterIndex
+        if (currentChapterIndex != manga.progress && !isScrollChapterOpened) {
             viewModel.updateMangaScrollProgress(manga.id, 0f)
         }
     }
@@ -394,7 +424,10 @@ fun MangaReaderScreen(
             return
         }
         android.util.Log.d("MangaReader", "selectChapter: opening chapterId='${chapter.chapterId}' title='${chapter.title}'")
-        val resuming = !startAtTop && index == manga.progress
+        val resuming = !startAtTop && (
+            currentChapterIndex >= 0 && scrollChapterIndex >= 0 && index == scrollChapterIndex ||
+            scrollChapterIndex < 0 && index == manga.progress
+            )
         currentChapterIndex = index
         currentPageIndex = 0
         scrollProgress = 0f
@@ -556,7 +589,7 @@ fun MangaReaderScreen(
                         // and fall back to the saved resume position only on the initial entry.
                         restoreProgress = when {
                             scrollProgress > 0f -> scrollProgress
-                            !suppressResumeRestore && currentChapterIndex == manga.progress -> manga.scrollProgress
+                            !suppressResumeRestore && (currentChapterIndex == scrollChapterIndex || (scrollChapterIndex < 0 && currentChapterIndex == manga.progress)) -> manga.scrollProgress
                             else -> -1f
                         },
                         showControls = showControls,

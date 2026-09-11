@@ -1220,7 +1220,9 @@ data class MangaMedia(
     val siteUrl: String? = null,
     val mangaDexId: String? = null,
     val scrollProgress: Float = 0f,
-    val currentChapterPages: Int = 0
+    val currentChapterPages: Int = 0,
+    val scrollChapterId: String? = null,
+    val scrollChapterNumber: Float = 0f
 )
 
 @Serializable
@@ -1346,6 +1348,8 @@ data class MangaTrack(
     val cover: String = "",
     val progress: Float = 0f,
     val scrollProgress: Float = 0f,
+    val scrollChapterId: String? = null,
+    val scrollChapterNumber: Float = 0f,
     val totalChapters: Int = 0,
     val totalVolumes: Int? = null,
     val listEntryId: Int? = null,

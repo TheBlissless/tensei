@@ -22,8 +22,8 @@ android {
         applicationId = "com.blissless.tensei"
         minSdk = 26
         targetSdk = 37
-        versionCode = 24
-        versionName = "1.2.11"
+        versionCode = 25
+        versionName = "1.2.12"
 
         externalNativeBuild {
             cmake {

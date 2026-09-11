@@ -1525,6 +1525,10 @@ private fun MangaContinueReadingRow(
     }
 }
 
+/** Format a chapter number for display: "20" (not "20.0"), keeps real fractions like "20.5". */
+private fun formatChapterNum(number: Float): String =
+    if (number.isFinite() && number == number.toInt().toFloat()) number.toInt().toString() else number.toString()
+
 @Composable
 private fun MangaContinueReadingCard(
     manga: MangaMedia,
@@ -1534,9 +1538,17 @@ private fun MangaContinueReadingCard(
     onDismissClick: () -> Unit
 ) {
     val context = LocalContext.current
-    val nextChapter = (manga.progress + 1).coerceAtLeast(1)
     val scrollProgress = manga.scrollProgress.coerceIn(0f, 1f)
     val hasScrollProgress = scrollProgress > 0f
+    // The chapter the saved scroll belongs to (not progress+1): after a chapter crosses the sync
+    // threshold, progress represents the completed chapter while the reader is still inside it —
+    // showing "Ch. ${progress+1}" with that chapter's page position was the "Ch. 21 · Page 26/27"
+    // bug. The card describes the position the user is actually resuming.
+    val displayChapter = if (hasScrollProgress && manga.scrollChapterNumber > 0f) {
+        formatChapterNum(manga.scrollChapterNumber)
+    } else {
+        (manga.progress + 1).coerceAtLeast(1).toString()
+    }
     val pageTotal = manga.currentChapterPages
     // The saved scroll fraction maps to the item index the reader restores to
     // (0-based); the on-screen page number is that index + 1.
@@ -1553,9 +1565,9 @@ private fun MangaContinueReadingCard(
     val barFraction = if (hasScrollProgress) scrollProgress else overallProgress
     val progressLabel = when {
         currentPage != null -> "Page $currentPage of $pageTotal"
-        hasScrollProgress -> "${(scrollProgress * 100).toInt()}% through Ch. $nextChapter"
+        hasScrollProgress -> "${(scrollProgress * 100).toInt()}% through Ch. $displayChapter"
         manga.totalChapters > 0 -> "${manga.progress} / ${manga.totalChapters} ch."
-        else -> "Ch. $nextChapter"
+        else -> "Ch. $displayChapter"
     }
     val progressColor = if (isOled) Color.White else MaterialTheme.colorScheme.primary
     val displayMangaTitle = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title
@@ -1607,7 +1619,7 @@ private fun MangaContinueReadingCard(
                         color = Color.Black.copy(alpha = 0.65f)
                     ) {
                         Text(
-                            text = "Ch. $nextChapter",
+                            text = "Ch. $displayChapter",
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,

@@ -161,11 +161,32 @@ class MangaTrackManager(context: Context) {
         }
     }
 
-    fun updateScrollProgress(mangaId: Int, scrollProgress: Float) {
+    /**
+     * Store the in-chapter scroll position along with WHICH chapter it belongs to. The
+     * chapter identity matters: progress (chapters completed) races ahead the moment the sync
+     * threshold is crossed, so the scroll fraction must stay attached to the chapter it was
+     * scrolled in — otherwise the Continue Reading badge shows the next chapter with the
+     * previous chapter's page position ("Ch. 21 · Page 26/27"). Clears the chapter identity
+     * when the scroll is reset (opening a non-resume chapter).
+     */
+    fun updateScrollProgress(mangaId: Int, scrollProgress: Float, chapter: MangaChapter? = null) {
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         if (index >= 0) {
-            tracks[index] = tracks[index].copy(scrollProgress = scrollProgress)
+            val existing = tracks[index]
+            tracks[index] = when {
+                scrollProgress <= 0f -> existing.copy(
+                    scrollProgress = scrollProgress,
+                    scrollChapterId = null,
+                    scrollChapterNumber = 0f
+                )
+                chapter != null -> existing.copy(
+                    scrollProgress = scrollProgress,
+                    scrollChapterId = chapter.chapterId,
+                    scrollChapterNumber = chapter.chapterNumber
+                )
+                else -> existing.copy(scrollProgress = scrollProgress)
+            }
         }
         saveTracks(tracks)
     }
@@ -293,7 +314,12 @@ class MangaTrackManager(context: Context) {
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         if (index >= 0) {
-            tracks[index] = tracks[index].copy(scrollProgress = 0f, currentChapterPages = 0)
+            tracks[index] = tracks[index].copy(
+                scrollProgress = 0f,
+                currentChapterPages = 0,
+                scrollChapterId = null,
+                scrollChapterNumber = 0f
+            )
         }
         saveTracks(tracks)
     }
