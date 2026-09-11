@@ -415,6 +415,9 @@ fun MainViewModel.initManga() {
     _mangaTrackManager = MangaTrackManager(context)
     _mangaDexManager = MangaDexManager()
     loadLocalMangaTracking()
+    // App-start safety net: flip any CURRENT manga that already sits at its final chapter of a
+    // FINISHED (released) series to COMPLETED, using media status persisted from prior syncs.
+    reconcileAllCompletions()
     // Discover installed extensions on every init â€” cheap and surfaces new installs.
     discoverExtensions()
     // Restore the user's previously-selected extension authority (if any).
@@ -577,7 +580,7 @@ suspend fun MainViewModel.fetchMangaLists(): Boolean {
         // Sync AniList entries into local tracking
         anilistCurrent?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
             localTracker.updateTrackingStatus(m.id, "CURRENT")
             // Never downgrade local progress: a stale AniList response (push still in
             // flight, or a network hiccup) must not roll back chapters the user just read.
@@ -586,25 +589,25 @@ suspend fun MainViewModel.fetchMangaLists(): Boolean {
         }
         anilistPlanning?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
             localTracker.updateTrackingStatus(m.id, "PLANNING")
             if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
         }
         anilistCompleted?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
             localTracker.updateTrackingStatus(m.id, "COMPLETED")
             if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
         }
         anilistPaused?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
             localTracker.updateTrackingStatus(m.id, "PAUSED")
             if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
         }
         anilistDropped?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId)
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
             localTracker.updateTrackingStatus(m.id, "DROPPED")
             if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
         }
@@ -612,6 +615,7 @@ suspend fun MainViewModel.fetchMangaLists(): Boolean {
 
     // Reload from local (which now includes both local-only and AniList-synced tracks)
     loadLocalMangaTracking()
+    reconcileAllCompletions()
     saveHomeDataToCache()
     return true
 }
@@ -692,7 +696,7 @@ suspend fun MainViewModel.fetchMangaDetail(mangaId: Int, malId: Int? = null) {
     }
     _mangaDetail.value = detail
     if (detail != null) {
-        mangaTrackManager?.updateMangaInfo(mangaId, detail.title, detail.cover, detail.titleEnglish)
+        mangaTrackManager?.updateMangaInfo(mangaId, detail.title, detail.cover, detail.titleEnglish, detail.status)
         android.util.Log.d("MangaDetail", "fetchMangaDetail: SUCCESS mangaId=$mangaId title='${detail.title}' " +
             "desc=${detail.description != null} genres=${detail.genres.size} tags=${detail.tags.size} " +
             "chars=${detail.characters?.nodes?.size ?: 0} staff=${detail.staff?.edges?.size ?: 0} " +
@@ -1480,6 +1484,9 @@ fun MainViewModel.onMangaScrollProgress(
             // it must NOT leave a Continue Reading card behind — and any pre-threshold scroll
             // saved for it is dropped here so no stale card lingers.
             mangaTrackManager?.updateScrollProgress(mangaId, 0f)
+            // A released (FINISHED) manga that reaches its final chapter is completed
+            // automatically; on-going manga never is — new chapters may still arrive.
+            reconcileCompletion(mangaId, chapter.chapterNumber, reading = true)
 
             // Schedule the AniList progress push through the debounced sync queue.
             // Only for integer chapter numbers (skip partial chapters like 12.5)
@@ -1492,6 +1499,49 @@ fun MainViewModel.onMangaScrollProgress(
         }
     }
     return false
+}
+
+/**
+ * Complete a manga automatically whenever a RELEASED (media status FINISHED) manga reaches
+ * its final chapter: flip the local track to COMPLETED and push the status change. This is the
+ * one shared rule — the reader sync threshold, the change-status dialog, and the startup sweep
+ * all funnel into it, so a finished manga is never silently left at 100% under CURRENT while a
+ * still-running (RELEASING) series caught up to its latest release is never falsely completed.
+ */
+private fun MainViewModel.reconcileCompletion(mangaId: Int, progressOverride: Float = -1f, reading: Boolean = false) {
+    val track = mangaTrackManager?.getTrack(mangaId) ?: return
+    if (track.status == "COMPLETED") return
+    val finished = track.mediaStatus == "FINISHED" || _mangaDetail.value?.status == "FINISHED"
+    if (!finished) return
+    if (track.totalChapters <= 0) return
+    val effectiveProgress = if (progressOverride >= 0f) progressOverride else track.progress
+    if (effectiveProgress < track.totalChapters) return
+    // Reading a chapter implies an active CURRENT manga. For dialog-driven changes only a
+    // CURRENT manga is auto-completed, so an explicit PAUSED/DROPPED/PLANNING choice is never
+    // overridden.
+    if (!reading && track.status != "CURRENT") return
+    android.util.Log.d("MangaSyncDebug", "AUTO-COMPLETE: mangaId=$mangaId progress=${effectiveProgress} totalChapters=${track.totalChapters} mediaStatus=${track.mediaStatus} reading=$reading")
+    mangaTrackManager?.updateTrackingStatus(mangaId, "COMPLETED")
+    loadLocalMangaTracking()
+    queueMangaSync(mangaId, "status", status = "COMPLETED", progress = track.totalChapters)
+}
+
+/** Startup/refresh safety net: sweep every locally-tracked CURRENT manga for the completion rule. */
+private fun MainViewModel.reconcileAllCompletions() {
+    val tracker = mangaTrackManager ?: return
+    var changed = false
+    for (track in tracker.allTracks()) {
+        if (track.status != "CURRENT") continue
+        if (track.mediaStatus != "FINISHED") continue
+        if (track.totalChapters <= 0 || track.progress < track.totalChapters) continue
+        tracker.updateTrackingStatus(track.mangaId, "COMPLETED")
+        queueMangaSync(track.mangaId, "status", status = "COMPLETED", progress = track.totalChapters)
+        changed = true
+    }
+    if (changed) {
+        loadLocalMangaTracking()
+        android.util.Log.d("MangaSyncDebug", "reconcileAllCompletions: completed $changed manga")
+    }
 }
 
 /** Set the AniList sync threshold (75-100%). Persists across restarts. */
@@ -1561,6 +1611,10 @@ fun MainViewModel.updateMangaStatus(mangaId: Int, status: String, progress: Int?
     }
     loadLocalMangaTracking()
     queueMangaSync(mangaId, "status", status = effectiveStatus, progress = progress, score = score, malId = malId)
+    // Re-apply the auto-complete rule after the dialog: a CURRENT manga whose progress now
+    // sits on its final chapter of a FINISHED (released) series becomes COMPLETED. An explicit
+    // PAUSED/DROPPED/PLANNING choice is untouched.
+    reconcileCompletion(mangaId, progress?.toFloat() ?: -1f, reading = false)
 }
 
 /** Set the AniList score (0-100) for a manga, local-first with a debounced remote push. */
@@ -1670,13 +1724,14 @@ internal suspend fun MainViewModel.fetchMalMangaList() {
 
         val title = entry.node.alternative_titles?.en ?: entry.node.title
 
-        localTracker.ensureTrack(mangaKey, title, entry.node.main_picture?.large ?: entry.node.main_picture?.medium ?: "", entry.node.num_chapters, null, null, null, malId)
+        localTracker.ensureTrack(mangaKey, title, entry.node.main_picture?.large ?: entry.node.main_picture?.medium ?: "", entry.node.num_chapters, null, null, null, malId, mediaStatus = mapMangaMediaStatusFromMal(entry.node.status))
         localTracker.updateTrackingStatus(mangaKey, mapMangaStatusFromMal(status))
         if (progress > 0) localTracker.updateChapterProgressKeepMax(mangaKey, progress.toFloat())
         if (score != null && score > 0) localTracker.updateScore(mangaKey, (score * 10).coerceAtMost(100))
     }
 
     loadLocalMangaTracking()
+    reconcileAllCompletions()
     loadMalMangaFavoritesFromCache()
     saveHomeDataToCache()
 }
@@ -1700,6 +1755,16 @@ internal fun mapMangaStatusFromMal(malStatus: String?): String {
         "dropped" -> "DROPPED"
         else -> "PLANNING"
     }
+}
+
+/** Map a MAL manga PUBLISHING status to an AniList media status. */
+internal fun mapMangaMediaStatusFromMal(malStatus: String?): String? = when (malStatus) {
+    "currently_publishing" -> "RELEASING"
+    "finished" -> "FINISHED"
+    "on_hiatus" -> "HIATUS"
+    "discontinued" -> "CANCELLED"
+    "not_yet_published" -> "NOT_YET_RELEASED"
+    else -> null
 }
 
 /** Restore locally-persisted MAL manga favorites. */

@@ -1353,6 +1353,7 @@ data class MangaTrack(
     val totalChapters: Int = 0,
     val totalVolumes: Int? = null,
     val listEntryId: Int? = null,
+    val mediaStatus: String? = null,
     val status: String = "PLANNING",
     val mangaDexId: String? = null,
     val lastReadChapter: MangaChapter? = null,

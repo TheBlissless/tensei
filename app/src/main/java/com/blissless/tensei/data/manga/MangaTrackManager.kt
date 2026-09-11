@@ -100,7 +100,7 @@ class MangaTrackManager(context: Context) {
      * Ensure a track exists for the given manga. If none exists, a new CURRENT track is created
      * with the provided metadata. Returns the (possibly newly-created) track.
      */
-    fun ensureTrack(mangaId: Int, title: String = "", cover: String = "", totalChapters: Int = 0, averageScore: Int? = null, titleEnglish: String? = null, listEntryId: Int? = null, malId: Int? = null): MangaTrack {
+    fun ensureTrack(mangaId: Int, title: String = "", cover: String = "", totalChapters: Int = 0, averageScore: Int? = null, titleEnglish: String? = null, listEntryId: Int? = null, malId: Int? = null, mediaStatus: String? = null): MangaTrack {
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         if (index >= 0) {
@@ -113,7 +113,8 @@ class MangaTrackManager(context: Context) {
                 totalChapters = if (existing.totalChapters == 0) totalChapters else existing.totalChapters,
                 averageScore = averageScore ?: existing.averageScore,
                 listEntryId = existing.listEntryId ?: listEntryId,
-                malId = existing.malId ?: malId
+                malId = existing.malId ?: malId,
+                mediaStatus = mediaStatus ?: existing.mediaStatus
             )
             if (patched != existing) {
                 tracks[index] = patched
@@ -130,7 +131,8 @@ class MangaTrackManager(context: Context) {
             status = "CURRENT",
             averageScore = averageScore,
             listEntryId = listEntryId,
-            malId = malId
+            malId = malId,
+            mediaStatus = mediaStatus
         )
         tracks.add(newTrack)
         saveTracks(tracks)
@@ -324,7 +326,7 @@ class MangaTrackManager(context: Context) {
         saveTracks(tracks)
     }
 
-    fun updateMangaInfo(mangaId: Int, title: String, cover: String, titleEnglish: String? = null) {
+    fun updateMangaInfo(mangaId: Int, title: String, cover: String, titleEnglish: String? = null, mediaStatus: String? = null) {
         // Only patch an existing track — never auto-create one here. This is called from
         // fetchMangaDetail (i.e. merely viewing a detail page), so creating a track would
         // silently add manga to "Planning to Read" without the user doing anything.
@@ -334,11 +336,14 @@ class MangaTrackManager(context: Context) {
             tracks[index] = tracks[index].copy(
                 title = title,
                 cover = cover,
-                titleEnglish = titleEnglish ?: tracks[index].titleEnglish
+                titleEnglish = titleEnglish ?: tracks[index].titleEnglish,
+                mediaStatus = mediaStatus ?: tracks[index].mediaStatus
             )
             saveTracks(tracks)
         }
     }
+
+    fun allTracks(): List<MangaTrack> = getTracks()
 
     private fun getTracks(): List<MangaTrack> {
         val raw = prefs.getString("tracks", null) ?: return emptyList()

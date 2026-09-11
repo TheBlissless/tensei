@@ -67,7 +67,8 @@ data class MalMangaNode(
     val main_picture: MalPicture? = null,
     val num_chapters: Int = 0,
     val num_volumes: Int = 0,
-    val alternative_titles: MalAlternativeTitles? = null
+    val alternative_titles: MalAlternativeTitles? = null,
+    val status: String? = null
 )
 
 @Serializable
