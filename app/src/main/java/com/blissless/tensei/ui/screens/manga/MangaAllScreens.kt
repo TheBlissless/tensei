@@ -400,7 +400,7 @@ fun MangaAllRelationsScreen(
     val mangaDetailSource by viewModel.mangaDetailSource.collectAsState()
     LaunchedEffect(mangaId, mangaDetailSource) {
         while (mangaDetailSource == "mal") {
-            delay(60_000)
+            delay(30_000)
             isLoading = true
             relations = try {
                 viewModel.fetchMangaAllRelations(mangaId, malId, force = true)
@@ -607,7 +607,7 @@ fun MangaAllRecommendationsScreen(
     val mangaDetailSource by viewModel.mangaDetailSource.collectAsState()
     LaunchedEffect(mangaId, mangaDetailSource) {
         while (mangaDetailSource == "mal") {
-            delay(60_000)
+            delay(30_000)
             isLoading = true
             recommendations = try {
                 viewModel.fetchMangaAllRecommendations(mangaId, malId, force = true)

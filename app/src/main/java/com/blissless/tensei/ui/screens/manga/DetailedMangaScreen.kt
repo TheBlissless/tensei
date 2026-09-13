@@ -271,7 +271,7 @@ fun DetailedMangaScreen(
     val mangaDetailSource by viewModel.mangaDetailSource.collectAsState()
     LaunchedEffect(manga.id, mangaDetailSource) {
         while (mangaDetailSource == "mal") {
-            delay(60_000)
+            delay(30_000)
             viewModel.fetchMangaDetail(manga.id, manga.malId)
         }
     }

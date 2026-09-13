@@ -89,7 +89,7 @@ fun AllRelationsScreen(
     val animeDetailSource by viewModel.animeDetailSource.collectAsState()
     LaunchedEffect(animeId, animeDetailSource) {
         while (animeDetailSource == "mal") {
-            delay(60_000)
+            delay(30_000)
             isLoading = true
             relations = try {
                 viewModel.fetchAnimeRelations(animeId, force = true) ?: emptyList()

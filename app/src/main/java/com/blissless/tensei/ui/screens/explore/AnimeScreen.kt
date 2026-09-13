@@ -167,6 +167,7 @@ fun AnimeScreen(
     val apiError by viewModel.apiError.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
     val defaultMagnetExt by viewModel.defaultMagnetExtension.collectAsState()
+    val defaultStreamExt by viewModel.defaultStreamExtension.collectAsState()
     val streamMethod by viewModel.streamMethod.collectAsState()
     val defaultExtPkg by viewModel.defaultExtensionPackage.collectAsState()
     val appIcon by viewModel.appIcon.collectAsState()
@@ -196,7 +197,7 @@ fun AnimeScreen(
     // recovers — MAL is a transient stopgap, AniList is the source of truth.
     LaunchedEffect(isVisible, exploreDataSource) {
         while (isVisible && exploreDataSource == "mal") {
-            delay(60_000)
+            delay(30_000)
             viewModel.retryExploreFromMalFallback()
         }
     }
@@ -511,9 +512,10 @@ fun AnimeScreen(
     // redirecting to Settings, ask the user first — they can cancel or continue.
     if (showNoExtensionDialog) {
         NoDefaultExtensionDialog(
-            onDismiss = { showNoExtensionDialog = false },
+            onDismiss = { showNoExtensionDialog = false; reopenEpisodePickerAfterSettings = false },
             onGoToSettings = {
                 showNoExtensionDialog = false
+                reopenEpisodePickerAfterSettings = true
                 onNoExtension()
             }
         )
@@ -550,7 +552,7 @@ fun AnimeScreen(
     val onPlayClickStable = remember<(ExploreAnime) -> Unit> {
         { anime ->
             selectedAnime = anime
-            val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
+            val hasDefault = streamMethod == "magnet" && (defaultStreamExt != null || defaultMagnetExt != null) || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
             if (hasDefault) {
                 showEpisodeSelection = true
             } else {
@@ -563,7 +565,7 @@ fun AnimeScreen(
     LaunchedEffect(settingsReturnVersion) {
         if (settingsReturnVersion > 0 && reopenEpisodePickerAfterSettings) {
             reopenEpisodePickerAfterSettings = false
-            val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
+            val hasDefault = streamMethod == "magnet" && (defaultStreamExt != null || defaultMagnetExt != null) || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
             if (selectedAnime != null) {
                 if (hasDefault) {
                     showEpisodeSelection = true
@@ -691,7 +693,7 @@ fun AnimeScreen(
                     },
                     onPlayClick = { anime ->
                         selectedAnime = anime
-                        val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
+                        val hasDefault = streamMethod == "magnet" && (defaultStreamExt != null || defaultMagnetExt != null) || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
                         if (hasDefault) {
                             showEpisodeSelection = true
                         } else {

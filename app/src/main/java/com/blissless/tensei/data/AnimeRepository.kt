@@ -162,6 +162,28 @@ class AnimeRepository(
         return result.data
     }
 
+    /**
+     * True when AniList answers a minimal throwaway query right now. Deliberately cache-free
+     * and auth-free: the fallback-recovery loop probes this every 30s while any source is
+     * stranded on a MAL/AnimeSchedule fallback, so it must reflect the LIVE endpoint state
+     * rather than a stale 1-hour cache or a token/session problem.
+     */
+    suspend fun isAniListReachable(): Boolean = withContext(Dispatchers.IO) {
+        val result = graphQLClient.execute(
+            query = "query { Media(type: ANIME, sort: POPULARITY_DESC, perPage: 1) { id } }",
+            variables = emptyMap(),
+            requiresAuth = false,
+            clientIds = CLIENT_IDS,
+            useCache = false,
+            parser = { it }
+        )
+        val ok = result.data != null
+        if (!ok) {
+            Log.w("AniListRecovery", "probe failed: code=${result.error?.code} msg=${result.error?.message} rateLimit=${result.error?.isRateLimit}")
+        }
+        ok
+    }
+
     // ============================================
     // User Operations
     // ============================================

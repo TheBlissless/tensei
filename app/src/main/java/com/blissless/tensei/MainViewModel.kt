@@ -125,6 +125,7 @@ class MainViewModel : ViewModel() {
         internal const val MIN_REFRESH_INTERVAL_MS = 5 * 60 * 1000L // 5 minutes
         internal const val SCHEDULE_REFRESH_INTERVAL_MS = 30 * 60 * 1000L // 30 minutes (airing schedule is stable)
         internal const val SCHEDULE_REOPEN_INTERVAL_MS = 5 * 60 * 1000L // 5 minute cooldown when reopening a screen backed by AniList
+        internal const val ANILIST_RECOVERY_INTERVAL_MS = 30_000L // 30s — probe AniList while any source is on fallback
         internal const val MANUAL_REFRESH_COOLDOWN_MS = 30_000L // 30 seconds between manual refreshes
         internal const val SYNC_DEBOUNCE_MS = 2000L // 2 seconds debounce for API sync
         internal const val FAVORITE_DEBOUNCE_MS = 1000L // 1 second debounce for favorite toggles
@@ -1363,6 +1364,9 @@ private suspend fun loadHomeDataWithCache() {
             fetchAiringSchedule(force = false, minIntervalMs = SCHEDULE_REOPEN_INTERVAL_MS)
         }
     }
+
+    /** True when the airing schedule is showing AnimeSchedule fallback data (AniList was down). */
+    internal val isScheduleOnFallback: Boolean get() = lastScheduleUsedFallback
 
     private suspend fun fetchAnimeScheduleWithToast(): List<AiringScheduleAnime> = try {
         repository.fetchAiringScheduleAnimeScheduleFallback().also {

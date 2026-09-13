@@ -40,6 +40,11 @@ class MagnetExtensionClient(private val context: Context) {
         private const val SCRAPE_PATH = "scrape"
     }
 
+    /** Most recent stream-resolve failure reason (provider "error" text or reason), consumed by callers. */
+    private var lastStreamError: String? = null
+
+    fun lastStreamError(): String? = lastStreamError
+
     fun detectExtensions(): List<DetectedMagnetExtension> {
         val results = mutableListOf<DetectedMagnetExtension>()
         val seenPackages = mutableSetOf<String>()
@@ -165,6 +170,7 @@ class MagnetExtensionClient(private val context: Context) {
             } else null
         } catch (e: Exception) {
             Log.e(TAG, "fetchStreamUrl: query failed", e)
+            lastStreamError = "Provider query failed: ${e.message}"
             null
         } finally {
             cursor?.close()
@@ -172,13 +178,24 @@ class MagnetExtensionClient(private val context: Context) {
 
         if (jsonData == null) {
             Log.w(TAG, "fetchStreamUrl: no data returned")
+            lastStreamError = "No data returned by provider"
+            return null
+        }
+
+        val providerError = parseStreamError(jsonData)
+        if (providerError != null) {
+            Log.w(TAG, "fetchStreamUrl: provider error: $providerError")
+            lastStreamError = providerError
             return null
         }
 
         return parseStreamUrlResult(jsonData).also { result ->
             if (result != null) {
+                lastStreamError = null
                 Log.d(TAG, "fetchStreamUrl: parsed url=${result.url.take(80)}... " +
                     "streams=${result.streams.size} subtitles=${result.subtitles.size}")
+            } else {
+                lastStreamError = "No usable stream URL in provider response"
             }
         }
     }
@@ -348,8 +365,14 @@ class MagnetExtensionClient(private val context: Context) {
  *  - the response carries an "error" field
  *  - the top-level "url" is missing or blank
  */
+internal fun parseStreamError(jsonData: String): String? = try {
+    JSONObject(jsonData).optString("error", "").ifBlank { null }
+} catch (_: Exception) {
+    null
+}
+
 internal fun parseStreamUrlResult(jsonData: String): StreamUrlResult? {
-    return try {
+        return try {
         val json = JSONObject(jsonData)
         if (json.has("error")) {
             null

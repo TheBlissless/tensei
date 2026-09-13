@@ -209,6 +209,7 @@ fun HomeScreen(
     var showNoExtensionDialog by remember { mutableStateOf(false) }
     val defaultPkg by viewModel.defaultExtensionPackage.collectAsState()
     val defaultMagnetExt by viewModel.defaultMagnetExtension.collectAsState()
+    val defaultStreamExt by viewModel.defaultStreamExtension.collectAsState()
     val streamMethod by viewModel.streamMethod.collectAsState()
     val magnetExtensions by viewModel.availableMagnetExtensions.collectAsState()
 
@@ -1026,7 +1027,7 @@ fun HomeScreen(
 
     // Dialogs
     if (showEpisodeSheet && selectedAnime != null) {
-        if (streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultPkg.isNotEmpty()) {
+        if (streamMethod == "magnet" && (defaultStreamExt != null || defaultMagnetExt != null) || streamMethod == "direct" && defaultPkg.isNotEmpty()) {
             RichEpisodeScreen(
                 anime = selectedAnime!!,
                 viewModel = viewModel,
@@ -1042,7 +1043,7 @@ fun HomeScreen(
     }
 
     LaunchedEffect(showEpisodeSheet, selectedAnime) {
-        val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultPkg.isNotEmpty()
+        val hasDefault = streamMethod == "magnet" && (defaultStreamExt != null || defaultMagnetExt != null) || streamMethod == "direct" && defaultPkg.isNotEmpty()
         if (showEpisodeSheet && selectedAnime != null && !hasDefault) {
             showEpisodeSheet = false
             showNoExtensionDialog = true
@@ -1053,7 +1054,12 @@ fun HomeScreen(
         if (settingsReturnVersion > 0 && reopenEpisodePickerAfterSettings) {
             reopenEpisodePickerAfterSettings = false
             if (selectedAnime != null) {
-                showEpisodeSheet = true
+                val hasDefault = streamMethod == "magnet" && (defaultStreamExt != null || defaultMagnetExt != null) || streamMethod == "direct" && defaultPkg.isNotEmpty()
+                if (hasDefault) {
+                    showEpisodeSheet = true
+                } else {
+                    showNoExtensionDialog = true
+                }
             }
         }
     }
@@ -1066,13 +1072,14 @@ fun HomeScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showNoExtensionDialog = false
+                    reopenEpisodePickerAfterSettings = true
                     onNoExtension()
                 }) {
                     Text("Go to Settings")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showNoExtensionDialog = false }) {
+                TextButton(onClick = { showNoExtensionDialog = false; reopenEpisodePickerAfterSettings = false }) {
                     Text("Close")
                 }
             }

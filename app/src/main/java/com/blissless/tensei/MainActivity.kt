@@ -735,6 +735,7 @@ fun MainScreen(
     var settingsReturnVersion by remember { mutableStateOf(0) }
     var pendingMangaAfterSettings by remember { mutableStateOf<MangaMedia?>(null) }
     var pendingMangaResumeAfterSettings by remember { mutableStateOf(false) }
+    var pendingAnimeAfterSettings by remember { mutableStateOf<Pair<AnimeMedia, Int>?>(null) }
     var selectedAnimeState by remember { mutableStateOf<AnimeMedia?>(null) }
     var showDetailedAnimeScreen by remember { mutableStateOf(false) }
     var currentCardBounds by remember { mutableStateOf<MainViewModel.CardBounds?>(null) }
@@ -1205,9 +1206,12 @@ fun MainScreen(
                 showPlayer = true
                 isLoadingStream = false
             } else {
-                streamError = "No stream available for Ep $episode"
+                val reason = viewModel.magnetExtensionClient?.lastStreamError()
+                    ?.takeIf { it.isNotBlank() }
+                val msg = if (reason != null) "No stream available for Ep $episode: $reason" else "No stream available for Ep $episode"
+                streamError = msg
                 isLoadingStream = false
-                context.toast("No stream available for Ep $episode")
+                context.toast(msg)
             }
             if (isAutoRefresh) isAutoRefreshing = false
         }
@@ -1256,6 +1260,8 @@ fun MainScreen(
         }
 
         showNoExtDialog = true
+        pendingAnimeAfterSettings = anime to episode
+        isLoadingStream = false
     }
 
     /**
@@ -1267,7 +1273,32 @@ fun MainScreen(
      * can be debugged in isolation. (Local functions must be declared
      * before use, hence the ordering above.)
      */
+    /**
+     * True when the active stream method can start playback without user
+     * intervention. Mirrors the manga home-screen check (selectedMangaExtension
+     * == null) so anime redirects to Settings the same way when the external
+     * (direct) method has no default extension package.
+     *
+     * The "magnet" route auto-falls-back to any detected stream/torrent
+     * extension (and is robust to detection still being in-flight on first
+     * launch), so explicit selection is not required there.
+     */
+    fun hasUsableAnimeExtensionDefault(): Boolean {
+        return viewModel.streamMethod.value == "magnet" || viewModel.defaultExtensionPackage.value.isNotEmpty()
+    }
+
     fun loadAndPlayEpisode(anime: AnimeMedia, episode: Int, isAutoRefresh: Boolean = false) {
+        // Anime equivalent of the manga reader's no-extension redirect: instead of
+        // silently failing at playback time, park the (anime, episode) intent and
+        // redirect to Settings to pick a default extension. Auto-resumes once the
+        // user returns from Settings with a usable default configured.
+        if (!isAutoRefresh && !hasUsableAnimeExtensionDefault()) {
+            android.util.Log.d("Playback", "loadAndPlayEpisode: no usable anime default extension (method=${viewModel.streamMethod.value}) — parking intent and redirecting to Settings")
+            pendingAnimeAfterSettings = anime to episode
+            isLoadingStream = false
+            showNoExtDialog = true
+            return
+        }
         val streamMethod = viewModel.streamMethod.value
         val streamExtAuthority = viewModel.defaultStreamExtension.value
         android.util.Log.d("Playback", "loadAndPlayEpisode: anime=${anime.id} ep=$episode method=$streamMethod streamExt=$streamExtAuthority autoRefresh=$isAutoRefresh")
@@ -2055,6 +2086,16 @@ fun MainScreen(
                 showMangaReader = true
             }
         }
+        val pendingAnime = pendingAnimeAfterSettings
+        if (settingsReturnVersion > 0 && pendingAnime != null) {
+            pendingAnimeAfterSettings = null
+            val (pendingPlayAnime, pendingPlayEpisode) = pendingAnime
+            if (hasUsableAnimeExtensionDefault()) {
+                loadAndPlayEpisode(pendingPlayAnime, pendingPlayEpisode)
+            } else {
+                showNoExtDialog = true
+            }
+        }
     }
 
     if (showMangaNoExtensionDialog) {
@@ -2087,6 +2128,12 @@ fun MainScreen(
             android.util.Log.d("MangaNav", "READER SKIPPED (no manga extension) — showing no-extension dialog instead of reader")
             mangaAutoShowChapters = false
             showMangaReader = false
+            // Park the reader intent so returning from Settings (after picking a
+            // default) reopens the reader at exactly the same place: chapter list
+            // when the chapter selection was requested, or the tapped chapter when
+            // a chapter was picked directly.
+            pendingMangaAfterSettings = currentManga
+            pendingMangaResumeAfterSettings = mangaReaderChapterIndex >= 0
             showMangaNoExtensionDialog = true
         }
     } else if (showMangaReader && currentManga != null) {
@@ -2557,7 +2604,7 @@ fun MainScreen(
 
     if (showNoExtDialog) {
         AlertDialog(
-            onDismissRequest = { showNoExtDialog = false },
+            onDismissRequest = { showNoExtDialog = false; pendingAnimeAfterSettings = null },
             title = { Text("No Extension Selected") },
             text = {
                 Text("Select a default extension in Settings to load episodes for this title.")
@@ -2573,7 +2620,7 @@ fun MainScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showNoExtDialog = false }) {
+                TextButton(onClick = { showNoExtDialog = false; pendingAnimeAfterSettings = null }) {
                     Text("Close")
                 }
             }

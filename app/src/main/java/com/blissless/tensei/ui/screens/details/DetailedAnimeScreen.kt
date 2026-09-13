@@ -199,6 +199,7 @@ fun DetailedAnimeScreen(
 
     val defaultExtPkg by viewModel.defaultExtensionPackage.collectAsState()
     val defaultMagnetExt by viewModel.defaultMagnetExtension.collectAsState()
+    val defaultStreamExt by viewModel.defaultStreamExtension.collectAsState()
     val streamMethod by viewModel.streamMethod.collectAsState()
     val magnetExtensions by viewModel.availableMagnetExtensions.collectAsState()
     val localFavorites by viewModel.localFavorites.collectAsState()
@@ -337,7 +338,7 @@ fun DetailedAnimeScreen(
     val animeDetailSource by viewModel.animeDetailSource.collectAsState()
     LaunchedEffect(anime.id, animeDetailSource) {
         while (animeDetailSource == "mal") {
-            delay(60_000)
+            delay(30_000)
             isLoadingDetails = true
             try {
                 val refreshed = viewModel.fetchDetailedAnimeData(anime.id, anime.malId, title = anime.titleEnglish ?: anime.title)
@@ -492,8 +493,9 @@ fun DetailedAnimeScreen(
 
         if (showNoDefaultExtDialog) {
             NoDefaultExtensionDialog(
-                onDismiss = { showNoDefaultExtDialog = false },
+                onDismiss = { showNoDefaultExtDialog = false; reopenEpisodePickerAfterSettings = false },
                 onGoToSettings = {
+                    reopenEpisodePickerAfterSettings = true
                     onNoExtension()
                 },
             )
@@ -502,7 +504,7 @@ fun DetailedAnimeScreen(
         LaunchedEffect(settingsReturnVersion) {
             if (settingsReturnVersion > 0 && reopenEpisodePickerAfterSettings) {
                 reopenEpisodePickerAfterSettings = false
-                val hasDefault = streamMethod == "magnet" && defaultMagnetExt != null || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
+                val hasDefault = streamMethod == "magnet" && (defaultStreamExt != null || defaultMagnetExt != null) || streamMethod == "direct" && defaultExtPkg.isNotEmpty()
                 if (hasDefault) {
                     showEpisodeSelection = true
                 } else {
@@ -835,6 +837,7 @@ fun DetailedAnimeScreen(
                         status = displayData.status,
                         streamMethod = streamMethod,
                         hasDefaultMagnetExt = defaultMagnetExt != null,
+                        hasDefaultStreamExt = defaultStreamExt != null,
                         hasDefaultExtPkg = defaultExtPkg.isNotEmpty(),
                         onNoDefaultExtension = { showNoDefaultExtDialog = true },
                         onShowEpisodeSelection = { showEpisodeSelection = true },

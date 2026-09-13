@@ -44,10 +44,20 @@ fun MainViewModel.startApiRetryLoop() {
     apiRetryJob?.cancel()
     apiRetryJob = viewModelScope.launch {
         while (true) {
-            delay(MainViewModel.MIN_REFRESH_INTERVAL_MS.milliseconds)
-            if (!_isOffline.value && _apiError.value != null) {
-                fetchExploreData(force = true)
+            delay(MainViewModel.ANILIST_RECOVERY_INTERVAL_MS.milliseconds)
+            val anyFallback = exploreDataSource.value == "mal" ||
+                mangaExploreSource.value == "mal" ||
+                isScheduleOnFallback ||
+                _apiError.value != null
+            if (!anyFallback || _isOffline.value) continue
+            if (!repository.isAniListReachable()) {
+                android.util.Log.d("AniListRecovery", "AniList still unavailable — keeping fallback data")
+                continue
             }
+            android.util.Log.d("AniListRecovery", "AniList is back — swapping fallback sources to AniList")
+            fetchExploreData(force = true)
+            if (mangaExploreSource.value == "mal") fetchMangaExplore()
+            if (isScheduleOnFallback) fetchAiringSchedule(force = true)
         }
     }
 }

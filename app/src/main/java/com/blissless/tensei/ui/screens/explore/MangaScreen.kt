@@ -307,7 +307,7 @@ fun MangaScreen(
     val mangaExploreSource by viewModel.mangaExploreSource.collectAsState()
     LaunchedEffect(isVisible, mangaExploreSource) {
         while (isVisible && mangaExploreSource == "mal") {
-            delay(60_000)
+            delay(30_000)
             viewModel.retryMangaExploreFromMalFallback()
         }
     }

@@ -186,7 +186,8 @@ internal fun BentoSpecCell(spec: SpecEntry, modifier: Modifier = Modifier) {
  *
  * @param status            The anime's airing status (e.g. "RELEASING", "NOT_YET_RELEASED")
  * @param streamMethod      The configured stream method ("magnet", "direct", etc.)
- * @param hasDefaultMagnetExt Whether a default magnet extension is configured
+ * @param hasDefaultMagnetExt Whether a default magnet (torrent) extension is configured
+ * @param hasDefaultStreamExt Whether a default stream extension is configured
  * @param hasDefaultExtPkg Whether a default extension package is configured
  * @param onNoDefaultExtension Called when no default extension is set
  * @param onShowEpisodeSelection Called when the button is clicked and an extension is configured
@@ -196,6 +197,7 @@ internal fun WatchNowButton(
     status: String?,
     streamMethod: String,
     hasDefaultMagnetExt: Boolean,
+    hasDefaultStreamExt: Boolean,
     hasDefaultExtPkg: Boolean,
     onNoDefaultExtension: () -> Unit,
     onShowEpisodeSelection: () -> Unit,
@@ -214,7 +216,7 @@ internal fun WatchNowButton(
             Button(
                 onClick = {
                     val hasDefault =
-                        streamMethod == "magnet" && hasDefaultMagnetExt ||
+                        streamMethod == "magnet" && (hasDefaultMagnetExt || hasDefaultStreamExt) ||
                         streamMethod == "direct" && hasDefaultExtPkg
                     if (!hasDefault) {
                         onNoDefaultExtension()

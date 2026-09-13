@@ -89,7 +89,7 @@ fun AllRecommendationsScreen(
     val animeDetailSource by viewModel.animeDetailSource.collectAsState()
     LaunchedEffect(animeId, animeDetailSource) {
         while (animeDetailSource == "mal") {
-            delay(60_000)
+            delay(30_000)
             isLoading = true
             recommendations = try {
                 viewModel.fetchAnimeRecommendations(animeId, force = true) ?: emptyList()

@@ -865,9 +865,12 @@ class PlaybackStateHolder(
                 showPlayer = true
                 isLoadingStream = false
             } else {
-                streamError = "No stream available for Ep $episode"
+                val reason = viewModel.magnetExtensionClient?.lastStreamError()
+                    ?.takeIf { it.isNotBlank() }
+                val msg = if (reason != null) "No stream available for Ep $episode: $reason" else "No stream available for Ep $episode"
+                streamError = msg
                 isLoadingStream = false
-                context.toast("No stream available for Ep $episode")
+                context.toast(msg)
             }
             if (isAutoRefresh) isAutoRefreshing = false
         }
