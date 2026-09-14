@@ -143,6 +143,7 @@ import com.blissless.tensei.viewmodel.setSupportsPiP
 import com.blissless.tensei.viewmodel.crossProviderCopyPrompt
 import com.blissless.tensei.viewmodel.applyCrossProviderCopy
 import com.blissless.tensei.viewmodel.dismissCrossProviderCopyPrompt
+import com.blissless.tensei.viewmodel.lastExtensionPlaybackError
 import com.blissless.tensei.data.models.MangaExploreMedia
 import com.blissless.tensei.data.models.MangaMedia
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -1250,8 +1251,10 @@ fun MainScreen(
                     com.blissless.tensei.stream.PlayerData.allHosters = result.hosters ?: emptyList()
                     playExtensionVideo(result, 0)
                 } else {
-                    streamError = "Extension stream not found: Ep $episode"
-                    context.toast("Extension failed for Ep $episode")
+                    val reason = viewModel.lastExtensionPlaybackError()?.takeIf { it.isNotBlank() }
+                    val msg = if (reason != null) "Extension failed for Ep $episode: $reason" else "Extension failed for Ep $episode"
+                    streamError = msg
+                    context.toast(msg)
                 }
                 if (isAutoRefresh) isAutoRefreshing = false
                 isLoadingStream = false

@@ -82,6 +82,16 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
 
     private var lastExtensionCount = 0
 
+    // Tracks which (package, repo version) pairs have already had an update
+    // attempt fired this session (auto-install dialog + notification), so a
+    // cancelled or failed update isn't re-requested on every subsequent
+    // checkForExtensionUpdates / loadExtensions cycle.
+    private val attemptedExtensionUpdateKeys = mutableSetOf<String>()
+
+    /** Session-scoped key identifying a specific extension+version update attempt. */
+    private fun updateKey(repoExt: RepoExtension): String =
+        "${repoExt.packageName.ifBlank { repoExt.name }}@${repoExt.code}"
+
     init {
         createExtensionUpdateChannel()
         loadExtensions()
@@ -195,6 +205,7 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
                     putExtra(Intent.EXTRA_RETURN_RESULT, true)
                 }
                 ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                attemptedExtensionUpdateKeys.add(updateKey(repoExtension))
                 if (repoExtension.packageName.isNotBlank()) {
                     waitForInstallation(repoExtension.packageName, repoExtension.code)
                 } else {
@@ -327,12 +338,15 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             val updatable = findUpdatableExtensions()
             refreshUpdatableState(updatable)
-            if (updatable.isNotEmpty()) {
-                val names = updatable.map { it.second.name }
-                Log.i("ExtensionsViewModel", "Found ${updatable.size} updatable extension(s): $names")
+            val newUpdatable = updatable.filter { (_, repoExt) ->
+                updateKey(repoExt) !in attemptedExtensionUpdateKeys
+            }
+            if (newUpdatable.isNotEmpty()) {
+                val names = newUpdatable.map { it.second.name }
+                Log.i("ExtensionsViewModel", "Found ${newUpdatable.size} updatable extension(s): $names")
                 showUpdatesAvailableNotification(names)
                 if (isAutoUpdateEnabled()) {
-                    autoUpdateExtensions(updatable)
+                    autoUpdateExtensions(newUpdatable)
                 }
             }
         }
@@ -353,10 +367,15 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
             }
             val updatable = findUpdatableExtensions()
             refreshUpdatableState(updatable)
-            if (updatable.isNotEmpty()) {
-                val names = updatable.map { it.second.name }
-                Log.i("ExtensionsViewModel", "Found ${updatable.size} updatable extension(s): $names")
+            val newUpdatable = updatable.filter { (_, repoExt) ->
+                updateKey(repoExt) !in attemptedExtensionUpdateKeys
+            }
+            if (newUpdatable.isNotEmpty()) {
+                val names = newUpdatable.map { it.second.name }
+                Log.i("ExtensionsViewModel", "Found ${newUpdatable.size} updatable extension(s): $names")
                 showUpdatesAvailableNotification(names)
+            }
+            if (updatable.isNotEmpty()) {
                 _toastMessage.tryEmit("${updatable.size} update${if (updatable.size > 1) "s" else ""} available" to Toast.LENGTH_LONG)
             } else {
                 _toastMessage.tryEmit("All extensions up to date" to Toast.LENGTH_LONG)
@@ -416,6 +435,7 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
                     putExtra(Intent.EXTRA_RETURN_RESULT, true)
                 }
                 ctx.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                attemptedExtensionUpdateKeys.add(updateKey(repoExt))
                 if (waitForInstallation(repoExt.packageName, repoExt.code)) {
                     updatedNames.add(repoExt.name)
                 }

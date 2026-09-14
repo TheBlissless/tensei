@@ -527,7 +527,7 @@ fun HomeScreen(
                     }
                 }
 
-                if (isLoading && allListsEmpty) {
+                if (isLoading && allListsEmpty && activeMangaContinueReading.isEmpty()) {
                     LoadingSkeleton()
                 } else {
                     val onAnimeClick: (AnimeMedia, HomeAnimeCardBounds?) -> Unit = { anime, _ -> selectedAnime = anime; showEpisodeSheet = true }

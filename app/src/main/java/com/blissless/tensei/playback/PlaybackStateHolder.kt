@@ -24,6 +24,7 @@ import com.blissless.tensei.viewmodel.playEpisodeWithExtension
 import com.blissless.tensei.viewmodel.fetchExtensionHosterVideos
 import com.blissless.tensei.viewmodel.getMagnetForEpisode
 import com.blissless.tensei.viewmodel.fetchMagnetForEpisode
+import com.blissless.tensei.viewmodel.lastExtensionPlaybackError
 import com.blissless.tensei.viewmodel.fetchStreamUrlForEpisode
 import com.blissless.tensei.data.calculateRecursiveOffset
 import eu.kanade.tachiyomi.animesource.model.Hoster
@@ -910,8 +911,10 @@ class PlaybackStateHolder(
                     com.blissless.tensei.stream.PlayerData.allHosters = result.hosters ?: emptyList()
                     playExtensionVideo(result, 0)
                 } else {
-                    streamError = "Extension stream not found: Ep $episode"
-                    context.toast("Extension failed for Ep $episode")
+                    val reason = viewModel.lastExtensionPlaybackError()?.takeIf { it.isNotBlank() }
+                    val msg = if (reason != null) "Extension failed for Ep $episode: $reason" else "Extension failed for Ep $episode"
+                    streamError = msg
+                    context.toast(msg)
                 }
                 if (isAutoRefresh) isAutoRefreshing = false
                 isLoadingStream = false

@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import com.blissless.tensei.util.ErrorHandler
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Extension playback logic for [MainViewModel].
@@ -40,12 +41,24 @@ import com.blissless.tensei.util.ErrorHandler
  * Public signatures preserved as extension functions.
  */
 
+/**
+ * Most recent external-extension stream resolution failure, cleared before each
+ * attempt and set on the six failure paths (replacing the old "Download failed…"
+ * toasts). The playback caller reuses it as the specific reason inside the
+ * existing streamError dialog and toast, so the user sees one consistent message.
+ */
+internal val _lastExtensionPlaybackError = MutableStateFlow<String?>(null)
+
+/** Read the most recent extension stream failure reason, or null if none. */
+fun MainViewModel.lastExtensionPlaybackError(): String? = _lastExtensionPlaybackError.value
+
 suspend fun MainViewModel.playEpisodeWithExtension(
     anime: AnimeMedia,
     episodeNumber: Int,
     defaultPackage: String,
 ): MainViewModel.ExtensionStreamResult? {
     val epTag = "AnimeDownload"
+    _lastExtensionPlaybackError.value = null
     val cached = getCachedExtensionStream(anime.id, episodeNumber)
     if (cached != null) {
         Log.i(epTag, "playEpisodeWithExtension: cache hit for ep $episodeNumber url=${cached.url.take(100)}")
@@ -133,7 +146,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
             val sm = sourceManager
             if (sm == null) {
                 Log.w(epTag, "playEpisodeWithExtension: sourceManager is null")
-                viewModelScope.launch { _toastMessage.emit("Download failed: Source manager not initialized") }
+                _lastExtensionPlaybackError.value = "Source manager not initialized"
                 return@withContext null
             }
 
@@ -149,7 +162,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 sourceWithExt = reloaded.find { it.extension.packageName == defaultPackage }
                 if (sourceWithExt == null) {
                     Log.e(epTag, "playEpisodeWithExtension: source $defaultPackage not found even after reload")
-                    viewModelScope.launch { _toastMessage.emit("Download failed: Extension '$defaultPackage' not found") }
+                    _lastExtensionPlaybackError.value = "Extension '$defaultPackage' not found"
                     return@withContext null
                 }
             }
@@ -225,7 +238,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
 
                 if (matchedSAnime == null) {
                     Log.w(epTag, "playEpisodeWithExtension: no matching anime found for ep $episodeNumber after searching all terms")
-                    viewModelScope.launch { _toastMessage.emit("Download failed for Ep $episodeNumber: Could not find '${anime.title}' in extension") }
+                    _lastExtensionPlaybackError.value = "Could not find '${anime.title}' in extension"
                     return@withContext null
                 }
                 Log.i(epTag, "playEpisodeWithExtension: matched anime '${matchedSAnime.title}' (url=${matchedSAnime.url}) for ep $episodeNumber")
@@ -259,7 +272,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                     ?: sEpisodes.getOrNull(episodeNumber - 1)
                 if (matched == null) {
                     Log.w(epTag, "playEpisodeWithExtension: episode $episodeNumber not found among ${sEpisodes.size} episodes")
-                    viewModelScope.launch { _toastMessage.emit("Download failed for Ep $episodeNumber: Episode not found in extension") }
+                    _lastExtensionPlaybackError.value = "Episode not found in extension"
                     return@withContext null
                 }
                 matched
@@ -305,7 +318,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
 
             if (allVideos.isEmpty()) {
                 Log.w(epTag, "playEpisodeWithExtension: no videos found for ep $episodeNumber")
-                viewModelScope.launch { _toastMessage.emit("Download failed for Ep $episodeNumber: No video sources found") }
+                _lastExtensionPlaybackError.value = "No video sources found"
                 return@withContext null
             }
             Log.d(epTag, "playEpisodeWithExtension: found ${allVideos.size} videos for ep $episodeNumber")
@@ -471,7 +484,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
             )
         } catch (e: Exception) {
             Log.e(epTag, "playEpisodeWithExtension: exception for ep $episodeNumber", e)
-            viewModelScope.launch { _toastMessage.emit("Download failed for Ep $episodeNumber: ${e.message}") }
+            _lastExtensionPlaybackError.value = e.message?.takeIf { it.isNotBlank() } ?: "Unexpected error resolving the stream"
             null
         }
     }
