@@ -146,6 +146,7 @@ import com.blissless.tensei.viewmodel.setSupportsPiP
 import com.blissless.tensei.viewmodel.setDiscordRichPresence
 import com.blissless.tensei.viewmodel.setCheckUpdatesOnStart
 import com.blissless.tensei.viewmodel.setAutoUpdateExtensions
+import com.blissless.tensei.viewmodel.setHideEpisodeDescription
 import com.blissless.tensei.viewmodel.loadAvailableMagnetExtensions
 import com.blissless.tensei.viewmodel.loadAvailableStreamExtensions
 import com.blissless.tensei.viewmodel.getVideoCacheSize
@@ -557,6 +558,18 @@ private fun AppearanceSettingsPage(
                 description = "Disable Material You colors for neutral appearance",
                 checked = disableMaterialColors,
                 onCheckedChange = { viewModel.setDisableMaterialColors(it) }
+            )
+        }
+
+        val hideEpisodeDescription by viewModel.hideEpisodeDescription.collectAsState(initial = true)
+
+        SectionHeader("EPISODES")
+        SettingsCard {
+            SettingsToggle(
+                title = "Hide Episode Descriptions",
+                description = "Show only the episode number and title in episode lists",
+                checked = hideEpisodeDescription,
+                onCheckedChange = { viewModel.setHideEpisodeDescription(it) }
             )
         }
 

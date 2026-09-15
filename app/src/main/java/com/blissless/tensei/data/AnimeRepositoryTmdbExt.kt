@@ -66,7 +66,7 @@ suspend fun AnimeRepository.fetchTmdbEpisodes(
             }
             if (searchResults.isEmpty()) return@withContext emptyList()
 
-            val bestMatch = findBestMatch(searchResults, animeTitle) ?: return@withContext emptyList()
+            val bestMatch = findBestMatch(searchResults, animeTitle, animeYear) ?: return@withContext emptyList()
             
             // Check if this is a movie (has title field) vs TV show (has name field)
             val isMovieSearch = bestMatch.title != null
@@ -528,7 +528,7 @@ internal fun AnimeRepository.wordOverlapScore(original: String, candidate: Strin
         return common * 30 - extra * 50
     }
 
-internal fun AnimeRepository.findBestMatch(results: List<TmdbSearchResult>, originalTitle: String): TmdbSearchResult? {
+internal fun AnimeRepository.findBestMatch(results: List<TmdbSearchResult>, originalTitle: String, preferredYear: Int? = null): TmdbSearchResult? {
         val normalizedOriginal = normalizeTitle(originalTitle)
         
         // Check if original title might be Chinese (contains CJK characters)
@@ -577,6 +577,13 @@ internal fun AnimeRepository.findBestMatch(results: List<TmdbSearchResult>, orig
             // Prefer Japanese original language for anime
             if (result.original_language == "ja") score += 30
             
+            // Strong anime bias: prefer entries tagged as Animation (anime vs live-action remake)
+            if (result.genre_ids.contains(16)) score += 200
+            
+            // Prefer release-year match against the known anime year
+            val resultYear = (result.release_date ?: result.first_air_date)?.take(4)?.toIntOrNull()
+            if (preferredYear != null && resultYear == preferredYear) score += 150
+            
             // Prefer higher popularity
             score += (result.popularity?.toInt() ?: 0) / 100
             
@@ -597,6 +604,29 @@ internal fun AnimeRepository.findBestMatch(results: List<TmdbSearchResult>, orig
         // If there's exactly one exact match, use it
         if (exactMatches.size == 1) {
             return exactMatches.first()
+        }
+        
+        // If there are multiple near-matches, prefer entries TMDB already tagged as
+        // Animation. This disambiguates anime vs live-action remakes (e.g. the 2007
+        // "5 Centimeters per Second" movie vs the 2023 live-action), and works for
+        // movies too, where fetchTvDetails() below can't reach the movie endpoint.
+        val animationById = results.filter { result -> result.genre_ids.contains(16) }
+        if (animationById.isNotEmpty()) {
+            return animationById.maxByOrNull { result ->
+                val name = result.name ?: result.title ?: ""
+                val normalizedName = normalizeTitle(name)
+                var score = 0
+                if (normalizedName == normalizedOriginal) score += 500
+                score += wordOverlapScore(normalizedOriginal, normalizedName)
+                if (result.original_name != null) {
+                    score += wordOverlapScore(normalizedOriginal, normalizeTitle(result.original_name))
+                }
+                if (result.original_language == "ja") score += 30
+                val resultYear = (result.release_date ?: result.first_air_date)?.take(4)?.toIntOrNull()
+                if (preferredYear != null && resultYear == preferredYear) score += 150
+                score += (result.popularity?.toInt() ?: 0) / 100
+                score
+            }
         }
         
         // If there are multiple exact matches (like Bartender anime vs live action),

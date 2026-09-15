@@ -62,6 +62,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -134,6 +135,7 @@ fun RichEpisodeScreen(
     val displayTitle = if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
     val playbackPositions by viewModel.playbackPositions.collectAsState()
     val playbackDurations by viewModel.playbackDurations.collectAsState()
+    val hideEpisodeDescriptions by viewModel.hideEpisodeDescription.collectAsState(initial = true)
 
     var tmdbEpisodes by remember { mutableStateOf<List<TmdbEpisode>>(emptyList()) }
     var isLoadingEpisodes by remember { mutableStateOf(true) }
@@ -551,6 +553,14 @@ fun RichEpisodeScreen(
                             }
                         }
                     }
+                    // Watch progress bar along the bottom edge of the banner
+                    val heroProgress = if (total > 0) (currentProgress.toFloat() / total).coerceIn(0f, 1f) else 0f
+                    LinearProgressIndicator(
+                        progress = { heroProgress },
+                        modifier = Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomCenter),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        trackColor = Color.Transparent
+                    )
                 }
             }
 
@@ -582,158 +592,106 @@ fun RichEpisodeScreen(
             ) {
                 // Header section (scrolls away)
                 item {
-                    Column {
-                        Spacer(modifier = Modifier.height(8.dp))
+                    Column(modifier = Modifier.padding(horizontal = 12.dp)) {
+                        Spacer(modifier = Modifier.height(12.dp))
                         // Extension selector - show only the active category
                         if (currentStreamMethod == "magnet" && sortedStreamExtensions.isNotEmpty()) {
-                            Row(
-                                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text("Tensei Stream:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
-                                sortedStreamExtensions.forEach { (extName, authority) ->
-                                    FilterChip(
-                                        selected = authority == selectedStreamAuthority && isStreamActive,
-                                        onClick = {
-                                            if (authority != selectedStreamAuthority || !isStreamActive) {
-                                                selectedStreamAuthority = authority
-                                                isStreamActive = true
-                                                selectedExtensionPkg = null
-                                                isMagnetActive = false
-                                                selectedMagnetAuthority = null
-                                                viewModel.setDefaultStreamExtension(authority)
-                                                viewModel.setDefaultExtensionPackage("")
-                                            }
-                                        },
-                                        label = { Text(extName, maxLines = 1, style = MaterialTheme.typography.labelSmall) },
-                                        shape = RoundedCornerShape(50),
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                            selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                            containerColor = if (isOled) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
-                                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
+                            RichSourceChipRow(
+                                label = "STREAM",
+                                options = sortedStreamExtensions,
+                                isSelected = { authority -> authority == selectedStreamAuthority && isStreamActive },
+                                onSelect = { authority ->
+                                    if (authority != selectedStreamAuthority || !isStreamActive) {
+                                        selectedStreamAuthority = authority
+                                        isStreamActive = true
+                                        selectedExtensionPkg = null
+                                        isMagnetActive = false
+                                        selectedMagnetAuthority = null
+                                        viewModel.setDefaultStreamExtension(authority)
+                                        viewModel.setDefaultExtensionPackage("")
+                                    }
+                                },
+                                isOled = isOled
+                            )
                         }
                         if (currentStreamMethod == "magnet" && availableMagnetExtensions.isNotEmpty()) {
-                            Row(
-                                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text("Torrent:", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
-                                sortedMagnetExtensions.forEach { (extName, authority) ->
-                                    FilterChip(
-                                        selected = authority == selectedMagnetAuthority && isMagnetActive,
-                                        onClick = {
-                                            if (authority != selectedMagnetAuthority || !isMagnetActive) {
-                                                selectedMagnetAuthority = authority
-                                                isMagnetActive = true
-                                                isStreamActive = false
-                                                selectedExtensionPkg = null
-                                                selectedStreamAuthority = null
-                                                isLoadingMagnetEpisodes = true
-                                                magnetError = null
-                                                isMagnetReady = false
-                                                viewModel.clearMagnetEpisodes(anime.id)
-                                                viewModel.fetchMagnetEpisodes(anime, authority)
-                                            }
-                                        },
-                                        label = { Text(extName, maxLines = 1, style = MaterialTheme.typography.labelSmall) },
-                                        shape = RoundedCornerShape(50),
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                            selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                                            containerColor = if (isOled) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
-                                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
+                            RichSourceChipRow(
+                                label = "TORRENT",
+                                options = sortedMagnetExtensions,
+                                isSelected = { authority -> authority == selectedMagnetAuthority && isMagnetActive },
+                                onSelect = { authority ->
+                                    if (authority != selectedMagnetAuthority || !isMagnetActive) {
+                                        selectedMagnetAuthority = authority
+                                        isMagnetActive = true
+                                        isStreamActive = false
+                                        selectedExtensionPkg = null
+                                        selectedStreamAuthority = null
+                                        isLoadingMagnetEpisodes = true
+                                        magnetError = null
+                                        isMagnetReady = false
+                                        viewModel.clearMagnetEpisodes(anime.id)
+                                        viewModel.fetchMagnetEpisodes(anime, authority)
+                                    }
+                                },
+                                isOled = isOled
+                            )
                         }
                         if (currentStreamMethod == "direct" && availableExtensions.isNotEmpty()) {
-                            Row(
-                                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text("External:", style = MaterialTheme.typography.labelSmall, color = if (isOled) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant)
-                                sortedExtensions.forEach { (extName, extPkg) ->
-                                    FilterChip(
-                                        selected = extPkg == selectedExtensionPkg && !isMagnetActive && !isStreamActive,
-                                        onClick = {
-                                            if (extPkg != selectedExtensionPkg) {
-                                                selectedExtensionPkg = extPkg
-                                                isMagnetActive = false
-                                                isStreamActive = false
-                                                selectedMagnetAuthority = null
-                                                selectedStreamAuthority = null
-                                                extensionError = null
-                                                isExtensionReady = false
-                                            }
-                                        },
-                                        label = { Text(extName, maxLines = 1, style = MaterialTheme.typography.labelSmall) },
-                                        shape = RoundedCornerShape(50),
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                            containerColor = if (isOled) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
-                                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
+                            RichSourceChipRow(
+                                label = "EXTERNAL",
+                                options = sortedExtensions,
+                                isSelected = { extPkg -> extPkg == selectedExtensionPkg && !isMagnetActive && !isStreamActive },
+                                onSelect = { extPkg ->
+                                    if (extPkg != selectedExtensionPkg) {
+                                        selectedExtensionPkg = extPkg
+                                        isMagnetActive = false
+                                        isStreamActive = false
+                                        selectedMagnetAuthority = null
+                                        selectedStreamAuthority = null
+                                        extensionError = null
+                                        isExtensionReady = false
+                                    }
+                                },
+                                isOled = isOled
+                            )
                         }
-                        // Navigation chips
+                        // Navigation actions
                         Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             val nextEp = currentProgress + 1
                             if (nextEp <= released) {
-                                FilterChip(
-                                    selected = true,
+                                Button(
                                     onClick = { onEpisodeSelect(nextEp, null) },
-                                    label = { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.PlayArrow, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Resume Ep $nextEp") } },
                                     shape = RoundedCornerShape(50),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        containerColor = if (isOled) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
-                                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Resume Ep $nextEp", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
                             }
-                            FilterChip(
-                                selected = false,
-onClick = { scope.launch { listState.animateScrollToItem(1) } },
-                                        label = { Text("Ep 1") },
-                                        shape = RoundedCornerShape(50),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = if (isOled) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            )
+                            OutlinedButton(
+                                onClick = { scope.launch { listState.animateScrollToItem(1) } },
+                                shape = RoundedCornerShape(50),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Text("Ep 1", maxLines = 1)
+                            }
                             if (released > 1) {
-                                FilterChip(
-                                    selected = false,
-onClick = { scope.launch { listState.animateScrollToItem(released) } },
-                                        label = { Text("Latest: Ep $released") },
-                                        shape = RoundedCornerShape(50),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        containerColor = if (isOled) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
-                                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                )
+                                OutlinedButton(
+                                    onClick = { scope.launch { listState.animateScrollToItem(released) } },
+                                    shape = RoundedCornerShape(50),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text("Latest", maxLines = 1)
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         HorizontalDivider(color = if (isOled) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                     }
                 }
@@ -755,6 +713,7 @@ onClick = { scope.launch { listState.animateScrollToItem(released) } },
                             isCurrent = isCurrent,
                             hasAired = hasAired,
                             isOled = isOled,
+                            hideDescription = hideEpisodeDescriptions,
                             isSelected = selectedEpisode == episodeNum,
                             playbackPositions = playbackPositions,
                             playbackDurations = playbackDurations,
@@ -889,6 +848,7 @@ fun RichEpisodeList(
     onEpisodeSelect: (Int) -> Unit,
     onClose: (() -> Unit)? = null,
     onEnterFullscreen: (() -> Unit)? = null,
+    hideDescription: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = (currentEpisode - 1).coerceAtLeast(0))
@@ -958,6 +918,7 @@ fun RichEpisodeList(
                         isCurrent = isCurrent,
                         hasAired = hasAired,
                         isOled = isOled,
+                        hideDescription = hideDescription,
                         isSelected = isCurrent,
                         playbackPositions = playbackPositions,
                         playbackDurations = playbackDurations,
@@ -1124,6 +1085,7 @@ private fun RichTmdbEpisodeCard(
     isCurrent: Boolean,
     hasAired: Boolean,
     isOled: Boolean,
+    hideDescription: Boolean = false,
     isSelected: Boolean,
     playbackPositions: Map<String, Long> = emptyMap(),
     playbackDurations: Map<String, Long> = emptyMap(),
@@ -1268,6 +1230,17 @@ private fun RichTmdbEpisodeCard(
                 // Right side: title, status dot, progress, description
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f).padding(top = 2.dp)) {
+                    if (hideDescription) {
+                        Text(
+                            text = "Episode $episodeNumber",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = if (isOled) Color.White.copy(alpha = 0.55f) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                    }
                     Text(
                         text = title?.ifEmpty { "Episode $episodeNumber" } ?: "Episode $episodeNumber",
                         style = MaterialTheme.typography.titleSmall,
@@ -1302,7 +1275,7 @@ private fun RichTmdbEpisodeCard(
                             }
                         }
                     }
-                    if (!description.isNullOrEmpty()) {
+                    if (!hideDescription && !description.isNullOrEmpty()) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = description,
@@ -1352,6 +1325,43 @@ private fun formatTimeFromMs(ms: Long): String {
     val hours = ms / (1000 * 60 * 60)
     return if (hours > 0) String.format(java.util.Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds)
     else String.format(java.util.Locale.ROOT, "%d:%02d", minutes, seconds)
+}
+
+@Composable
+private fun RichSourceChipRow(
+    label: String,
+    options: List<Pair<String, String>>,
+    isSelected: (String) -> Boolean,
+    onSelect: (String) -> Unit,
+    isOled: Boolean
+) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.tertiary
+    )
+    Spacer(modifier = Modifier.height(4.dp))
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()).fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        options.forEach { (extName, authority) ->
+            FilterChip(
+                selected = isSelected(authority),
+                onClick = { onSelect(authority) },
+                label = { Text(extName, maxLines = 1, style = MaterialTheme.typography.labelSmall) },
+                shape = RoundedCornerShape(50),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    containerColor = if (isOled) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        }
+    }
+    Spacer(modifier = Modifier.height(12.dp))
 }
 
 

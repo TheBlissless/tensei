@@ -62,6 +62,7 @@ class UserPreferences(context: Context) {
         private const val KEY_SWIPE_BRIGHTNESS = "swipe_brightness"
         private const val KEY_SWIPE_SWAP = "swipe_swap"
         private const val KEY_AUTO_UPDATE_EXTENSIONS = "auto_update_extensions"
+        private const val KEY_HIDE_EPISODE_DESCRIPTION = "hide_episode_description"
         private const val KEY_SUBTITLE_ACTIVE_PROFILE = "subtitle_active_profile"
         private const val KEY_SUBTITLE_PROFILES = "subtitle_profiles"
         private const val KEY_STREAM_METHOD = "stream_method"
@@ -105,6 +106,9 @@ class UserPreferences(context: Context) {
 
     private val _disableMaterialColors = MutableStateFlow(true)
     val disableMaterialColors: StateFlow<Boolean> = _disableMaterialColors.asStateFlow()
+
+    private val _hideEpisodeDescription = MutableStateFlow(true)
+    val hideEpisodeDescription: StateFlow<Boolean> = _hideEpisodeDescription.asStateFlow()
 
     private val _preferredCategory = MutableStateFlow("sub")
     val preferredCategory: StateFlow<String> = _preferredCategory.asStateFlow()
@@ -342,6 +346,7 @@ class UserPreferences(context: Context) {
         _swipeBrightness.value = sharedPreferences.getBoolean(KEY_SWIPE_BRIGHTNESS, false)
         _swipeSwap.value = sharedPreferences.getBoolean(KEY_SWIPE_SWAP, false)
         _autoUpdateExtensions.value = sharedPreferences.getBoolean(KEY_AUTO_UPDATE_EXTENSIONS, true)
+        _hideEpisodeDescription.value = sharedPreferences.getBoolean(KEY_HIDE_EPISODE_DESCRIPTION, true)
         _mangaReaderMode.value = sharedPreferences.getString(KEY_MANGA_READER_MODE, "vertical_scroll") ?: "vertical_scroll"
         _mangaDataSaver.value = sharedPreferences.getBoolean(KEY_MANGA_DATA_SAVER, false)
         _mangaPageLayout.value = sharedPreferences.getString(KEY_MANGA_PAGE_LAYOUT, "single_page") ?: "single_page"
@@ -402,6 +407,11 @@ class UserPreferences(context: Context) {
     fun setDisableMaterialColors(enabled: Boolean) {
         _disableMaterialColors.value = enabled
         sharedPreferences.edit { putBoolean(KEY_DISABLE_MATERIAL_COLORS, enabled) }
+    }
+
+    fun setHideEpisodeDescription(enabled: Boolean) {
+        _hideEpisodeDescription.value = enabled
+        sharedPreferences.edit { putBoolean(KEY_HIDE_EPISODE_DESCRIPTION, enabled) }
     }
 
     fun setPreferredCategory(category: String) {

@@ -2794,6 +2794,7 @@ fun MainScreen(
                             animeId = anime.id,
                             animeTitle = playerDisplayTitle,
                             episodeTitle = currentEpisodeTitle,
+                            hideDescription = viewModel.hideEpisodeDescription.collectAsState().value,
                             onEpisodeSelect = { ep -> loadAndPlayEpisode(anime, ep) },
                             onClose = {
                                 showPlayer = false

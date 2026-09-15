@@ -441,6 +441,7 @@ class MainViewModel : ViewModel() {
     val appIcon: StateFlow<String> get() = userPreferences.appIcon
     val maxPerformance: StateFlow<Boolean> get() = userPreferences.maxPerformance
     val disableMaterialColors: StateFlow<Boolean> get() = userPreferences.disableMaterialColors
+    val hideEpisodeDescription: StateFlow<Boolean> get() = userPreferences.hideEpisodeDescription
     val preferredCategory: StateFlow<String> get() = userPreferences.preferredCategory
     val showStatusColors: StateFlow<Boolean> get() = userPreferences.showStatusColors
     val showAnimeCardButtons: StateFlow<Boolean> get() = userPreferences.showAnimeCardButtons

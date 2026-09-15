@@ -933,7 +933,8 @@ data class TmdbSearchResult(
     val vote_average: Double? = null,
     val popularity: Double? = null,
     val original_language: String? = null,
-    val origin_country: List<String>? = null
+    val origin_country: List<String>? = null,
+    val genre_ids: List<Int> = emptyList()
 )
 
 @Serializable
