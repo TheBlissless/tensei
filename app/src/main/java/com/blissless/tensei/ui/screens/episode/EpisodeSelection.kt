@@ -42,10 +42,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ButtonDefaults
@@ -77,7 +79,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -404,7 +408,7 @@ fun RichEpisodeScreen(
             var retries = 0
             while (retries < 2) {
                 try {
-                    val episodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format)
+                    val episodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format, animeEpisodes = anime.totalEpisodes.takeIf { it > 0 })
                     Log.d("TmdbDebug", "fetchTmdbEpisodes returned ${episodes.size} episodes for anime=${anime.id} (attempt ${retries + 1})")
                     viewModel.cacheTmdbEpisodes(anime.id, episodes)
                     tmdbEpisodes = episodes
@@ -514,7 +518,7 @@ fun RichEpisodeScreen(
                         model = anime.banner.takeIf { !it.isNullOrEmpty() } ?: anime.cover,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize().blur(radius = 8.dp).scale(1.04f)
                     )
                     // Top scrim for close-button legibility
                     Box(modifier = Modifier.fillMaxWidth().height(110.dp).align(Alignment.TopCenter).background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent))))
@@ -539,7 +543,16 @@ fun RichEpisodeScreen(
                                     shape = RoundedCornerShape(50),
                                     color = Color.Black.copy(alpha = 0.55f)
                                 ) {
-                                    Text(text = "Progress: $currentProgress / ${if (total > 0) total else "??"}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                    ) {
+                                        Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(text = "Progress", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(text = "$currentProgress / ${if (total > 0) total else "??"}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
                                 }
                                 if (released > 0) {
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -547,7 +560,19 @@ fun RichEpisodeScreen(
                                         shape = RoundedCornerShape(50),
                                         color = Color.Black.copy(alpha = 0.45f)
                                     ) {
-                                        Text(text = if (released == 1) "$released episode" else "$released episodes", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        ) {
+                                            Icon(Icons.Default.DateRange, contentDescription = null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(5.dp))
+                                            Text(
+                                                text = if (released == 1) "1 episode aired" else "$released episodes aired",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color.White.copy(alpha = 0.9f)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -573,7 +598,7 @@ fun RichEpisodeScreen(
                     .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                     .zIndex(10f)
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(24.dp))
             }
 
             Box(modifier = Modifier
@@ -1010,7 +1035,7 @@ internal fun SimpleRichEpisodeCard(
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp).alpha(contentAlpha),
+                    modifier = Modifier.fillMaxWidth().padding(12.dp).alpha(if (isWatched) 0.55f else contentAlpha),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -1018,7 +1043,6 @@ internal fun SimpleRichEpisodeCard(
                         contentAlignment = Alignment.Center
                     ) {
                         when {
-                            isWatched -> Icon(Icons.Default.Check, contentDescription = "Watched", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                             isCurrent -> Icon(Icons.Default.PlayArrow, contentDescription = "Current", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                             else -> Text(
                                 text = "$episodeNumber",
@@ -1113,10 +1137,6 @@ private fun RichTmdbEpisodeCard(
     var descriptionExpanded by remember { mutableStateOf(false) }
     var descriptionTruncated by remember { mutableStateOf(false) }
 
-    // Consistent dark style for badges and icons in rich menu
-    val badgeBg = Color.Black.copy(alpha = 0.7f)
-    val badgeText = Color.White
-
     // Playback progress
     val epPlaybackKey = "${animeId}_$episodeNumber"
     val savedPos = playbackPositions[epPlaybackKey] ?: 0L
@@ -1155,6 +1175,7 @@ private fun RichTmdbEpisodeCard(
                         .width(148.dp)
                         .aspectRatio(16f / 9f)
                         .clip(RoundedCornerShape(10.dp))
+                        .alpha(if (isWatched) 0.45f else 1f)
                 ) {
                     if (!image.isNullOrEmpty()) {
                         AsyncImage(model = image, contentDescription = "Episode $episodeNumber", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -1175,35 +1196,6 @@ private fun RichTmdbEpisodeCard(
                     Box(
                         modifier = Modifier.fillMaxWidth().height(30.dp).align(Alignment.BottomCenter).background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))))
                     )
-                    // Episode Badge - Standardized Dark Style
-                    Surface(
-                        modifier = Modifier.padding(5.dp).align(Alignment.TopStart),
-                        shape = RoundedCornerShape(5.dp),
-                        color = badgeBg
-                    ) {
-                        Text(
-                            text = "EP $episodeNumber",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = badgeText,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                        )
-                    }
-                    // Watched Icon - Standardized Dark Style with primary color check
-                    if (isWatched) {
-                        Surface(
-                            modifier = Modifier.padding(5.dp).align(Alignment.TopEnd),
-                            shape = CircleShape,
-                            color = badgeBg
-                        ) {
-                            Icon(
-                                Icons.Default.Check,
-                                contentDescription = "Watched",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(3.dp).size(13.dp)
-                            )
-                        }
-                    }
                     if (hasAired) {
                         FilledTonalIconButton(
                             onClick = onPlay,
@@ -1229,11 +1221,11 @@ private fun RichTmdbEpisodeCard(
                 }
                 // Right side: title, status dot, progress, description
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f).padding(top = 2.dp)) {
+                Column(modifier = Modifier.weight(1f).padding(top = 2.dp).alpha(if (isWatched) 0.55f else 1f)) {
                     if (hideDescription) {
                         Text(
                             text = "Episode $episodeNumber",
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -1243,7 +1235,7 @@ private fun RichTmdbEpisodeCard(
                     }
                     Text(
                         text = title?.ifEmpty { "Episode $episodeNumber" } ?: "Episode $episodeNumber",
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,

@@ -52,7 +52,8 @@ suspend fun AnimeRepository.fetchTmdbEpisodes(
         animeId: Int,
         animeYear: Int? = null,
         animeFormat: String? = null,
-        latestAiredEpisode: Int = Int.MAX_VALUE
+        latestAiredEpisode: Int = Int.MAX_VALUE,
+        animeEpisodes: Int? = null
     ): List<TmdbEpisode> = withContext(Dispatchers.IO) {
         try {
             // Detect format from title if not provided
@@ -72,13 +73,18 @@ suspend fun AnimeRepository.fetchTmdbEpisodes(
             val isMovieSearch = bestMatch.title != null
             
             if (isMovieSearch) {
-                // For movies, return a single "episode" - just fetch basic info
-                return@withContext listOf(TmdbEpisode(
-                    episode = 1,
-                    title = bestMatch.title,
-                    description = bestMatch.overview ?: "",
-                    image = bestMatch.poster_path?.let { Endpoints.Tmdb.imageUrl(it) }
-                ))
+                // For movies, return a single "episode" - just fetch basic info.
+                // Multi-part films (e.g. 5 Centimeters per Second = 3 segments) expand
+                // to the anime's total episode count when they're listed with one on AniList.
+                val movieEpCount = (animeEpisodes?.takeIf { it > 0 } ?: 1)
+                return@withContext (1..movieEpCount).map { n ->
+                    TmdbEpisode(
+                        episode = n,
+                        title = bestMatch.title,
+                        description = bestMatch.overview ?: "",
+                        image = bestMatch.poster_path?.let { Endpoints.Tmdb.imageUrl(it) }
+                    )
+                }
             }
             
             // Continue with TV show logic

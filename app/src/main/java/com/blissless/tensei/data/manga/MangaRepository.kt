@@ -18,6 +18,7 @@ import com.blissless.tensei.data.models.MangaUserProfileResponse
 import com.blissless.tensei.data.models.MangaDetailCharacters
 import com.blissless.tensei.data.models.MangaStaff
 import com.blissless.tensei.data.models.MangaStaffEdge
+import com.blissless.tensei.data.models.StartDate
 import com.blissless.tensei.data.models.MangaCharacterNode
 import com.blissless.tensei.data.models.MangaCharacterName
 import com.blissless.tensei.data.models.MangaCharacters
@@ -249,7 +250,7 @@ class MangaRepository {
                     coverImage { extraLarge large } bannerImage description
                     chapters volumes status averageScore meanScore popularity favourites
                     genres tags { name rank isMediaSpoiler description isAdult }
-                    seasonYear startDate { year } format source isAdult
+                    seasonYear startDate { year month day } endDate { year month day } format source isAdult
                     relations { edges { relationType node { id title { romaji english } coverImage { extraLarge } chapters averageScore format } } }
                     characters { nodes { id name { full native } image { large } } }
                     staff { edges { node { id name { full native } image { large } } role } }
@@ -279,6 +280,17 @@ class MangaRepository {
         }
     }
 
+    private fun StartDate?.toDateString(): String? {
+        val y = this?.year ?: return null
+        val m = month?.toString()?.padStart(2, '0')
+        val d = day?.toString()?.padStart(2, '0')
+        return when {
+            m != null && d != null -> "$y-$m-$d"
+            m != null -> "$y-$m"
+            else -> "$y"
+        }
+    }
+
     private fun mapMangaDetail(media: MangaDetailMedia): MangaDetail {
         return MangaDetail(
             id = media.id,
@@ -299,6 +311,9 @@ class MangaRepository {
             genres = media.genres ?: emptyList(),
             tags = media.tags ?: emptyList(),
             year = media.seasonYear ?: media.startDate?.year,
+            endYear = media.endDate?.year,
+            startDate = media.startDate?.toDateString(),
+            endDate = media.endDate?.toDateString(),
             format = media.format,
             source = media.source,
             isAdult = media.isAdult,
@@ -949,6 +964,9 @@ class MangaRepository {
         favourites = num_scoring_users ?: rank,
         genres = genres?.mapNotNull { it.name } ?: emptyList(),
         year = start_date?.take(4)?.toIntOrNull(),
+        endYear = end_date?.take(4)?.toIntOrNull(),
+        startDate = start_date,
+        endDate = end_date,
         format = malMangaFormat(),
         isAdult = nsfw == "black",
         recommendations = recommendations?.mapNotNull { rec ->

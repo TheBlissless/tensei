@@ -783,8 +783,10 @@ fun DetailedMangaScreen(
                                         }
                                         if (totalCh > 0) {
                                             Spacer(modifier = Modifier.height(4.dp))
+                                            // A COMPLETED manga is fully read even if the tracker has a stale 0 progress
+                                            val completedProgress = if (statusToCheck == "COMPLETED") totalCh else statusProgress.coerceAtLeast(0)
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(text = "$statusProgress", style = MaterialTheme.typography.titleMedium,
+                                                Text(text = "$completedProgress", style = MaterialTheme.typography.titleMedium,
                                                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                                 Text(text = " / $totalCh", style = MaterialTheme.typography.titleMedium,
                                                     fontWeight = FontWeight.Light, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
@@ -1738,14 +1740,28 @@ private fun MangaInfoCard(
                 displayData.source?.let {
                     add(SpecEntry(label = "Source", value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Description))
                 }
+                displayData.authorNames()?.let {
+                    add(SpecEntry(label = "Author", value = it, icon = Icons.Default.Person))
+                }
                 if (chaptersCount != null) {
                     add(SpecEntry(label = "Chapters", value = chaptersCount.toString()))
                 }
                 displayData.volumes?.let {
                     add(SpecEntry(label = "Volumes", value = it.toString()))
                 }
-                displayData.year?.let {
-                    add(SpecEntry(label = "Year", value = it.toString()))
+                val startedDate = displayData.startDate
+                if (startedDate != null) {
+                    add(SpecEntry(label = "Started", value = formatMangaDate(startedDate)))
+                } else displayData.year?.let {
+                    add(SpecEntry(label = "Started", value = it.toString()))
+                }
+                if (displayData.status != "RELEASING" && displayData.status != "NOT_YET_RELEASED") {
+                    val endedDate = displayData.endDate
+                    if (endedDate != null) {
+                        add(SpecEntry(label = "Ended", value = formatMangaDate(endedDate)))
+                    } else displayData.endYear?.let {
+                        add(SpecEntry(label = "Ended", value = it.toString()))
+                    }
                 }
             }
 
@@ -1807,6 +1823,18 @@ private fun formatNumber(n: Int): String = when {
     else -> n.toString()
 }
 
+private fun formatMangaDate(dateStr: String): String {
+    return try {
+        val parts = dateStr.split("-").mapNotNull { it.toIntOrNull() }
+        if (parts.size == 3) {
+            val date = java.time.LocalDate.of(parts[0], parts[1], parts[2])
+            date.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM, yyyy"))
+        } else dateStr
+    } catch (_: Exception) {
+        dateStr
+    }
+}
+
 private fun MangaMedia.asDetail(): MangaDetail = MangaDetail(
     id = id,
     title = title,
@@ -1823,3 +1851,14 @@ private fun MangaMedia.asDetail(): MangaDetail = MangaDetail(
     siteUrl = siteUrl,
     malId = malId
 )
+
+private fun MangaDetail.authorNames(): String? {
+    val edges = staff?.edges ?: return null
+    val preferred = edges.filter {
+        it.role?.contains("Story", ignoreCase = true) == true ||
+            it.role?.contains("Art", ignoreCase = true) == true
+    }
+    val chosen = if (preferred.isNotEmpty()) preferred else edges
+    val names = chosen.mapNotNull { it.node?.name?.full }.distinct()
+    return if (names.isEmpty()) null else names.take(3).joinToString(", ")
+}

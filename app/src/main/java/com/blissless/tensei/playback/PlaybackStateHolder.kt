@@ -220,7 +220,7 @@ class PlaybackStateHolder(
             if (!title.isNullOrEmpty()) return sanitizeEpisodeTitle(title) ?: "Episode $episode"
         }
         return try {
-            val tmdbEpisodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format)
+            val tmdbEpisodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format, animeEpisodes = anime.totalEpisodes.takeIf { it > 0 })
             val title = tmdbEpisodes.find { it.episode == episode }?.title
             sanitizeEpisodeTitle(title) ?: "Episode $episode"
         } catch (_: Exception) {

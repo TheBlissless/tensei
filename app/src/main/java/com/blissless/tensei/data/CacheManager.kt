@@ -206,6 +206,8 @@ class CacheManager(private val sharedPreferences: SharedPreferences) {
     private val TMDB_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L
     private val TMDB_CACHE_PREFS = "tmdb_episode_cache"
     private val TMDB_PERSISTENT_IDS_PREFS = "tmdb_persistent_ids"
+    private val TMDB_CACHE_VERSION = 4
+    private val TMDB_CACHE_VERSION_PREFS = "tmdb_cache_version"
     private val _persistentTmdbIds = mutableSetOf<Int>()
 
     fun getCachedTmdbEpisodes(animeId: Int, status: String? = null): List<TmdbEpisode>? {
@@ -259,6 +261,18 @@ class CacheManager(private val sharedPreferences: SharedPreferences) {
 
     fun loadTmdbEpisodeCache() {
         try {
+            // Drop the persisted cache whenever the format of the cached data
+            // changes (e.g. movie entries now expanding to the anime's episode count)
+            val storedVersion = sharedPreferences.getInt(TMDB_CACHE_VERSION_PREFS, 0)
+            if (storedVersion != TMDB_CACHE_VERSION) {
+                sharedPreferences.edit {
+                    remove(TMDB_CACHE_PREFS)
+                    remove(TMDB_PERSISTENT_IDS_PREFS)
+                    putInt(TMDB_CACHE_VERSION_PREFS, TMDB_CACHE_VERSION)
+                }
+                return
+            }
+
             // Load persistent IDs
             val idsData = sharedPreferences.getString(TMDB_PERSISTENT_IDS_PREFS, null)
             if (idsData != null) {

@@ -2058,7 +2058,7 @@ private suspend fun loadHomeDataWithCache() {
 
     fun forceRefreshExplore() = fetchExploreData(force = true)
 
-    suspend fun fetchTmdbEpisodes(title: String, id: Int, year: Int? = null, format: String? = null, latest: Int = Int.MAX_VALUE) = repository.fetchTmdbEpisodes(title, id, year, format, latest)
+    suspend fun fetchTmdbEpisodes(title: String, id: Int, year: Int? = null, format: String? = null, latest: Int = Int.MAX_VALUE, animeEpisodes: Int? = null) = repository.fetchTmdbEpisodes(title, id, year, format, latest, animeEpisodes)
 
     fun getCachedTmdbEpisodes(animeId: Int, status: String? = null): List<TmdbEpisode>? = cacheManager.getCachedTmdbEpisodes(animeId, status)
     fun cacheTmdbEpisodes(animeId: Int, episodes: List<TmdbEpisode>) = cacheManager.cacheTmdbEpisodes(animeId, episodes)
