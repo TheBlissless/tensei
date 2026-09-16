@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.animesource.model
 
 import android.net.Uri
+import kotlin.jvm.internal.DefaultConstructorMarker
 import okhttp3.Headers
 
 data class Track(val url: String, val lang: String)
@@ -26,11 +27,48 @@ data class Video(
     val subtitleTracks: List<Track> = emptyList(),
     val audioTracks: List<Track> = emptyList(),
     val timestamps: List<TimeStamp> = emptyList(),
+    val mpvArgs: List<Pair<String, String>> = emptyList(),
     val ffmpegStreamArgs: List<Pair<String, String>> = emptyList(),
     val ffmpegVideoArgs: List<Pair<String, String>> = emptyList(),
     val internalData: String = "",
     val initialized: Boolean = false,
+    val memo: Int = 16300,
 ) {
+    @Suppress("UNUSED_PARAMETER")
+    constructor(
+        videoUrl: String,
+        videoTitle: String,
+        resolution: Int?,
+        bitrate: Int?,
+        headers: Headers?,
+        preferred: Boolean,
+        subtitleTracks: List<Track>?,
+        audioTracks: List<Track>?,
+        timestamps: List<TimeStamp>?,
+        mpvArgs: List<Pair<String, String>>?,
+        ffmpegStreamArgs: List<Pair<String, String>>?,
+        ffmpegVideoArgs: List<Pair<String, String>>?,
+        internalData: String?,
+        initialized: Boolean,
+        memo: Int,
+        marker: DefaultConstructorMarker?,
+    ) : this(
+        videoUrl = videoUrl,
+        videoTitle = videoTitle,
+        resolution = resolution,
+        bitrate = bitrate,
+        headers = headers,
+        preferred = preferred,
+        subtitleTracks = subtitleTracks.orEmpty(),
+        audioTracks = audioTracks.orEmpty(),
+        timestamps = timestamps.orEmpty(),
+        mpvArgs = mpvArgs.orEmpty(),
+        ffmpegStreamArgs = ffmpegStreamArgs.orEmpty(),
+        ffmpegVideoArgs = ffmpegVideoArgs.orEmpty(),
+        internalData = internalData.orEmpty(),
+        initialized = initialized,
+        memo = memo,
+    )
     @Deprecated("Use videoTitle instead", ReplaceWith("videoTitle"))
     val quality: String
         get() = videoTitle
@@ -69,5 +107,75 @@ data class Video(
         videoTitle = quality,
         videoUrl = videoUrl ?: "",
         headers = headers,
+    )
+
+    // Ext lib 16 ABI (maskless full-args), kept for compatibility with older extensions
+    @Suppress("UNUSED_PARAMETER")
+    @Deprecated("Used only for compatibility with ext lib 16, do not use", level = DeprecationLevel.HIDDEN)
+    constructor(
+        videoUrl: String,
+        videoTitle: String,
+        resolution: Int?,
+        bitrate: Int?,
+        headers: Headers?,
+        preferred: Boolean,
+        subtitleTracks: List<Track>?,
+        audioTracks: List<Track>?,
+        timestamps: List<TimeStamp>?,
+        mpvArgs: List<Pair<String, String>>?,
+        ffmpegStreamArgs: List<Pair<String, String>>?,
+        internalData: String?,
+        initialized: Boolean,
+    ) : this(
+        videoUrl = videoUrl,
+        videoTitle = videoTitle,
+        resolution = resolution,
+        bitrate = bitrate,
+        headers = headers,
+        preferred = preferred,
+        subtitleTracks = subtitleTracks.orEmpty(),
+        audioTracks = audioTracks.orEmpty(),
+        timestamps = timestamps.orEmpty(),
+        mpvArgs = mpvArgs.orEmpty(),
+        ffmpegStreamArgs = ffmpegStreamArgs.orEmpty(),
+        ffmpegVideoArgs = emptyList(),
+        internalData = internalData.orEmpty(),
+        initialized = initialized,
+    )
+
+    // Ext lib 16 ABI (masked synthetic with bitmask), kept for compatibility with older extensions
+    @Suppress("UNUSED_PARAMETER")
+    @Deprecated("Used only for compatibility with ext lib 16, do not use", level = DeprecationLevel.HIDDEN)
+    constructor(
+        videoUrl: String,
+        videoTitle: String,
+        resolution: Int?,
+        bitrate: Int?,
+        headers: Headers?,
+        preferred: Boolean,
+        subtitleTracks: List<Track>?,
+        audioTracks: List<Track>?,
+        timestamps: List<TimeStamp>?,
+        mpvArgs: List<Pair<String, String>>?,
+        ffmpegStreamArgs: List<Pair<String, String>>?,
+        internalData: String?,
+        initialized: Boolean,
+        mask: Int,
+        marker: DefaultConstructorMarker?,
+    ) : this(
+        videoUrl = videoUrl,
+        videoTitle = videoTitle,
+        resolution = resolution,
+        bitrate = bitrate,
+        headers = headers,
+        preferred = preferred,
+        subtitleTracks = subtitleTracks.orEmpty(),
+        audioTracks = audioTracks.orEmpty(),
+        timestamps = timestamps.orEmpty(),
+        mpvArgs = mpvArgs.orEmpty(),
+        ffmpegStreamArgs = ffmpegStreamArgs.orEmpty(),
+        ffmpegVideoArgs = emptyList(),
+        internalData = internalData.orEmpty(),
+        initialized = initialized,
     )
 }

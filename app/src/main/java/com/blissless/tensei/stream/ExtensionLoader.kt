@@ -6,12 +6,15 @@ import dalvik.system.DexClassLoader
 import eu.kanade.tachiyomi.animesource.AnimeCatalogueSource
 import eu.kanade.tachiyomi.animesource.AnimeSourceFactory
 import com.blissless.tensei.extensions.Extension
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.fullType
 import java.util.concurrent.ConcurrentHashMap
 
 class ParentFirstClassLoader(apkPath: String, dexOutput: String, parent: ClassLoader) :
     DexClassLoader(apkPath, dexOutput, null, parent) {
 
-    private val parentFirstPackages = setOf("eu.kanade.tachiyomi", "okhttp3", "kotlin")
+    private val parentFirstPackages =
+        setOf("eu.kanade.tachiyomi", "uy.kohesive.injekt", "okhttp3", "kotlin")
 
     override fun loadClass(name: String, resolve: Boolean): Class<*>? {
         for (pkg in parentFirstPackages) {
@@ -50,6 +53,12 @@ class ExtensionLoader(private val context: Context) {
                 Log.d("ExtensionLoader", "Creating class loader for $apkPath")
                 ParentFirstClassLoader(apkPath, dexOutput.absolutePath, context.classLoader)
             }
+            val prefsName = "source_${extension.packageName}_${extension.name}"
+            Injekt.addSingleton(
+                fullType<android.content.SharedPreferences>(),
+                context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+            )
+            Log.d("ExtensionLoader", "Registered SharedPreferences for $prefsName")
             val clazz = loader.loadClass(sourceClassName)
             Log.d("ExtensionLoader", "Loaded class $sourceClassName from ${extension.packageName} (pkg=${extension.packageName}, name=${extension.name})")
             val sources = when {

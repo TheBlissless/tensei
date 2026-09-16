@@ -61,6 +61,7 @@ androidx-work-runtime-ktx-v2100 = { module = "androidx.work:work-runtime-ktx", v
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
 injekt-core = { module = "uy.kohesive.injekt:injekt-core", version.ref = "injektCore" }
+injekt-api = { module = "uy.kohesive.injekt:injekt-api", version.ref = "injektCore" }
 json = { module = "org.json:json", version.ref = "json" }
 jsoup-v1181 = { module = "org.jsoup:jsoup", version.ref = "jsoupVersion" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }

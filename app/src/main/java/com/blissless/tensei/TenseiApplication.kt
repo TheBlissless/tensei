@@ -8,6 +8,8 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.blissless.tensei.torrent.TorrentEngine
 import kotlinx.serialization.json.Json
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.fullType
 
 class TenseiApplication : Application(), ImageLoaderFactory {
 
@@ -16,9 +18,9 @@ class TenseiApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
-        uy.kohesive.injekt.Injekt.register(Application::class.java, this)
-        uy.kohesive.injekt.Injekt.register(Context::class.java, this)
-        uy.kohesive.injekt.Injekt.register(Json::class.java, Json { ignoreUnknownKeys = true; explicitNulls = false })
+        Injekt.addSingleton(fullType<Application>(), this)
+        Injekt.addSingleton(fullType<Context>(), this)
+        Injekt.addSingleton(fullType<Json>(), Json { ignoreUnknownKeys = true; explicitNulls = false })
         torrentEngine = TorrentEngine(this)
     }
 

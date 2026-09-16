@@ -16,7 +16,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,7 +37,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -56,8 +54,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -173,21 +169,6 @@ fun RichEpisodeScreen(
     val defaultStreamExt by viewModel.defaultStreamExtension.collectAsState()
     var selectedStreamAuthority by remember { mutableStateOf<String?>(null) }
     var isStreamActive by remember { mutableStateOf(false) }
-
-    val sortedExtensions = remember(availableExtensions, selectedExtensionPkg) {
-        val selected = selectedExtensionPkg
-        availableExtensions.sortedWith(compareBy<Pair<String, String>> { if (it.second == selected) 0 else 1 }.thenBy { it.first })
-    }
-
-    val sortedMagnetExtensions = remember(availableMagnetExtensions, selectedMagnetAuthority) {
-        val selected = selectedMagnetAuthority
-        availableMagnetExtensions.sortedWith(compareBy<Pair<String, String>> { if (it.second == selected) 0 else 1 }.thenBy { it.first })
-    }
-
-    val sortedStreamExtensions = remember(availableStreamExtensions, selectedStreamAuthority) {
-        val selected = selectedStreamAuthority
-        availableStreamExtensions.sortedWith(compareBy<Pair<String, String>> { if (it.second == selected) 0 else 1 }.thenBy { it.first })
-    }
 
     // Auto-select state flags (declared before LaunchedEffects that reference them)
     var hasAutoSelectedMagnet by remember { mutableStateOf(false) }
@@ -619,67 +600,6 @@ fun RichEpisodeScreen(
                 item {
                     Column(modifier = Modifier.padding(horizontal = 12.dp)) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        // Extension selector - show only the active category
-                        if (currentStreamMethod == "magnet" && sortedStreamExtensions.isNotEmpty()) {
-                            RichSourceChipRow(
-                                label = "STREAM",
-                                options = sortedStreamExtensions,
-                                isSelected = { authority -> authority == selectedStreamAuthority && isStreamActive },
-                                onSelect = { authority ->
-                                    if (authority != selectedStreamAuthority || !isStreamActive) {
-                                        selectedStreamAuthority = authority
-                                        isStreamActive = true
-                                        selectedExtensionPkg = null
-                                        isMagnetActive = false
-                                        selectedMagnetAuthority = null
-                                        viewModel.setDefaultStreamExtension(authority)
-                                        viewModel.setDefaultExtensionPackage("")
-                                    }
-                                },
-                                isOled = isOled
-                            )
-                        }
-                        if (currentStreamMethod == "magnet" && availableMagnetExtensions.isNotEmpty()) {
-                            RichSourceChipRow(
-                                label = "TORRENT",
-                                options = sortedMagnetExtensions,
-                                isSelected = { authority -> authority == selectedMagnetAuthority && isMagnetActive },
-                                onSelect = { authority ->
-                                    if (authority != selectedMagnetAuthority || !isMagnetActive) {
-                                        selectedMagnetAuthority = authority
-                                        isMagnetActive = true
-                                        isStreamActive = false
-                                        selectedExtensionPkg = null
-                                        selectedStreamAuthority = null
-                                        isLoadingMagnetEpisodes = true
-                                        magnetError = null
-                                        isMagnetReady = false
-                                        viewModel.clearMagnetEpisodes(anime.id)
-                                        viewModel.fetchMagnetEpisodes(anime, authority)
-                                    }
-                                },
-                                isOled = isOled
-                            )
-                        }
-                        if (currentStreamMethod == "direct" && availableExtensions.isNotEmpty()) {
-                            RichSourceChipRow(
-                                label = "EXTERNAL",
-                                options = sortedExtensions,
-                                isSelected = { extPkg -> extPkg == selectedExtensionPkg && !isMagnetActive && !isStreamActive },
-                                onSelect = { extPkg ->
-                                    if (extPkg != selectedExtensionPkg) {
-                                        selectedExtensionPkg = extPkg
-                                        isMagnetActive = false
-                                        isStreamActive = false
-                                        selectedMagnetAuthority = null
-                                        selectedStreamAuthority = null
-                                        extensionError = null
-                                        isExtensionReady = false
-                                    }
-                                },
-                                isOled = isOled
-                            )
-                        }
                         // Navigation actions
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1317,43 +1237,6 @@ private fun formatTimeFromMs(ms: Long): String {
     val hours = ms / (1000 * 60 * 60)
     return if (hours > 0) String.format(java.util.Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds)
     else String.format(java.util.Locale.ROOT, "%d:%02d", minutes, seconds)
-}
-
-@Composable
-private fun RichSourceChipRow(
-    label: String,
-    options: List<Pair<String, String>>,
-    isSelected: (String) -> Boolean,
-    onSelect: (String) -> Unit,
-    isOled: Boolean
-) {
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.tertiary
-    )
-    Spacer(modifier = Modifier.height(4.dp))
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()).fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        options.forEach { (extName, authority) ->
-            FilterChip(
-                selected = isSelected(authority),
-                onClick = { onSelect(authority) },
-                label = { Text(extName, maxLines = 1, style = MaterialTheme.typography.labelSmall) },
-                shape = RoundedCornerShape(50),
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    containerColor = if (isOled) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-        }
-    }
-    Spacer(modifier = Modifier.height(12.dp))
 }
 
 

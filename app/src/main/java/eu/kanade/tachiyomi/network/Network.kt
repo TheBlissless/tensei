@@ -56,6 +56,24 @@ suspend fun OkHttpClient.newCachelessCallWithProgress(
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
+suspend fun OkHttpClient.get(
+    url: String,
+    headers: Headers = Headers.Builder().build(),
+    cacheControl: CacheControl? = null,
+): Response {
+    return withContext(Dispatchers.IO) { newCall(GET(url, headers = headers, cache = cacheControl)).await() }
+}
+
+@Suppress("UNUSED_PARAMETER")
+suspend fun OkHttpClient.get(
+    url: HttpUrl,
+    headers: Headers = Headers.Builder().build(),
+    cacheControl: CacheControl? = null,
+): Response {
+    return withContext(Dispatchers.IO) { newCall(GET(url, headers = headers, cache = cacheControl)).await() }
+}
+
 interface ProgressListener {
     fun update(bytesRead: Long, contentLength: Long, done: Boolean)
 }

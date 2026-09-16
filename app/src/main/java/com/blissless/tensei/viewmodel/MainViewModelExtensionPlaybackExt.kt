@@ -300,7 +300,8 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 for (hoster in hosters) {
                     val hosterVideos = try {
                         if (hoster.lazy) source.getVideoList(hoster) else hoster.videoList ?: source.getVideoList(hoster)
-                    } catch (_: Throwable) {
+                    } catch (e: Throwable) {
+                        Log.w(epTag, "playEpisodeWithExtension: getVideoList(hoster='${hoster.hosterName}') threw", e)
                         emptyList()
                     }
                     hosterVideos.forEach {

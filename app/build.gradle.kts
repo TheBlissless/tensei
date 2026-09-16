@@ -22,8 +22,8 @@ android {
         applicationId = "com.blissless.tensei"
         minSdk = 26
         targetSdk = 37
-        versionCode = 29
-        versionName = "1.2.16"
+        versionCode = 30
+        versionName = "1.2.17"
 
         externalNativeBuild {
             cmake {
@@ -183,6 +183,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.okhttp)
     implementation(libs.json)
+    implementation(libs.injekt.core)
+    implementation(libs.injekt.api)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
