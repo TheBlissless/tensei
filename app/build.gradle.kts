@@ -196,6 +196,7 @@ dependencies {
     implementation(libs.libtorrent4j.core)
     implementation(libs.libtorrent4j.android.arm64)
     implementation(libs.libtorrent4j.android.arm)
+    implementation(libs.nanohttpd)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.truth)

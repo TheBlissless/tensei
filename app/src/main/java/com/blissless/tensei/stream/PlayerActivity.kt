@@ -80,6 +80,7 @@ class PlayerActivity : ComponentActivity() {
     private var player: ExoPlayer? = null
     private var videoContainer: AspectRatioFrameLayout? = null
     private var subtitleView: SubtitleView? = null
+    private var httpServer: eu.kanade.tachiyomi.animesource.model.HttpServer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,14 +113,44 @@ class PlayerActivity : ComponentActivity() {
         }
 
         fun buildMediaItem(video: Video, subtitle: Track?): MediaItem {
+            // If the video's URL uses the Aniyomi localhost:1 sentinel
+            // pattern, the source wants its local HttpServer to proxy
+            // playback. Start the server and rewrite the URL.
+            var workingVideo = video
+            if (video.usesHttpServer()) {
+                val source = PlayerData.extensionSource as? eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
+                if (source != null) {
+                    try {
+                        httpServer?.stop()
+                        httpServer = source.createHttpServer()
+                        httpServer?.start()
+                        val port = httpServer?.listeningPort ?: 0
+                        if (port > 0) {
+                            workingVideo = video.copyHttpServer(port)
+                            PlayerData.videos = PlayerData.videos.map {
+                                if (it.videoUrl == video.videoUrl) workingVideo else it
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("PlayerActivity",
+                            "Failed to start source HttpServer", e)
+                        httpServer = null
+                    }
+                }
+            } else {
+                // No HTTP server needed — clean up any previous server.
+                httpServer?.stop()
+                httpServer = null
+            }
+
             val builder = MediaItem.Builder()
-                .setUri(video.videoUrl.toUri())
+                .setUri(workingVideo.videoUrl.toUri())
             builder.setMediaMetadata(
-                    androidx.media3.common.MediaMetadata.Builder()
-                        .setTitle(PlayerData.animeTitle)
-                        .setSubtitle(video.videoTitle)
-                        .build()
-                )
+                androidx.media3.common.MediaMetadata.Builder()
+                    .setTitle(PlayerData.animeTitle)
+                    .setSubtitle(workingVideo.videoTitle)
+                    .build()
+            )
             subtitle?.let { track ->
                 val mime = when {
                     track.url.contains(".vtt") -> "text/vtt"
@@ -402,6 +433,8 @@ class PlayerActivity : ComponentActivity() {
         super.onDestroy()
         player?.release()
         player = null
+        httpServer?.stop()
+        httpServer = null
         PlayerData.videos = emptyList()
     }
 }

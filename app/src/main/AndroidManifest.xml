@@ -111,6 +111,32 @@
                 android:resource="@xml/airing_schedule_widget_info" />
         </receiver>
 
+        <!-- ── Aniyomi-style extension install receiver. Listens for
+             system package install/replace/remove broadcasts and
+             re-triggers AnimeExtensionManager.initAnimeExtensions()
+             so newly installed extensions show up automatically.
+             Declared statically so it works even when the app process
+             isn't running yet (cold start). -->
+        <receiver
+            android:name=".extensions.AnimeExtensionInstallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.PACKAGE_REMOVED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Foreground service that receives the result callback for
+             PackageInstaller-based extension installs (the
+             PACKAGEINSTALLER installer mode in AnimeExtensionInstaller).
+             Not required for LEGACY or PRIVATE installers but harmless
+             to declare. -->
+        <service
+            android:name=".extensions.AnimeExtensionInstallService"
+            android:exported="false" />
+
         <activity
             android:name=".stream.PlayerActivity"
             android:exported="false"

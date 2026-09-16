@@ -6,6 +6,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import com.blissless.tensei.extensions.AnimeExtensionManager
 import com.blissless.tensei.torrent.TorrentEngine
 import kotlinx.serialization.json.Json
 import uy.kohesive.injekt.Injekt
@@ -22,6 +23,14 @@ class TenseiApplication : Application(), ImageLoaderFactory {
         Injekt.addSingleton(fullType<Context>(), this)
         Injekt.addSingleton(fullType<Json>(), Json { ignoreUnknownKeys = true; explicitNulls = false })
         torrentEngine = TorrentEngine(this)
+
+        // ── Aniyomi-style extension manager: kicks off a background scan of
+        //   installed extensions (via AnimeExtensionLoader.loadExtensions) and
+        //   registers the AnimeExtensionInstallReceiver so future
+        //   install/remove broadcasts trigger automatic re-scans. Must be
+        //   called early in app startup so the receiver is registered before
+        //   any PACKAGE_ADDED/REPLACED/REMOVED broadcast can arrive.
+        AnimeExtensionManager.init(this)
     }
 
     override fun newImageLoader(): ImageLoader {
@@ -42,5 +51,3 @@ class TenseiApplication : Application(), ImageLoaderFactory {
             .build()
     }
 }
-
-
