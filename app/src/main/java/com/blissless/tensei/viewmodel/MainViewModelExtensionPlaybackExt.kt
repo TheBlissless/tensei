@@ -59,87 +59,26 @@ suspend fun MainViewModel.playEpisodeWithExtension(
 ): MainViewModel.ExtensionStreamResult? {
     val epTag = "AnimeDownload"
     _lastExtensionPlaybackError.value = null
-    val cached = getCachedExtensionStream(anime.id, episodeNumber)
-    if (cached != null) {
-        Log.i(epTag, "playEpisodeWithExtension: cache hit for ep $episodeNumber url=${cached.url.take(100)}")
-        val isOurPort = "127.0.0.1:${LocalProxyServer.PROXY_PORT}"
-        val cachedIsOurProxy = cached.url.contains(isOurPort) || cached.url.contains("localhost:${LocalProxyServer.PROXY_PORT}")
-        val staleProxy = !cachedIsOurProxy && (cached.url.contains("127.0.0.1:") || cached.url.contains("localhost:"))
-        if (staleProxy) {
-            Log.w(epTag, "playEpisodeWithExtension: stale proxy cache for ep $episodeNumber, refetching")
-            invalidateExtensionStreamCache(anime.id, episodeNumber)
-        } else {
-            val cacheSource = withContext(Dispatchers.IO) {
-                val smForCache = sourceManager
-                if (smForCache != null) {
-                    if (smForCache.getSources().isEmpty()) { smForCache.loadSources() }
-                    smForCache.getSources().find { it.extension.packageName == defaultPackage }?.source
-                } else null
-            }
-            val cacheSourceHttp = cacheSource as? AnimeHttpSource
-            val cacheClient = (cacheSourceHttp?.client) ?: try { NetworkHelper.getInstance().client } catch (e: Exception) { ErrorHandler.report(MainViewModel.TAG, "operation failed, returning null", e); null }
-            if (cachedIsOurProxy) {
-                LocalProxyServer.start(cacheClient, cacheSource)
-                val portFix = Regex("127\\.0\\.0\\.1:\\d+")
-                val ourPort = "127.0.0.1:${LocalProxyServer.PROXY_PORT}"
-                cached.videos.forEach { cv ->
-                    val headers = cv.headers?.let { map ->
-                        Headers.Builder().apply { map.forEach { (k, v) -> add(k, v) } }.build()
-                    }
-                    LocalProxyServer.registerVideo(
-                        Video(
-                            videoUrl = cv.videoUrl.replace(portFix, ourPort),
-                            videoTitle = cv.videoTitle,
-                            resolution = cv.resolution,
-                            headers = headers,
-                            subtitleTracks = cv.subtitleTracks.map { Track(it.url.replace(portFix, ourPort), it.lang) },
-                            audioTracks = cv.audioTracks.map { Track(it.url.replace(portFix, ourPort), it.lang) },
-                        )
-                    )
-                    Log.d(epTag, "  cache registered video: ${cv.videoUrl.take(80)}")
-                }
-            }
-            val cacheHeaders = if (cached.videoHeaders.isEmpty() && cachedIsOurProxy && cacheSourceHttp != null) {
-                cacheSourceHttp.headers?.let { h ->
-                    (0 until h.size).associate { h.name(it) to h.value(it) }
-                } ?: cached.videoHeaders
-            } else {
-                cached.videoHeaders
-            }
-            val fixedUrl = if (cachedIsOurProxy) {
-                cached.url.replace(Regex("127\\.0\\.0\\.1:\\d+"), "127.0.0.1:${LocalProxyServer.PROXY_PORT}")
-            } else cached.url
-            return MainViewModel.ExtensionStreamResult(
-                url = fixedUrl,
-                referer = cached.referer.ifEmpty {
-                    cacheHeaders.entries.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value ?: ""
-                },
-                subtitleUrl = if (cachedIsOurProxy) cached.subtitleUrl?.replace(Regex("127\\.0\\.0\\.1:\\d+"), "127.0.0.1:${LocalProxyServer.PROXY_PORT}") else cached.subtitleUrl,
-                subtitleTrackList = cached.subtitleTracks.map { Track(it.url, it.lang) },
-                videoTitle = cached.videoTitle,
-                videos = cached.videos.map { v ->
-                    val headers = v.headers?.let { map ->
-                        Headers.Builder().apply {
-                            map.forEach { (k, v) -> add(k, v) }
-                        }.build()
-                    }
-                    Video(
-                        videoUrl = if (cachedIsOurProxy) v.videoUrl.replace(Regex("127\\.0\\.0\\.1:\\d+"), "127.0.0.1:${LocalProxyServer.PROXY_PORT}") else v.videoUrl,
-                        videoTitle = v.videoTitle,
-                        resolution = v.resolution,
-                        headers = headers,
-                        subtitleTracks = v.subtitleTracks.map { Track(it.url, it.lang) },
-                        audioTracks = v.audioTracks.map { Track(it.url, it.lang) },
-                    )
-                },
-                hosters = cached.hosters?.map { Hoster(hosterUrl = it.hosterUrl, hosterName = it.hosterName) },
-                extensionClient = cacheClient,  // always use extension client for proper headers/cookies
-                videoHeaders = cacheHeaders,
-                source = cacheSource,
-                episode = null,
-            )
-        }
-    }
+    // NOTE: Previously we read `getCachedExtensionStream(anime.id, episodeNumber)`
+    // here and short-circuited on cache hit. That cache caused two real bugs:
+    //
+    //   1. Stale URLs: extension video URLs (especially from sources like
+    //      animekai/gogoanime) are short-lived signed URLs that expire
+    //      within minutes. The cache returned a stale URL → ExoPlayer
+    //      failed → auto-retry loop kicked in → server change → repeat.
+    //
+    //   2. Thread-leak OOM: the stale-URL retry loop thrashed through
+    //      every cached hoster, each invocation registering videos with
+    //      LocalProxyServer and spawning proxy threads without bound.
+    //      Eventually `pthread_create (4112KB stack) failed` → app crash.
+    //
+    // Per the user's request: "don't use cache for videos, always fetch
+    // anew". So we now ALWAYS go through the fresh fetch path below,
+    // ignoring any previously-cached result for this (anime, episode).
+    // We still invalidate the cache (in case a previous run left a
+    // stale entry) but we never READ from it.
+    invalidateExtensionStreamCache(anime.id, episodeNumber)
+
     Log.i(epTag, "playEpisodeWithExtension: anime=${anime.id} ep=$episodeNumber pkg=$defaultPackage")
     return withContext(Dispatchers.IO) {
         try {
@@ -288,6 +227,12 @@ suspend fun MainViewModel.playEpisodeWithExtension(
 
             // Start proxy server in case videos return localhost URLs
             LocalProxyServer.start(extensionClient, source)
+            // Clear stale videos from a PREVIOUS fetch. Each fetch starts
+            // a new source HTTP server on a random port — stale entries
+            // from the previous fetch point to a now-dead port. Without
+            // this clear, the segment fallback's `pathToVideo.values.first()`
+            // returns a stale entry → wrong port → "unexpected end of stream".
+            LocalProxyServer.clearRegisteredVideos()
 
             val hosters = try {
                 source.getHosterList(sEpisode)
@@ -441,29 +386,36 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 }
             }
 
-            cacheExtensionStream(anime.id, episodeNumber, CachedExtensionStream(
-                url = effectiveVideoUrl,
-                referer = referer,
-                subtitleUrl = sortedSubs.firstOrNull()?.url,
-                subtitleTracks = sortedSubs.map { CachedTrack(it.url, it.lang) },
-                videoTitle = bestVideo.videoTitle,
-                videos = videos.map { v ->
-                    val headersMap = v.headers?.let { h ->
-                        (0 until h.size).associate { h.name(it) to h.value(it) }
-                    }
-                    CachedVideo(
-                        videoUrl = v.videoUrl,
-                        videoTitle = v.videoTitle,
-                        resolution = v.resolution,
-                        headers = headersMap,
-                        subtitleTracks = v.subtitleTracks.map { CachedTrack(it.url, it.lang) },
-                        audioTracks = v.audioTracks.map { CachedTrack(it.url, it.lang) },
-                    )
-                },
-                hosters = derivedHosters.map { CachedHoster(hosterUrl = it.hosterUrl, hosterName = it.hosterName) },
-                videoHeaders = videoHeaders,
-                cachedAt = System.currentTimeMillis(),
-            ))
+            // NOTE: caching disabled per "always fetch anew" requirement
+            // (see the comment at the top of this function). The previous
+            // `cacheExtensionStream(...)` call is what caused stale URLs
+            // to be returned on subsequent playback attempts → retry
+            // thrash → LocalProxyServer thread-leak OOM. We intentionally
+            // skip writing to the cache so the next playback always
+            // re-fetches from the extension.
+            // cacheExtensionStream(anime.id, episodeNumber, CachedExtensionStream(
+            //     url = effectiveVideoUrl,
+            //     referer = referer,
+            //     subtitleUrl = sortedSubs.firstOrNull()?.url,
+            //     subtitleTracks = sortedSubs.map { CachedTrack(it.url, it.lang) },
+            //     videoTitle = bestVideo.videoTitle,
+            //     videos = videos.map { v ->
+            //         val headersMap = v.headers?.let { h ->
+            //             (0 until h.size).associate { h.name(it) to h.value(it) }
+            //         }
+            //         CachedVideo(
+            //             videoUrl = v.videoUrl,
+            //             videoTitle = v.videoTitle,
+            //             resolution = v.resolution,
+            //             headers = headersMap,
+            //             subtitleTracks = v.subtitleTracks.map { CachedTrack(it.url, it.lang) },
+            //             audioTracks = v.audioTracks.map { CachedTrack(it.url, it.lang) },
+            //         )
+            //     },
+            //     hosters = derivedHosters.map { CachedHoster(hosterUrl = it.hosterUrl, hosterName = it.hosterName) },
+            //     videoHeaders = videoHeaders,
+            //     cachedAt = System.currentTimeMillis(),
+            // ))
             val resultIsOurProxy = effectiveVideoUrl.contains("127.0.0.1:${LocalProxyServer.PROXY_PORT}") || effectiveVideoUrl.contains("localhost:${LocalProxyServer.PROXY_PORT}")
             val resultClient = if (resultIsOurProxy) {
                 extensionClient  // our proxy URL needs the client for forwarding
@@ -482,6 +434,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 videoHeaders = videoHeaders,
                 source = source,
                 episode = sEpisode,
+                videoHosterNames = allVideos.map { it.hosterName },
             )
         } catch (e: Exception) {
             Log.e(epTag, "playEpisodeWithExtension: exception for ep $episodeNumber", e)
@@ -498,7 +451,21 @@ suspend fun MainViewModel.fetchExtensionHosterVideos(
     val epTag = "AnimeDownload"
     return withContext(Dispatchers.IO) {
         try {
-            val videos = withContext(Dispatchers.IO) {
+            // Ensure LocalProxyServer is running before fetching videos.
+            // `playEpisodeWithExtension` (the initial playback path) also
+            // starts it, but this function is called from
+            // `handleAniyomiServerChange` when the user picks a different
+            // server from the dropdown — by that point the proxy might
+            // have been stopped or never started. Without the proxy running,
+            // ExoPlayer's request to http://127.0.0.1:41223/... gets
+            // connection-refused → playback never starts → "keeps loading".
+            val proxyClient = (source as? AnimeHttpSource)?.client
+                ?: try { NetworkHelper.getInstance().client } catch (e: Exception) { ErrorHandler.report(MainViewModel.TAG, "operation failed, returning null", e); null }
+            LocalProxyServer.start(proxyClient, source)
+            LocalProxyServer.clearRegisteredVideos()
+            Log.d(epTag, "fetchExtensionHosterVideos: ensured LocalProxyServer is running (proxyClient=${proxyClient != null})")
+
+            val rawVideos = withContext(Dispatchers.IO) {
                 val result = if (hoster.lazy) {
                     try { source.getVideoList(hoster) } catch (e: Throwable) { ErrorHandler.report(MainViewModel.TAG, "operation failed, returning empty list", e); emptyList() }
                 } else {
@@ -506,13 +473,49 @@ suspend fun MainViewModel.fetchExtensionHosterVideos(
                 }
                 result
             }
-            if (videos.isEmpty()) return@withContext null
+            if (rawVideos.isEmpty()) return@withContext null
+
+            // ─── FILTER videos to those matching the picked hoster's category ───
+            //
+            // Some sources (e.g. animex) return videos for ALL hosters in a
+            // single `getVideoList(hoster)` call — they ignore the hoster
+            // argument and lump Soft Sub + Hard Sub + Dub together. Without
+            // this filter, picking "Hard Sub" from the dropdown would still
+            // get you a Soft Sub video (whichever has the highest resolution),
+            // which fails to play because the URL is for a different stream.
+            //
+            // We match by checking the video's title for category markers.
+            // If no videos match the hoster's category, fall back to the full
+            // list (so the user still gets SOMETHING to play).
+            val hosterKey = hoster.hosterName.lowercase().replace(" ", "")
+            val videos = rawVideos.filter { v ->
+                val title = v.videoTitle.lowercase()
+                when {
+                    // "Hard Sub" hoster → videos tagged "hard sub" / "hardsub"
+                    hosterKey.contains("hardsub") || hosterKey.contains("hard") && hosterKey.contains("sub") ->
+                        title.contains("hard sub") || title.contains("hardsub")
+                    // "Soft Sub" hoster → videos tagged "soft sub" / "softsub"
+                    // (but NOT "hard sub" — "hard" doesn't contain "soft")
+                    hosterKey.contains("softsub") || hosterKey.contains("soft") && hosterKey.contains("sub") ->
+                        title.contains("soft sub") || title.contains("softsub") ||
+                            // "(SUB)" without "[Hard Subs]" is a soft-sub marker.
+                            (title.contains("(sub)") && !title.contains("hard sub") && !title.contains("hardsub"))
+                    // "Dub" hoster → videos tagged "dub"
+                    hosterKey.contains("dub") ->
+                        title.contains("dub")
+                    // Unknown hoster category — don't filter.
+                    else -> true
+                }
+            }.ifEmpty { rawVideos }  // fallback: if filter doesn't match anything, use all videos
+
+            Log.d(epTag, "fetchExtensionHosterVideos: hoster='${hoster.hosterName}' rawVideos=${rawVideos.size} filteredVideos=${videos.size}")
             videos.forEach { LocalProxyServer.registerVideo(it) }
 
             val bestVideo = videos.maxByOrNull {
                 val res = it.resolution ?: 0
                 if (res == 0) it.videoTitle.filter { c -> c.isDigit() }.toIntOrNull() ?: 0 else res
             } ?: videos.last()
+            Log.i(epTag, "fetchExtensionHosterVideos: picked bestVideo='${bestVideo.videoTitle}' (${bestVideo.resolution}p) url=${bestVideo.videoUrl.take(120)}")
 
             var effectiveVideoUrl = bestVideo.videoUrl
             if (effectiveVideoUrl.contains("127.0.0.1") || effectiveVideoUrl.contains("localhost")) {

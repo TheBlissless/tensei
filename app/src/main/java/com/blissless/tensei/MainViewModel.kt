@@ -2117,6 +2117,16 @@ private suspend fun loadHomeDataWithCache() {
         val videoHeaders: Map<String, String> = emptyMap(),
         val source: AnimeCatalogueSource? = null,
         val episode: SEpisode? = null,
+        /** Hoster names for each video, in the same order as [videos].
+         *  Used by `buildServerListFromVideos` to include the provider name
+         *  in each dropdown entry's display name (e.g. "Vidstream-2: SUB - 1080p"
+         *  vs "HD-1: SUB - 1080p"). Without this, multiple hosters that
+         *  return the same video URL would show as indistinguishable entries.
+         *
+         *  This is a LIST (not a Map) because multiple videos can share
+         *  the same URL — a Map would deduplicate by key and lose the
+         *  hoster-to-video association. */
+        val videoHosterNames: List<String> = emptyList(),
     )
 
     // Extension playback — implementations live in viewmodel/MainViewModelExtensionPlaybackExt.kt

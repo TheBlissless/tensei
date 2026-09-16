@@ -926,7 +926,20 @@ fun MainScreen(
         isExtensionFlow = false
         extensionOkHttpClient = result.extensionClient
         extensionVideoHeaders = result.videoHeaders
-        extensionServers = com.blissless.tensei.ui.screens.player.buildServerList(result.hosters)
+        // Build the server dropdown list. Prefer per-video entries (from
+        // `result.videos`) when available — this shows each quality/stream
+        // as a separate dropdown entry (e.g. "BEEP: 1080p (SUB) [Soft Subs]",
+        // "NEKO: auto (SUB) [Hard Subs]", "YUKI: 1080p (DUB)", etc.).
+        //
+        // Falls back to `buildServerList(result.hosters)` when `result.videos`
+        // is empty — this produces one entry per hoster (the old behavior).
+        android.util.Log.d("ServerSwitch", "MainActivity:929 — result.videos=${result.videos.size} result.hosters=${result.hosters?.size ?: 0}")
+        extensionServers = if (result.videos.isNotEmpty()) {
+            com.blissless.tensei.ui.screens.player.buildServerListFromVideos(result.videos, result.videoHosterNames)
+        } else {
+            com.blissless.tensei.ui.screens.player.buildServerList(result.hosters)
+        }
+        android.util.Log.d("ServerSwitch", "MainActivity:929 — extensionServers now: ${extensionServers.map { "${it.name}<-${it.url.take(50)}" }}")
         showPlayer = true
         if (currentCategory == "dub" && result.source != null && result.episode != null) {
             val src = result.source
@@ -1436,24 +1449,85 @@ fun MainScreen(
      * debug one without wading through the other. (Local functions must
      * be declared before use, hence the ordering above.)
      */
-    fun handleExtensionServerChange(hosterName: String) {
-        android.util.Log.d("ServerSwitch", "handleExtensionServerChange: hosterName=$hosterName")
-        android.util.Log.d("ServerSwitch", "  extensionHosters=${extensionHosters?.map { it.hosterName }}")
-        android.util.Log.d("ServerSwitch", "  extensionServers=${extensionServers.map { it.name }}")
+    fun handleExtensionServerChange(serverKey: String) {
+        android.util.Log.d("ServerSwitch", "handleExtensionServerChange: serverKey=$serverKey")
+        android.util.Log.d("ServerSwitch", "  extensionHosters=${extensionHosters?.map { "${it.hosterName}(url=${it.hosterUrl.take(50)},videos=${it.videoList?.size ?: 0})" }}")
+        android.util.Log.d("ServerSwitch", "  extensionServers=${extensionServers.map { "${it.name}<-${it.url.take(50)}" }}")
         android.util.Log.d("ServerSwitch", "  source=${com.blissless.tensei.stream.PlayerData.extensionSource}")
-        val hoster = extensionHosters?.find { it.hosterName == hosterName }
-        if (hoster == null) {
-            android.util.Log.w("ServerSwitch", "  hoster not found in extensionHosters, attempting direct Tensei switch")
-            handleTenseiServerChange(hosterName)
+
+        // ── NEW: Direct video-URL path ─────────────────────────────────
+        //
+        // When `extensionServers` was built from `buildServerListFromVideos`
+        // (per-video entries, not per-hoster), the `serverKey` is a VIDEO
+        // URL (e.g. `http://127.0.0.1:35807/playlist.m3u8?url=...`), NOT a
+        // hoster URL. In that case, we can skip the hoster-based fetch
+        // entirely — just use the clicked video URL directly as
+        // `currentVideoUrl`. This is the common case for extensions like
+        // animex that return a flat list of 12 videos with 3 "hoster"
+        // labels whose `videoList` is null.
+        val matchingServerInfo = extensionServers.find { it.url == serverKey }
+        if (matchingServerInfo != null) {
+            android.util.Log.i("ServerSwitch", "  direct video-URL match: ${matchingServerInfo.name} → using URL directly (skipping hoster fetch)")
+            val source = com.blissless.tensei.stream.PlayerData.extensionSource
+            val sourceHttp = source as? eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
+            val directClient = sourceHttp?.client
+                ?: try { eu.kanade.tachiyomi.network.NetworkHelper.getInstance().client } catch (e: Exception) { null }
+            // Rewrite the video URL's localhost port to our proxy port.
+            var effectiveUrl = serverKey
+            if (!effectiveUrl.contains("127.0.0.1:${com.blissless.tensei.stream.LocalProxyServer.PROXY_PORT}") &&
+                (effectiveUrl.contains("127.0.0.1") || effectiveUrl.contains("localhost"))) {
+                effectiveUrl = effectiveUrl
+                    .replace(Regex("127\\.0\\.0\\.1:\\d+"), "127.0.0.1:${com.blissless.tensei.stream.LocalProxyServer.PROXY_PORT}")
+                    .replace(Regex("localhost:\\d+"), "127.0.0.1:${com.blissless.tensei.stream.LocalProxyServer.PROXY_PORT}")
+            }
+            currentVideoUrl = effectiveUrl
+            currentServerName = matchingServerInfo.name
+            currentCategory = if (matchingServerInfo.name.contains("dub", ignoreCase = true)) "dub" else "sub"
+            currentQualityOptions = matchingServerInfo.qualities
+            currentQuality = matchingServerInfo.name
+            extensionOkHttpClient = directClient
+            // Use the video's headers if available, else source's headers.
+            extensionVideoHeaders = sourceHttp?.headers?.let { h ->
+                (0 until h.size).associate { h.name(it) to h.value(it) }
+            } ?: emptyMap()
+            episodeTrigger++
             return
         }
+
+        // ── Legacy hoster-based path ───────────────────────────────────
+        //
+        // Look up the hoster. We try multiple strategies because
+        // `buildServerList` produces different URL types depending on
+        // whether the hoster name is duplicated:
+        //   - Non-duplicate hoster: `ServerInfo.url == hoster.hosterUrl`
+        //     → match by `hosterUrl`.
+        //   - Duplicate hoster (exploded per video): `ServerInfo.url == video.videoUrl`
+        //     → match by checking if any video in the hoster's videoList
+        //       has this URL.
+        //   - Legacy / backwards-compat: pass the hoster's NAME as
+        //     the key (the old behaviour) → match by `hosterName`.
+        val hoster = extensionHosters?.find { it.hosterUrl == serverKey }  // non-dup case
+            ?: extensionHosters?.find { h ->  // dup case: URL is a video URL
+                h.videoList.orEmpty().any { it.videoUrl == serverKey }
+            }
+            ?: extensionHosters?.find { it.hosterName == serverKey }  // legacy name lookup
+        if (hoster == null) {
+            android.util.Log.w("ServerSwitch", "  hoster not found in extensionHosters, attempting direct Tensei switch")
+            handleTenseiServerChange(serverKey)
+            return
+        }
+        android.util.Log.i("ServerSwitch", "  matched hoster: ${hoster.hosterName} (url=${hoster.hosterUrl.take(60)}, videos=${hoster.videoList?.size ?: 0})")
         val source = com.blissless.tensei.stream.PlayerData.extensionSource
 
         if (source == null) {
-            handleTenseiServerChange(hosterName)
+            android.util.Log.w("ServerSwitch", "  source is null, falling back to Tensei switch")
+            handleTenseiServerChange(serverKey)
             return
         }
-        handleAniyomiServerChange(hosterName, hoster, source)
+        // Pass the hoster's real name (not the disambiguated display
+        // name) so `currentServerName` shows the bare hoster name in
+        // the player's top bar.
+        handleAniyomiServerChange(hoster.hosterName, hoster, source)
     }
 
     val onPlayEpisode: (AnimeMedia, Int, String?) -> Unit = { anime, episode, title ->

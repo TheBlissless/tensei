@@ -487,7 +487,10 @@ fun PlayerScreen(
                     val nextServer = (sameCat + otherCat).firstOrNull()
                     if (nextServer != null) {
                         Log.d("PlayerScreen", "Auto-retrying server: ${nextServer.name} (tried: $autoRetryServers)")
-                        pendingAutoRetry = nextServer.name
+                        // Pass URL (not name) — `handleExtensionServerChange`
+                        // now looks up by URL so duplicates are correctly
+                        // disambiguated when auto-retrying.
+                        pendingAutoRetry = nextServer.url
                         return
                     }
                     Log.w("PlayerScreen", "All extension servers exhausted")
@@ -1475,7 +1478,7 @@ fun PlayerScreen(
                                         DropdownMenu(
                                             expanded = showServerMenu,
                                             onDismissRequest = { showServerMenu = false },
-                                            modifier = Modifier.background(Color(0xFF1A1A1A)).width(180.dp)
+                                            modifier = Modifier.background(Color(0xFF1A1A1A)).width(280.dp)
                                         ) {
                                             val headerCat = if (extensionServers.isNotEmpty()) catFromName(currentServerName) else currentCategory.uppercase()
                                             Text(
@@ -1494,11 +1497,13 @@ fun PlayerScreen(
                                                         ServerSelectorButton(
                                                             serverName = server.name,
                                                             isSelected = server.name == currentServerName,
+                                                            qualities = server.qualities.map { it.quality },
                                                             onClick = {
+                                                                android.util.Log.d("ServerSwitch", "dropdown onClick (SUB): server.name='${server.name}' url='${server.url.take(80)}'...")
                                                                 showServerMenu = false
                                                                 autoRetryServers.clear()
                                                                 pendingAutoRetry = null
-                                                                onExtensionServerChange?.invoke(server.name)
+                                                                onExtensionServerChange?.invoke(server.url)
                                                             }
                                                         )
                                                     }
@@ -1510,11 +1515,13 @@ fun PlayerScreen(
                                                         ServerSelectorButton(
                                                             serverName = server.name,
                                                             isSelected = server.name == currentServerName,
+                                                            qualities = server.qualities.map { it.quality },
                                                             onClick = {
+                                                                android.util.Log.d("ServerSwitch", "dropdown onClick (DUB): server.name='${server.name}' url='${server.url.take(80)}'...")
                                                                 showServerMenu = false
                                                                 autoRetryServers.clear()
                                                                 pendingAutoRetry = null
-                                                                onExtensionServerChange?.invoke(server.name)
+                                                                onExtensionServerChange?.invoke(server.url)
                                                             }
                                                         )
                                                     }
@@ -1526,11 +1533,13 @@ fun PlayerScreen(
                                                         ServerSelectorButton(
                                                             serverName = server.name,
                                                             isSelected = server.name == currentServerName,
+                                                            qualities = server.qualities.map { it.quality },
                                                             onClick = {
+                                                                android.util.Log.d("ServerSwitch", "dropdown onClick (EXT fallback): server.name='${server.name}' url='${server.url.take(80)}'...")
                                                                 showServerMenu = false
                                                                 autoRetryServers.clear()
                                                                 pendingAutoRetry = null
-                                                                onExtensionServerChange?.invoke(server.name)
+                                                                onExtensionServerChange?.invoke(server.url)
                                                             }
                                                         )
                                                     }
@@ -1841,7 +1850,9 @@ fun PlayerScreen(
                                 val otherCat = remaining.filter { srvCat2(it.name) != curCat }
                                 val next = (sameCat + otherCat).firstOrNull()
                                 if (next != null) {
-                                    pendingAutoRetry = next.name
+                                    // Pass URL (not name) — matches the
+                                    // URL-based lookup in handleExtensionServerChange.
+                                    pendingAutoRetry = next.url
                                 }
                             } else {
                                 val servers = if (currentCategory == "sub") subServers else dubServers

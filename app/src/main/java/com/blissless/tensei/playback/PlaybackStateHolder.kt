@@ -357,9 +357,15 @@ class PlaybackStateHolder(
         isExtensionFlow = false
         extensionOkHttpClient = result.extensionClient
         extensionVideoHeaders = result.videoHeaders
-        extensionServers = (result.hosters ?: emptyList()).map { hoster ->
-            ServerInfo(name = hoster.hosterName, url = hoster.hosterUrl)
+        // Prefer per-video entries when available (shows 12 dropdown entries
+        // for animex's 12 videos, instead of just 3 hoster entries).
+        android.util.Log.d("ServerSwitch", "PlaybackStateHolder:360 — result.videos=${result.videos.size} result.hosters=${result.hosters?.size ?: 0}")
+        extensionServers = if (result.videos.isNotEmpty()) {
+            com.blissless.tensei.ui.screens.player.buildServerListFromVideos(result.videos, result.videoHosterNames)
+        } else {
+            com.blissless.tensei.ui.screens.player.buildServerList(result.hosters)
         }
+        android.util.Log.d("ServerSwitch", "PlaybackStateHolder:360 — extensionServers now: ${extensionServers.map { "${it.name}<-${it.url.take(50)}" }}")
         showPlayer = true
         if (currentCategory == "dub" && result.source != null && result.episode != null) {
             val src = result.source

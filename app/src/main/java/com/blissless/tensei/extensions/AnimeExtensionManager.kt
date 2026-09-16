@@ -91,14 +91,12 @@ class AnimeExtensionManager private constructor(
         // Kick off the initial scan on a background thread.
         scope.launch { initAnimeExtensions() }
         // Listen for system package-change broadcasts and re-scan.
-        AnimeExtensionInstallReceiver { _, _ ->
-            scope.launch { initAnimeExtensions() }
-        }.also { receiver ->
-            try {
-                receiver.register(context)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to register AnimeExtensionInstallReceiver", e)
-            }
+        // Uses the no-arg register() method — the receiver itself
+        // directly calls initAnimeExtensions() via the singleton.
+        try {
+            AnimeExtensionInstallReceiver.register(context)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to register AnimeExtensionInstallReceiver", e)
         }
     }
 

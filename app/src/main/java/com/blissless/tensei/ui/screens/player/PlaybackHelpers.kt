@@ -39,13 +39,180 @@ fun sanitizeEpisodeTitle(title: String?): String? {
 
 /**
  * Builds a list of [ServerInfo] from a list of [Hoster] objects.
- * Each hoster becomes a server entry with its name and URL.
+ *
+ * Each hoster becomes a server entry with its name and URL. The
+ * `qualities` field is populated from `hoster.videoList` (the list of
+ * `Video` objects inside the hoster) so the server selector can display
+ * the available resolutions for each server.
+ *
+ * ## Handling duplicate hoster names
+ *
+ * When two hosters share the same `hosterName` (e.g. "Vidstream-2" is a
+ * common mirror name across multiple sources), the server selector
+ * previously showed both entries identically and the user couldn't
+ * tell them apart. Clicking either one looked up the hoster by name
+ * and always matched the first one — so the second duplicate was
+ * unselectable.
+ *
+ * To fix this, when a hoster name is duplicated in the input list, we
+ * produce distinguishable [ServerInfo] entries via two strategies:
+ *
+ *   1. **If the hoster has a non-empty `videoList`** (non-lazy hoster):
+ *      explode into one [ServerInfo] per video. Name = `"$hosterName
+ *      ($videoTitle)"`, URL = `v.videoUrl` (unique per video).
+ *
+ *   2. **If the hoster is lazy** (`videoList == null` or empty): we
+ *      can't explode per-video because we don't have the video info
+ *      yet. Instead, append a 1-based index to the name:
+ *      `"$hosterName #$n"` (where n is the duplicate's position among
+ *      same-named hosters). URL stays as `hosterUrl` (also unique per
+ *      hoster).
+ *
+ * For non-duplicate hosters (the common case), behaviour is unchanged:
+ * one [ServerInfo] per hoster, `name = hosterName`, `url = hosterUrl`.
+ *
+ * Diagnostic logging under the `buildServerList` logcat tag shows the
+ * input hoster list + output ServerInfo list so you can verify the
+ * disambiguation is happening as expected.
  */
 fun buildServerList(hosters: List<Hoster>?): List<ServerInfo> {
-    if (hosters.isNullOrEmpty()) return emptyList()
-    return hosters.map { hoster ->
-        ServerInfo(name = hoster.hosterName, url = hoster.hosterUrl)
+    if (hosters.isNullOrEmpty()) {
+        android.util.Log.i("buildServerList", "input: null/empty hosters → output: emptyList()")
+        return emptyList()
     }
+
+    // First pass: count duplicate hoster names.
+    val nameCount = mutableMapOf<String, Int>()
+    hosters.forEach { h ->
+        val key = h.hosterName.lowercase()
+        nameCount[key] = (nameCount[key] ?: 0) + 1
+    }
+
+    // Per-name running index for lazy-hosters disambiguation.
+    val lazyIndex = mutableMapOf<String, Int>()
+
+    val result = mutableListOf<ServerInfo>()
+    for (hoster in hosters) {
+        val videos = hoster.videoList.orEmpty()
+        val isDuplicate = (nameCount[hoster.hosterName.lowercase()] ?: 1) > 1
+
+        if (isDuplicate && videos.isNotEmpty()) {
+            // Strategy 1: explode non-lazy duplicate hosters per video.
+            for (v in videos) {
+                val qualityLabel = v.videoTitle.ifBlank {
+                    if (v.resolution != null && v.resolution > 0) "${v.resolution}p" else "Video"
+                }
+                result.add(
+                    ServerInfo(
+                        name = "${hoster.hosterName} ($qualityLabel)",
+                        url = v.videoUrl,
+                        qualities = listOf(
+                            QualityOption(
+                                quality = v.videoTitle.ifBlank { qualityLabel },
+                                url = v.videoUrl,
+                                width = v.resolution ?: 0,
+                            ),
+                        ),
+                    ),
+                )
+            }
+        } else if (isDuplicate) {
+            // Strategy 2: lazy duplicate hosters — append a 1-based
+            // index so each entry is uniquely identifiable in the
+            // dropdown. URL stays as hosterUrl (unique per hoster).
+            val key = hoster.hosterName.lowercase()
+            val idx = (lazyIndex[key] ?: 0) + 1
+            lazyIndex[key] = idx
+            result.add(
+                ServerInfo(
+                    name = "${hoster.hosterName} #$idx",
+                    url = hoster.hosterUrl,
+                    qualities = emptyList(),  // Lazy — unknown until fetched.
+                ),
+            )
+        } else {
+            // Non-duplicate hoster: single entry, populate qualities
+            // from videoList (may be empty for lazy hosters).
+            result.add(
+                ServerInfo(
+                    name = hoster.hosterName,
+                    url = hoster.hosterUrl,
+                    qualities = videos.map { v ->
+                        QualityOption(
+                            quality = v.videoTitle,
+                            url = v.videoUrl,
+                            width = v.resolution ?: 0,
+                        )
+                    },
+                ),
+            )
+        }
+    }
+
+    // Diagnostic logging — lets you verify in logcat that the
+    // disambiguation actually happened.
+    android.util.Log.i("buildServerList", "input: ${hosters.size} hoster(s): ${hosters.map { "${it.hosterName}(lazy=${it.lazy},videos=${it.videoList?.size ?: 0})" }}")
+    android.util.Log.i("buildServerList", "output: ${result.size} ServerInfo(s): ${result.map { "${it.name} <- ${it.url.take(60)}" }}")
+
+    return result
+}
+
+/**
+ * Builds a list of [ServerInfo] from a flat list of [Video] objects.
+ *
+ * Use this when the extension returns all videos in a single flat list
+ * (e.g. animex returns 12 videos for Soft Sub + Hard Sub + Dub all
+ * mixed together, with 3 "hosters" that are just category labels
+ * whose `videoList` is null). In that case, `buildServerList(hosters)`
+ * only produces 3 entries (one per hoster) — but the user wants to see
+ * each individual video/quality as a separate dropdown entry.
+ *
+ * Each video becomes a [ServerInfo] with:
+ *   - `name` = the video's `videoTitle` (e.g. "BEEP: 1080p (SUB) [Soft Subs]").
+ *   - `url` = the video's `videoUrl` (unique per video — used for lookup
+ *     in `handleExtensionServerChange`).
+ *   - `qualities` = a single-element list with the video's own quality info.
+ *
+ * The dropdown's SUB/DUB filter then works because the video titles
+ * contain "SUB"/"DUB"/"Soft Subs"/"Hard Subs" markers.
+ */
+fun buildServerListFromVideos(
+    videos: List<Video>?,
+    videoHosterNames: List<String> = emptyList(),
+): List<ServerInfo> {
+    if (videos.isNullOrEmpty()) {
+        android.util.Log.i("buildServerList", "buildServerListFromVideos: input null/empty → emptyList()")
+        return emptyList()
+    }
+    val result = videos.mapIndexed { idx, v ->
+        // Match by index — videoHosterNames is a list in the same order
+        // as `videos`. Using a Map would deduplicate by URL and lose
+        // the hoster-to-video association when multiple hosters return
+        // the same video URL (common in anikoto/animex: Vidstream-2,
+        // Vidstream-1 beta, and HD-1 all return the same /variant/sub/1080p.m3u8).
+        val hosterName = videoHosterNames.getOrNull(idx) ?: ""
+        val baseName = v.videoTitle.ifBlank {
+            if (v.resolution != null && v.resolution > 0) "${v.resolution}p" else "Video ${idx + 1}"
+        }
+        // Include the hoster/provider name in the display name so
+        // entries from different providers are distinguishable even
+        // when their video titles are identical (e.g. "Vidstream-2: SUB - 1080p"
+        // vs "HD-1: SUB - 1080p" — same title, different provider).
+        val displayName = if (hosterName.isNotBlank()) "$hosterName: $baseName" else baseName
+        ServerInfo(
+            name = displayName,
+            url = v.videoUrl,
+            qualities = listOf(
+                QualityOption(
+                    quality = v.videoTitle.ifBlank { baseName },
+                    url = v.videoUrl,
+                    width = v.resolution ?: 0,
+                ),
+            ),
+        )
+    }
+    android.util.Log.i("buildServerList", "buildServerListFromVideos: input ${videos.size} video(s) → output ${result.size} ServerInfo(s): ${result.map { it.name.take(50) }}")
+    return result
 }
 
 /**
