@@ -28,6 +28,15 @@ import eu.kanade.tachiyomi.animesource.AnimeSourceFactory
  * data class is left untouched for backward compatibility with existing
  * UI code; this sealed class is the NEW canonical model used by the
  * `AnimeExtensionManager` + `SourceManager`.
+ *
+ * BACKWARD-COMPAT ALIAS
+ *   The canonical field name for an extension's Android package name
+ *   is `pkgName` (matching Aniyomi's convention). However, Tensei's
+ *   existing UI / view-model code (e.g. `MainViewModel.kt`,
+ *   `MainViewModelExtensionPlaybackExt.kt`) references it as
+ *   `.packageName`. To avoid forcing you to rename every call site,
+ *   this sealed class exposes a `packageName` property that simply
+ *   delegates to `pkgName`. Both `.pkgName` and `.packageName` work.
  */
 sealed class AnimeExtension {
     abstract val name: String
@@ -38,6 +47,13 @@ sealed class AnimeExtension {
     abstract val lang: String?
     abstract val isNsfw: Boolean
     abstract val isTorrent: Boolean
+
+    /**
+     * Backward-compat alias for [pkgName]. Both properties return the
+     * same value; new code should prefer `pkgName`.
+     */
+    val packageName: String
+        get() = pkgName
 
     /**
      * An extension that has been successfully loaded.

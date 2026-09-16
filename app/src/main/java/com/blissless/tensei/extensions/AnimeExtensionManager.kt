@@ -124,6 +124,7 @@ class AnimeExtensionManager private constructor(
         _installedExtensions.value = installed
         _untrustedExtensions.value = untrusted
         isInitialized.value = true
+        Log.i(TAG, "initAnimeExtensions: ${installed.size} installed, ${untrusted.size} untrusted → installedExtensionsFlow now has ${_installedExtensions.value.size} entries")
     }
 
     /**

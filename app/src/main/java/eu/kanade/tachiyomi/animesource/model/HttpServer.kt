@@ -45,44 +45,92 @@ import fi.iki.elonen.NanoHTTPD
  *   Requires `org.nanohttpd:nanohttpd:2.3.1` in `app/build.gradle.kts`.
  *   See `patches/app.build.gradle.kts.patch`.
  *
- * ALTERNATIVE
- *   If you don't want to pull in NanoHTTPD, you can replace this with
- *   Tensei's existing `LocalProxyServer` (port 41223) which already
- *   implements the same proxying with raw `ServerSocket`. The drawback
- *   is `LocalProxyServer` doesn't support per-source logic — every
- *   extension's videos go through the same proxy with the same headers.
- *   The NanoHTTPD approach gives each source its own subclass with
- *   custom routing logic.
+ * IMPLEMENTATION NOTES
+ *   NanoHTTPD 2.3.1's public API surface (relevant subset):
+ *     - `NanoHTTPD(int port)` constructor (also `(String host, int port)`)
+ *     - `void start() throws IOException`  ← no-arg overload (default timeout=−1, backlog=100, daemon=true)
+ *     - `void start(int timeout) throws IOException`
+ *     - `void start(int timeout, boolean daemon) throws IOException`  ← (int, boolean), NOT (int, int)
+ *     - `void start(int timeout, int backlog, boolean daemon) throws IOException`
+ *     - `final boolean isAlive()`
+ *     - `final int getListeningPort()`  ← Kotlin-accessed as `listeningPort`
+ *     - `void stop()`  ← overridden here to track the `isRunning` flag
+ *
+ *   The earlier version of this file declared its own `start()` and
+ *   `stop()` (no-arg) and called `wasStarted()` + `boundPort`, neither
+ *   of which exist on NanoHTTPD, AND it tried to call
+ *   `start(int, int)` which NanoHTTPD doesn't have (only
+ *   `start(int, int, boolean)` exists). This version is a clean fix
+ *   mirroring Aniyomi's exact pattern:
+ *     - `override fun start()` calls `super.start()` (no-arg overload).
+ *     - `override fun stop()` calls `super.stop()`.
+ *     - `@Volatile var isRunning` tracks state so we don't double-start
+ *       or double-stop.
+ *     - `url: String` convenience property exposing
+ *       `http://localhost:$listeningPort`.
  */
-abstract class HttpServer(port: Int = 0) : NanoHTTPD(port) {
+open class HttpServer : NanoHTTPD(0) {
 
-    /** The actual TCP port the server is bound to. Valid only after `start()`. */
-    val listeningPort: Int
-        get() = this.boundPort?.let { if (it > 0) it else 0 } ?: 0
+    /**
+     * The full URL to the local HTTP server root, e.g. `http://localhost:8321`.
+     * Valid only after [start] returns successfully.
+     */
+    val url: String
+        get() = "http://localhost:$listeningPort"
+
+    /**
+     * Tracks whether the server is currently running. Set to `true` in
+     * [start], `false` in [stop]. Safe to read from any thread.
+     */
+    @Volatile
+    private var isRunning = false
+
+    /**
+     * Convenience accessor that mirrors the [isRunning] flag.
+     * Kept for API parity with Aniyomi's `HttpServer.isRunning()`.
+     */
+    fun isRunning(): Boolean = isRunning
 
     /**
      * Start the server. Call this before playback.
-     * Safe to call multiple times — second call is a no-op.
+     * Safe to call multiple times — second call is a no-op if already running.
+     *
+     * Calls NanoHTTPD's no-arg `super.start()` which internally calls
+     * `start(-1, 100, true)` (infinite timeout, default backlog, daemon thread).
      */
-    fun start() {
-        if (wasStarted()) return
-        start(SOCKET_READ_TIMEOUT, DEFAULT_TCP_BACKLOG)
+    override fun start() {
+        if (isRunning) return
+        try {
+            super.start()
+            isRunning = true
+        } catch (e: Exception) {
+            // Swallow + log — most failures here are "port already in use"
+            // and the player will fail to play this video with a clearer
+            // error from ExoPlayer anyway.
+            android.util.Log.w("HttpServer", "Failed to start http server", e)
+        }
     }
 
     /**
      * Stop the server. Call after playback ends.
      * Safe to call multiple times.
      */
-    fun stop() {
+    override fun stop() {
+        if (!isRunning) return
         try {
             super.stop()
         } catch (_: Throwable) {
-            // NanoHTTPD throws if not started — ignore.
+            // NanoHTTPD occasionally throws on stop — ignore.
         }
+        isRunning = false
     }
 
     companion object {
-        private const val SOCKET_READ_TIMEOUT = -1 // infinite
-        private const val DEFAULT_TCP_BACKLOG = 32
+        /**
+         * Sentinel URL prefix used by extension sources to signal
+         * "I want my source's local HttpServer to proxy this video URL".
+         * Matches the regex in `Video.LOCAL_URL_REGEX`.
+         */
+        const val PLACEHOLDER_URL = "http://localhost:1"
     }
 }

@@ -172,63 +172,97 @@ class MainViewModel : ViewModel() {
 
     fun preFetchExtensionEpisodes(anime: AnimeMedia, packageName: String? = null) {
         viewModelScope.launch(Dispatchers.IO) {
+            val tag = "preFetchExt"
+            Log.i(tag, "anime=\"${anime.title}\" id=${anime.id} pkg=$packageName")
             _preFetchedExtensionData.remove(anime.id)
             _preFetchedEpisodeNumbers.value -= anime.id
 
             val pkg = packageName ?: defaultExtensionPackage.value
             if (pkg.isEmpty()) {
+                Log.w(tag, "pkg is empty, returning empty set")
                 _preFetchedEpisodeNumbers.value += (anime.id to emptySet())
                 return@launch
             }
 
             val sm = sourceManager
             if (sm == null) {
+                Log.w(tag, "sourceManager is null")
                 _preFetchedEpisodeNumbers.value += (anime.id to emptySet())
                 return@launch
             }
 
-            try { sm.loadSources() } catch (_: Exception) {
+            try {
+                Log.d(tag, "calling sm.loadSources()…")
+                sm.loadSources()
+            } catch (e: Exception) {
+                Log.e(tag, "sm.loadSources() threw", e)
                 _preFetchedEpisodeNumbers.value += (anime.id to emptySet())
                 return@launch
             }
             val allSources = sm.getSources()
+            Log.d(tag, "sm.getSources() returned ${allSources.size} source(s): ${allSources.map { it.extension.packageName }}")
             val sw = allSources.find { it.extension.packageName == pkg }
             if (sw == null) {
+                Log.e(tag, "no source found matching pkg=$pkg among ${allSources.size} loaded source(s)")
                 _preFetchedEpisodeNumbers.value += (anime.id to emptySet())
                 return@launch
             }
             val source = sw.source
+            Log.i(tag, "matched source: ${source.name} (lang=${source.lang})")
 
             val searchTerms = listOfNotNull(anime.titleEnglish, anime.title).distinct()
+            Log.d(tag, "search terms: $searchTerms")
             var matchedSAnime: SAnime? = null
             for (query in searchTerms) {
                 try {
+                    Log.d(tag, "calling source.getSearchAnime(1, \"$query\", AnimeFilterList())…")
                     val page = source.getSearchAnime(1, query, AnimeFilterList())
+                    Log.d(tag, "  returned ${page.animes.size} results")
+                    page.animes.take(5).forEachIndexed { i, a -> Log.d(tag, "  result[$i]: \"${a.title}\" url=${a.url}") }
                     matchedSAnime = page.animes.firstOrNull { a ->
                         a.title.contains(anime.title, ignoreCase = true) ||
-                                (anime.titleEnglish != null && a.title.contains(anime.titleEnglish, ignoreCase = true))
+                        (anime.titleEnglish != null && a.title.contains(anime.titleEnglish, ignoreCase = true))
                     } ?: page.animes.firstOrNull()
-                    if (matchedSAnime != null) break
-                } catch (e: Exception) { ErrorHandler.ignore(TAG, "operation failed (best-effort)", e) }
+                    if (matchedSAnime != null) {
+                        Log.i(tag, "matched anime: \"${matchedSAnime.title}\" url=${matchedSAnime.url}")
+                        break
+                    }
+                } catch (e: Exception) {
+                    Log.e(tag, "getSearchAnime(\"$query\") threw", e)
+                    ErrorHandler.ignore(TAG, "operation failed (best-effort)", e)
+                }
             }
 
             val sAnime = matchedSAnime
             if (sAnime == null) {
+                Log.e(tag, "no anime matched after all search terms, returning empty set")
                 _preFetchedEpisodeNumbers.value += (anime.id to emptySet())
                 return@launch
             }
 
             val sEpisodes = try {
-                source.getEpisodeList(sAnime)
-            } catch (_: Exception) {
+                Log.d(tag, "calling source.getEpisodeList(sAnime)…")
+                val eps = source.getEpisodeList(sAnime)
+                Log.i(tag, "  got ${eps.size} episodes")
+                eps.take(5).forEachIndexed { i, e -> Log.d(tag, "  ep[$i]: \"${e.name}\" num=${e.episode_number} url=${e.url}") }
+                eps
+            } catch (e: Exception) {
+                Log.e(tag, "getEpisodeList threw, retrying via getAnimeDetails + getEpisodeList", e)
                 try {
                     val details = source.getAnimeDetails(sAnime)
-                    source.getEpisodeList(details)
-                } catch (e: Exception) { ErrorHandler.report(TAG, "operation failed, returning empty list", e); emptyList() }
+                    val eps = source.getEpisodeList(details)
+                    Log.i(tag, "  retry got ${eps.size} episodes")
+                    eps
+                } catch (e2: Exception) {
+                    Log.e(tag, "retry also failed", e2)
+                    ErrorHandler.report(TAG, "operation failed, returning empty list", e2)
+                    emptyList()
+                }
             }
 
             _preFetchedExtensionData[anime.id] = PreFetchedExtensionData(source, sAnime, sEpisodes)
             _preFetchedEpisodeNumbers.value += (anime.id to sEpisodes.map { it.episode_number.toInt() }.toSet())
+            Log.i(tag, "DONE: stored ${sEpisodes.size} episode numbers for anime.id=${anime.id}")
         }
     }
 

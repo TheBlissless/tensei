@@ -124,19 +124,44 @@ internal object AnimeExtensionLoader {
     fun loadExtensions(context: Context): List<AnimeLoadResult> {
         val pm = context.packageManager
 
-        val sharedExtPkgs = try {
+        // ── Diagnostic: count all installed packages ─────────────────────
+        val allInstalled = try {
             getInstalledPackages(pm)
         } catch (e: SecurityException) {
             Log.e(TAG, "Missing QUERY_ALL_PACKAGES permission", e)
             emptyList()
-        }.asSequence()
+        }
+        Log.i(TAG, "loadExtensions: PackageManager returned ${allInstalled.size} installed packages")
+
+        // ── Diagnostic: log every package that "looks like" an extension,
+        //    even ones isPackageAnExtension() might reject, so we can see
+        //    what's actually present on the device.
+        val candidatePkgs = allInstalled.filter {
+            val n = it.packageName
+            n.startsWith("eu.kanade.tachiyomi.animeextension") ||
+            n.startsWith("eu.kanade.tachiyomi.extension") ||
+            n.startsWith("com.blissless.")
+        }
+        Log.i(TAG, "loadExtensions: ${candidatePkgs.size} candidate package(s) by name:")
+        candidatePkgs.forEach { p ->
+            val feats = p.reqFeatures.orEmpty().mapNotNull { it.name }.toSet()
+            val md = p.applicationInfo?.metaData
+            val mdKeys = md?.keySet()?.toList().orEmpty()
+            Log.i(TAG, "  pkg=${p.packageName} features=$feats smells=$mdKeys hasAnimeFeature=${ANIME_EXTENSION_FEATURE in feats}")
+        }
+
+        val sharedExtPkgs = allInstalled.asSequence()
             .filter { isPackageAnExtension(it) }
             .map { AnimeExtensionInfo(packageInfo = it, isShared = true) }
+            .toList()
+        Log.i(TAG, "loadExtensions: ${sharedExtPkgs.size} shared extension(s) passed isPackageAnExtension() filter")
 
-        val privateExtPkgs = getPrivateExtensionDir(context).listFiles()
-            ?.asSequence()
-            ?.filter { it.isFile && it.extension == PRIVATE_EXTENSION_EXTENSION }
-            ?.mapNotNull { apkFile ->
+        val privateExtDir = getPrivateExtensionDir(context)
+        val privateFiles = privateExtDir.listFiles().orEmpty()
+        Log.i(TAG, "loadExtensions: private ext dir ${privateExtDir.absolutePath} has ${privateFiles.size} file(s)")
+        val privateExtPkgs = privateFiles.asSequence()
+            .filter { it.isFile && it.extension == PRIVATE_EXTENSION_EXTENSION }
+            .mapNotNull { apkFile ->
                 try {
                     pm.getPackageArchiveInfo(apkFile.absolutePath, PACKAGE_FLAGS)
                         ?.apply { applicationInfo!!.fixBasePaths(apkFile.absolutePath) }
@@ -145,23 +170,26 @@ internal object AnimeExtensionLoader {
                     null
                 }
             }
-            ?.filter { isPackageAnExtension(it) }
-            ?.map { AnimeExtensionInfo(it, isShared = false) }
-            ?: emptySequence()
+            .filter { isPackageAnExtension(it) }
+            .map { AnimeExtensionInfo(it, isShared = false) }
+            .toList()
+        Log.i(TAG, "loadExtensions: ${privateExtPkgs.size} private extension(s) passed filter")
 
         // De-dup: if a package exists in BOTH shared and private forms, pick
         // whichever has the higher versionCode (matches Aniyomi behaviour).
-        val extPkgs = (sharedExtPkgs + privateExtPkgs)
+        val extPkgs = (sharedExtPkgs.asSequence() + privateExtPkgs.asSequence())
             .groupBy { it.packageInfo.packageName }
             .mapValues { (_, infos) -> infos.maxByOrNull { it.packageInfo.longVersionCode }!! }
             .values
+            .toList()
+        Log.i(TAG, "loadExtensions: ${extPkgs.size} unique extension package(s) to load: ${extPkgs.map { it.packageInfo.packageName }}")
 
         return runBlocking {
             coroutineScope {
                 extPkgs.map { async { loadExtension(context, it) } }.awaitAll()
             }
         }.also { results ->
-            Log.i(TAG, "Loaded ${results.size} extension(s): " +
+            Log.i(TAG, "loadExtensions: DONE — ${results.size} result(s): " +
                     "${results.count { it is AnimeLoadResult.Success }} ok, " +
                     "${results.count { it is AnimeLoadResult.Untrusted }} untrusted, " +
                     "${results.count { it is AnimeLoadResult.Error }} errored")
@@ -193,8 +221,11 @@ internal object AnimeExtensionLoader {
         extensionInfo: AnimeExtensionInfo,
     ): AnimeLoadResult {
         val pkgInfo = extensionInfo.packageInfo
-        val appInfo = pkgInfo.applicationInfo ?: return AnimeLoadResult.Error
+        val appInfo = pkgInfo.applicationInfo ?: return AnimeLoadResult.Error.also {
+            Log.w(TAG, "loadExtension: ${pkgInfo.packageName} has no ApplicationInfo")
+        }
         val pm = context.packageManager
+        Log.d(TAG, "loadExtension: pkg=${pkgInfo.packageName} versionName=${pkgInfo.versionName} versionCode=${pkgInfo.longVersionCode} isShared=${extensionInfo.isShared}")
 
         // ── 1. Read lib version from manifest meta-data ──────────────────────
         //   Aniyomi extensions put <meta-data android:name="aniyomix.extensionLib"
@@ -204,20 +235,22 @@ internal object AnimeExtensionLoader {
             ?.takeUnless { it == 0 }?.toString()?.toDoubleOrNull()
             ?: pkgInfo.versionName?.substringBeforeLast('.')?.toDoubleOrNull()
             ?: 1.0
+        Log.d(TAG, "loadExtension: ${pkgInfo.packageName} libVersion=$libVersion (supported=$SUPPORTED_LIB_VERSIONS)")
         if (libVersion !in SUPPORTED_LIB_VERSIONS) {
-            Log.w(TAG, "Extension ${pkgInfo.packageName} has unsupported libVersion=$libVersion")
+            Log.w(TAG, "loadExtension: ${pkgInfo.packageName} has unsupported libVersion=$libVersion — returning Error")
             return AnimeLoadResult.Error
         }
 
         // ── 2. Read signing certificate(s) and check trust ───────────────────
         val signatures = getSignatures(pkgInfo)
         if (signatures.isNullOrEmpty()) {
-            Log.w(TAG, "Extension ${pkgInfo.packageName} has no signatures")
+            Log.w(TAG, "loadExtension: ${pkgInfo.packageName} has no signatures — returning Error")
             return AnimeLoadResult.Error
         }
         val signatureHash = hashSignatures(signatures)
         val trustExtension = TrustAnimeExtension.get(context)
         val isTrusted = trustExtension.isTrusted(pkgInfo, signatures)
+        Log.d(TAG, "loadExtension: ${pkgInfo.packageName} isTrusted=$isTrusted signatureHash=$signatureHash")
         if (!isTrusted) {
             // Don't load untrusted extension code — return Untrusted so the
             // UI can prompt the user to trust or uninstall.
@@ -228,11 +261,13 @@ internal object AnimeExtensionLoader {
                 versionName = pkgInfo.versionName ?: "",
                 versionCode = pkgInfo.longVersionCode,
                 libVersion = libVersion,
+                lang = null,
                 isNsfw = isNsfw(appInfo),
                 isTorrent = isTorrent(appInfo),
                 signatureHash = signatureHash,
                 icon = try { appInfo.loadIcon(pm) } catch (_: Exception) { null },
             )
+            Log.w(TAG, "loadExtension: ${pkgInfo.packageName} returning Untrusted — user must trust via Extensions UI")
             return AnimeLoadResult.Untrusted(extension)
         }
 
@@ -243,7 +278,7 @@ internal object AnimeExtensionLoader {
                 ChildFirstPathClassLoader(sourceDir, appInfo.nativeLibraryDir, context.classLoader)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create ClassLoader for ${pkgInfo.packageName}", e)
+            Log.e(TAG, "loadExtension: Failed to create ClassLoader for ${pkgInfo.packageName}", e)
             return AnimeLoadResult.Error
         }
 
@@ -271,19 +306,21 @@ internal object AnimeExtensionLoader {
             ?: appInfo.metaData?.getString(METADATA_SOURCE_CLASS)
             ?: appInfo.metaData?.getString(METADATA_SOURCE_FACTORY)
         if (sourceClass.isNullOrBlank()) {
-            Log.w(TAG, "Extension ${pkgInfo.packageName} has no source class metadata")
+            Log.w(TAG, "loadExtension: ${pkgInfo.packageName} has no source class metadata — returning Error")
             return AnimeLoadResult.Error
         }
+        Log.d(TAG, "loadExtension: ${pkgInfo.packageName} sourceClass=$sourceClass")
 
         val sources: List<AnimeSource> = try {
             sourceClass.split(";").map { it.trim() }.filter { it.isNotEmpty() }.flatMap {
                 val className = if (it.startsWith(".")) "${pkgInfo.packageName}$it" else it
+                Log.d(TAG, "loadExtension: loading class $className …")
                 val clazz = classLoader.loadClass(className)
                 when (val obj = clazz.getDeclaredConstructor().newInstance()) {
                     is AnimeSource -> listOf(obj)
                     is AnimeSourceFactory -> obj.createSources()
                     else -> {
-                        Log.w(TAG, "Source class $className is neither AnimeSource nor AnimeSourceFactory")
+                        Log.w(TAG, "loadExtension: $className is neither AnimeSource nor AnimeSourceFactory")
                         emptyList()
                     }
                 }
@@ -312,6 +349,7 @@ internal object AnimeExtensionLoader {
             icon = try { appInfo.loadIcon(pm) } catch (_: Exception) { null },
             isShared = extensionInfo.isShared,
         )
+        Log.i(TAG, "loadExtension: SUCCESS ${pkgInfo.packageName} → ${sources.size} source(s): ${sources.map { "${it.name} (${it.lang})" }}")
         return AnimeLoadResult.Success(extension)
     }
 

@@ -42,8 +42,11 @@ class AnimeExtensionInstallService : Service() {
         when (status) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 // System needs user confirmation — launch the confirm activity.
-                val confirmIntent = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
-                confirmIntent?.let { it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(it) }
+                // `intent` is nullable in `onStartCommand` — guard with `?.let`.
+                intent?.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)?.let { confirmIntent ->
+                    confirmIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(confirmIntent)
+                }
             }
             PackageInstaller.STATUS_SUCCESS -> {
                 Log.i(TAG, "Extension install success")

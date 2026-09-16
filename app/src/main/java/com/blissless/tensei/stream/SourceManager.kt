@@ -88,6 +88,27 @@ class SourceManager(private val context: Context) {
     fun getSources(): List<SourceWithExt> = _sources.value
 
     /**
+     * Rebuild `_sources` synchronously from `AnimeExtensionManager.installedExtensions`.
+     *
+     * This is the key fix for the "empty EpisodeSelection" bug: the
+     * reactive `collectLatest` job in `init {}` is async, so it may not
+     * have run yet by the time callers like `preFetchExtensionEpisodes`
+     * call `getSources()`. Calling this function guarantees the local
+     * source list is up-to-date with the manager before returning.
+     */
+    private fun syncSourcesFromManager() {
+        val installedMap = AnimeExtensionManager.get(context)
+            .installedExtensionsFlow.value
+        val list = installedMap.values.flatMap { ext ->
+            ext.sources.filterIsInstance<AnimeCatalogueSource>().map { src ->
+                SourceWithExt(src, ext)
+            }
+        }
+        _sources.value = list
+        Log.i(TAG, "syncSourcesFromManager: ${list.size} source(s) from ${installedMap.size} extension(s)")
+    }
+
+    /**
      * Force a re-scan of installed extensions. Mostly a no-op now —
      * the manager auto-refreshes on package install/remove broadcasts.
      * Kept for backwards compatibility with Tensei's existing UI.
@@ -95,23 +116,38 @@ class SourceManager(private val context: Context) {
     fun reloadSources() {
         kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
             AnimeExtensionManager.get(context).initAnimeExtensions()
+            // Synchronously refresh local state so callers see the new
+            // set immediately, without waiting for the reactive subscription.
+            syncSourcesFromManager()
         }
     }
 
     /**
-     * Initial load. Kept for backwards compatibility — the manager is
-     * already initialised in the constructor, so this just waits for
-     * the first scan to complete.
+     * Initial load. Blocks until `AnimeExtensionManager` has scanned
+     * installed extensions AND this `SourceManager`'s local `_sources`
+     * state has been synchronised.
+     *
+     * This is the key fix for the "empty EpisodeSelection" race
+     * condition: previously, `loadSources()` returned as soon as the
+     * manager's `_installedExtensions` flow was updated, but BEFORE
+     * the local `collectLatest` job in the SourceManager's `init {}`
+     * block had a chance to run and propagate the new set into
+     * `_sources`. So callers calling `getSources()` immediately after
+     * `loadSources()` saw an empty list and fell through to
+     * "extension not found" → no episodes.
      */
     suspend fun loadSources() {
         withContext(Dispatchers.IO) {
-            // If the manager isn't initialised yet, this will block until
-            // the first scan completes (which is fast — PackageManager
-            // calls are synchronous).
             val manager = AnimeExtensionManager.get(context)
-            if (manager.installedExtensions.isEmpty()) {
-                manager.initAnimeExtensions()
-            }
+            // Always re-scan — the manager itself is idempotent, but
+            // we want to be sure `_installedExtensions` reflects
+            // any newly-installed / uninstalled extensions since
+            // the last call. (PackageManager calls are fast.)
+            manager.initAnimeExtensions()
+            // Synchronously refresh `_sources` from the manager so
+            // any caller doing `sm.getSources()` immediately after
+            // sees the up-to-date list.
+            syncSourcesFromManager()
         }
     }
 

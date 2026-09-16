@@ -598,25 +598,6 @@ internal fun PlayerSettingsButton(
                 },
                 onClick = { onSwipeSwapChange(!swipeSwap) }
             )
-            if (onAutoPlayChange != null) {
-                androidx.compose.material3.DropdownMenuItem(
-                    text = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Autoplay Next", color = Color.White)
-                            Switch(
-                                checked = autoPlayNextEpisode,
-                                onCheckedChange = onAutoPlayChange,
-                                colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                    },
-                    onClick = { onAutoPlayChange(!autoPlayNextEpisode) }
-                )
-            }
             if (onPiPToggle != null) {
                 androidx.compose.material3.DropdownMenuItem(
                     text = {

@@ -112,14 +112,8 @@ class AnimeExtensionInstaller(private val context: Context) {
             // Private extension: just delete the file.
             com.blissless.tensei.stream.AnimeExtensionLoader
                 .uninstallPrivateExtensionFile(context, pkgName)
-            // Re-scan will be triggered by the AnimeExtensionManager.
-            com.blissless.tensei.extensions.AnimeExtensionManager
-                .get(context).scope.let {
-                    kotlinx.coroutines.runBlocking {
-                        it.launch {}.join()
-                    }
-                }
-            // Force re-scan now
+            // Force re-scan now so the manager drops the source from its
+            // live `installedExtensionsFlow` immediately.
             kotlinx.coroutines.runBlocking {
                 com.blissless.tensei.extensions.AnimeExtensionManager
                     .get(context).initAnimeExtensions()

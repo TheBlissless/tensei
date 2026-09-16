@@ -53,17 +53,40 @@ class TrustAnimeExtension private constructor(
     /**
      * Is the given PackageInfo's signing certificate trusted?
      *
-     * Returns `true` iff:
-     *   - The PackageInfo has at least one signing certificate.
-     *   - The SHA-256 of those signatures matches an entry in our
-     *     trust store.
-     *   - The persisted versionCode for that cert matches the
-     *     PackageInfo's current versionCode (so we re-prompt on
-     *     signature rotation).
+     * Returns `true` iff ANY of the following is true:
+     *
+     *   1. The package name starts with a known-good extension prefix
+     *      (auto-trust). This matches the old Tensei behaviour where
+     *      extensions were loaded with no signature check at all. The
+     *      known-good prefixes are:
+     *        - `eu.kanade.tachiyomi.animeextension.*` (Aniyomi anime exts)
+     *        - `eu.kanade.tachiyomi.extension.*`     (Tachiyomi/Aniyomi manga exts)
+     *        - `com.blissless.*`                      (Tensei's own legacy exts)
+     *
+     *   2. The SHA-256 of the package's signing cert(s) is in our
+     *      persisted trust store, AND the persisted versionCode matches
+     *      the package's current versionCode (so we re-prompt if a
+     *      package updates with a different signature).
+     *
+     * Auto-trusting known-good prefixes is a deliberate security/usability
+     * tradeoff: it lets users install Aniyomi extensions and have them
+     * "just work" without a per-extension trust prompt — which was the
+     * behaviour Tensei had before this port. If you want stricter
+     * behaviour (prompt for every unknown signature), remove the
+     * auto-trust branch and rely solely on the persisted trust store.
      */
     fun isTrusted(pkgInfo: PackageInfo, signatures: Array<Signature>): Boolean {
+        // 1. Auto-trust known-good package prefixes.
+        val pkgName = pkgInfo.packageName
+        if (pkgName.startsWith("eu.kanade.tachiyomi.animeextension.") ||
+            pkgName.startsWith("eu.kanade.tachiyomi.extension.") ||
+            pkgName.startsWith("com.blissless.")
+        ) {
+            return true
+        }
+        // 2. Check persisted trust store.
         val hash = hashSignatures(signatures)
-        val trustedVersionCode = prefs.getLong("$hash.${pkgInfo.packageName}", -1L)
+        val trustedVersionCode = prefs.getLong("$hash.$pkgName", -1L)
         return trustedVersionCode == pkgInfo.longVersionCode
     }
 

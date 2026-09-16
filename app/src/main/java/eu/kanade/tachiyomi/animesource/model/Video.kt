@@ -1,7 +1,7 @@
 package eu.kanade.tachiyomi.animesource.model
 
 import android.net.Uri
-import kotlin.jvm.internal.DefaultConstructorMarker
+import kotlinx.serialization.json.JsonObject
 import okhttp3.Headers
 
 data class Track(val url: String, val lang: String)
@@ -24,38 +24,35 @@ data class TimeStamp(
  * Ported from Aniyomi's `Video` at
  * `source-api/src/commonMain/kotlin/eu/kanade/tachiyomi/animesource/model/Video.kt`.
  *
- * NEW in this port vs the previous Tensei version:
+ * ## Backwards-compatibility shims (CRITICAL)
  *
- *   - `State` enum: runtime status of a video — QUEUE, LOAD_VIDEO,
- *     READY, ERROR. The player uses this to render the per-video
- *     status icon in the Quality sheet and to drive the "auto-advance
- *     to next-best video on failure" logic.
+ * Aniyomi extensions in the wild are compiled against different versions
+ * of the aniyomi-lib JAR. The `Video` class's primary constructor has
+ * changed over time:
  *
- *   - `@Transient @Volatile var status: State`: runtime status field,
- *     marked transient because it's not part of the serialisable
- *     shape (it's used by the player's UI only).
+ *   - **ext-lib 14**: 6 fields (`videoUrl, videoTitle, resolution, bitrate, headers, preferred`) + `subtitleTracks`/`audioTracks`.
+ *   - **ext-lib 16**: 13 fields (added `timestamps, mpvArgs, ffmpegStreamArgs, ffmpegVideoArgs, internalData, initialized`).
+ *   - **ext-lib 17** (current): 15 fields (added `memo: JsonObject`).
  *
- *   - `usesHttpServer(): Boolean`: returns true if the video's
- *     `videoUrl` matches the localhost:1 sentinel pattern that
- *     Aniyomi sources use to signal "I need my source's local
- *     HttpServer to proxy this request."
+ * Extensions compiled against ext-lib 16 call `video.copy(videoUrl = ...)` —
+ * the Kotlin compiler generates a call to the synthetic `copy$default`
+ * matching the 13-field constructor (no `memo`, no `ffmpegVideoArgs`).
+ * If the host class only has the 15-field auto-generated `copy$default`,
+ * the call fails at runtime with `NoSuchMethodError: No static method copy$default(...)`.
  *
- *   - `copyHttpServer(port): Video`: returns a copy of this video
- *     with the `videoUrl` rewritten from `localhost:1` to
- *     `localhost:$port`. Called by the player after starting the
- *     source's `HttpServer` and reading its actual listening port.
+ * The fix is the manually-defined `copy()` method below (marked
+ * `@Deprecated(level = HIDDEN)` so it's invisible to Kotlin callers but
+ * visible to the JVM bytecode — exactly mirroring Aniyomi's pattern).
+ * Its synthetic `copy$default` has the 14-field signature (no `memo`)
+ * that ext-lib 16 extensions expect.
  *
- *   - `MPV_ARGS_TAG`: string constant sources use to label
- *     `mpvArgs` pairs that should be passed through to the MPV
- *     command line (kept for API parity with Aniyomi even though
- *     Tensei uses ExoPlayer, not MPV).
+ * ## Field type matching
  *
- *   - `localUrl` regex: matches `http://localhost:1<path>` (note the
- *     negative lookahead on the second digit so we don't match
- *     `localhost:12345`).
- *
- * All the existing deprecated constructors are kept so existing
- * extension code keeps working.
+ * Aniyomi uses `memo: JsonObject = JsonObject.EMPTY` (from
+ * `kotlinx.serialization.json`). Earlier Tensei versions used
+ * `memo: Int = 16300` — this caused `NoSuchMethodError` on extensions
+ * compiled against ext-lib 16 (which expect NO `memo` field at all in
+ * the synthetic `copy$default`).
  */
 data class Video(
     var videoUrl: String = "",
@@ -72,44 +69,8 @@ data class Video(
     val ffmpegVideoArgs: List<Pair<String, String>> = emptyList(),
     val internalData: String = "",
     val initialized: Boolean = false,
-    val memo: Int = 16300,
+    val memo: JsonObject = JsonObject(emptyMap()),
 ) {
-    @Suppress("UNUSED_PARAMETER")
-    constructor(
-        videoUrl: String,
-        videoTitle: String,
-        resolution: Int?,
-        bitrate: Int?,
-        headers: Headers?,
-        preferred: Boolean,
-        subtitleTracks: List<Track>?,
-        audioTracks: List<Track>?,
-        timestamps: List<TimeStamp>?,
-        mpvArgs: List<Pair<String, String>>?,
-        ffmpegStreamArgs: List<Pair<String, String>>?,
-        ffmpegVideoArgs: List<Pair<String, String>>?,
-        internalData: String?,
-        initialized: Boolean,
-        memo: Int,
-        marker: DefaultConstructorMarker?,
-    ) : this(
-        videoUrl = videoUrl,
-        videoTitle = videoTitle,
-        resolution = resolution,
-        bitrate = bitrate,
-        headers = headers,
-        preferred = preferred,
-        subtitleTracks = subtitleTracks.orEmpty(),
-        audioTracks = audioTracks.orEmpty(),
-        timestamps = timestamps.orEmpty(),
-        mpvArgs = mpvArgs.orEmpty(),
-        ffmpegStreamArgs = ffmpegStreamArgs.orEmpty(),
-        ffmpegVideoArgs = ffmpegVideoArgs.orEmpty(),
-        internalData = internalData.orEmpty(),
-        initialized = initialized,
-        memo = memo,
-    )
-
     @Deprecated("Use videoTitle instead", ReplaceWith("videoTitle"))
     val quality: String
         get() = videoTitle
@@ -145,104 +106,101 @@ data class Video(
         uri: Uri? = null,
         headers: Headers? = null,
     ) : this(
+        // Delegate directly to the PRIMARY constructor (not the first
+        // deprecated constructor) — calling another ERROR-level
+        // deprecated constructor from within Kotlin triggers a
+        // compile error, so we go straight to the primary ctor.
         videoTitle = quality,
         videoUrl = videoUrl ?: "",
         headers = headers,
-    )
+    ) {
+        this.videoPageUrl = url
+    }
 
     // Ext lib 16 ABI (maskless full-args), kept for compatibility with older extensions
     @Suppress("UNUSED_PARAMETER")
     @Deprecated("Used only for compatibility with ext lib 16, do not use", level = DeprecationLevel.HIDDEN)
     constructor(
-        videoUrl: String,
-        videoTitle: String,
-        resolution: Int?,
-        bitrate: Int?,
-        headers: Headers?,
-        preferred: Boolean,
-        subtitleTracks: List<Track>?,
-        audioTracks: List<Track>?,
-        timestamps: List<TimeStamp>?,
-        mpvArgs: List<Pair<String, String>>?,
-        ffmpegStreamArgs: List<Pair<String, String>>?,
-        internalData: String?,
-        initialized: Boolean,
+        videoUrl: String = "",
+        videoTitle: String = "",
+        resolution: Int? = null,
+        bitrate: Int? = null,
+        headers: Headers? = null,
+        preferred: Boolean = false,
+        subtitleTracks: List<Track> = emptyList(),
+        audioTracks: List<Track> = emptyList(),
+        timestamps: List<TimeStamp> = emptyList(),
+        mpvArgs: List<Pair<String, String>> = emptyList(),
+        ffmpegStreamArgs: List<Pair<String, String>> = emptyList(),
+        ffmpegVideoArgs: List<Pair<String, String>> = emptyList(),
+        internalData: String = "",
+        initialized: Boolean = false,
     ) : this(
-        videoUrl = videoUrl,
-        videoTitle = videoTitle,
-        resolution = resolution,
-        bitrate = bitrate,
-        headers = headers,
-        preferred = preferred,
-        subtitleTracks = subtitleTracks.orEmpty(),
-        audioTracks = audioTracks.orEmpty(),
-        timestamps = timestamps.orEmpty(),
-        mpvArgs = mpvArgs.orEmpty(),
-        ffmpegStreamArgs = ffmpegStreamArgs.orEmpty(),
-        ffmpegVideoArgs = emptyList(),
-        internalData = internalData.orEmpty(),
-        initialized = initialized,
+        videoUrl, videoTitle, resolution, bitrate, headers, preferred,
+        subtitleTracks, audioTracks, timestamps, mpvArgs,
+        ffmpegStreamArgs, ffmpegVideoArgs, internalData, initialized,
+        JsonObject(emptyMap()),
     )
 
-    // Ext lib 16 ABI (masked synthetic with bitmask), kept for compatibility with older extensions
-    @Suppress("UNUSED_PARAMETER")
+    // ─── CRITICAL: Ext lib 16 `copy()` shim ─────────────────────────────────
+    //
+    // Extensions compiled against aniyomi-lib 16 (which had 14 fields, no
+    // `memo`) call `video.copy(videoUrl = "x")` — the Kotlin compiler
+    // generates a call to the synthetic `copy$default` of THIS 14-field
+    // method. Without it, you get:
+    //
+    //   NoSuchMethodError: No static method copy$default(Video; String,
+    //     String, Integer, Integer, Headers, Z, List, List, List, List,
+    //     List, List, String, Z, I, Object)Video
+    //
+    // The synthetic `copy$default` for this method has the 14-field
+    // signature (no `memo`) that ext-lib 16 extensions expect. The
+    // `level = HIDDEN` hides it from Kotlin callers (which should use
+    // the auto-generated 15-field `copy()` instead) but the JVM bytecode
+    // is still present for ext-lib 16 extensions to call.
     @Deprecated("Used only for compatibility with ext lib 16, do not use", level = DeprecationLevel.HIDDEN)
-    constructor(
-        videoUrl: String,
-        videoTitle: String,
-        resolution: Int?,
-        bitrate: Int?,
-        headers: Headers?,
-        preferred: Boolean,
-        subtitleTracks: List<Track>?,
-        audioTracks: List<Track>?,
-        timestamps: List<TimeStamp>?,
-        mpvArgs: List<Pair<String, String>>?,
-        ffmpegStreamArgs: List<Pair<String, String>>?,
-        internalData: String?,
-        initialized: Boolean,
-        mask: Int,
-        marker: DefaultConstructorMarker?,
-    ) : this(
+    fun copy(
+        videoUrl: String = this.videoUrl,
+        videoTitle: String = this.videoTitle,
+        resolution: Int? = this.resolution,
+        bitrate: Int? = this.bitrate,
+        headers: Headers? = this.headers,
+        preferred: Boolean = this.preferred,
+        subtitleTracks: List<Track> = this.subtitleTracks,
+        audioTracks: List<Track> = this.audioTracks,
+        timestamps: List<TimeStamp> = this.timestamps,
+        mpvArgs: List<Pair<String, String>> = this.mpvArgs,
+        ffmpegStreamArgs: List<Pair<String, String>> = this.ffmpegStreamArgs,
+        ffmpegVideoArgs: List<Pair<String, String>> = this.ffmpegVideoArgs,
+        internalData: String = this.internalData,
+        initialized: Boolean = this.initialized,
+    ): Video = Video(
         videoUrl = videoUrl,
         videoTitle = videoTitle,
         resolution = resolution,
         bitrate = bitrate,
         headers = headers,
         preferred = preferred,
-        subtitleTracks = subtitleTracks.orEmpty(),
-        audioTracks = audioTracks.orEmpty(),
-        timestamps = timestamps.orEmpty(),
-        mpvArgs = mpvArgs.orEmpty(),
-        ffmpegStreamArgs = ffmpegStreamArgs.orEmpty(),
-        ffmpegVideoArgs = emptyList(),
-        internalData = internalData.orEmpty(),
+        subtitleTracks = subtitleTracks,
+        audioTracks = audioTracks,
+        timestamps = timestamps,
+        mpvArgs = mpvArgs,
+        ffmpegStreamArgs = ffmpegStreamArgs,
+        ffmpegVideoArgs = ffmpegVideoArgs,
+        internalData = internalData,
         initialized = initialized,
+        memo = JsonObject(emptyMap()),
     )
 
-    // ─── NEW: Runtime status ────────────────────────────────────────────────
+    // ─── Runtime status (transient — not part of equals/hashCode/copy) ──────
 
-    /**
-     * Runtime status of this video — used by the player's Quality sheet
-     * to render the per-video state icon and to drive the "auto-advance
-     * to next-best video on failure" logic.
-     *
-     * `@Transient` because it's not part of the serialisable shape.
-     * `@Volatile` because it's read from the UI thread but written
-     * from IO threads.
-     */
     @Transient
     @Volatile
     var status: State = State.QUEUE
+        set(value) {
+            field = value
+        }
 
-    /**
-     * Lifecycle states a `Video` goes through during playback.
-     *
-     *   QUEUE       → just discovered, not yet fetched
-     *   LOAD_VIDEO  → actively fetching the URL (for lazy videos)
-     *   READY       → URL resolved, ready to hand to player
-     *   ERROR       → fetch failed (network, parse, etc.)
-     */
     enum class State {
         QUEUE,
         LOAD_VIDEO,
@@ -250,33 +208,40 @@ data class Video(
         ERROR,
     }
 
-    // ─── NEW: Local HttpServer helpers ──────────────────────────────────────
+    // ─── Local HttpServer helpers (per-source NanoHTTPD proxy) ──────────────
 
     /**
-     * Returns `true` if this video's `videoUrl` matches the
-     * `http://localhost:1<path>` sentinel pattern that Aniyomi sources
-     * use to signal "I need my source's local HttpServer to proxy
-     * this request."
-     *
-     * The player uses this to decide whether to call
-     * `(source as AnimeHttpSource).createHttpServer()` and `start()`
-     * before handing the URL to ExoPlayer.
+     * Returns `true` if any URL on this video (the main `videoUrl`,
+     * audio tracks, or subtitle tracks) matches the `http://localhost:1<path>`
+     * sentinel pattern that Aniyomi sources use to signal "I need my
+     * source's local HttpServer to proxy this request".
      */
     fun usesHttpServer(): Boolean {
-        return LOCAL_URL_REGEX.containsMatchIn(videoUrl)
+        if (LOCAL_URL_REGEX.find(videoUrl) != null) return true
+        if (audioTracks.any { LOCAL_URL_REGEX.find(it.url) != null }) return true
+        if (subtitleTracks.any { LOCAL_URL_REGEX.find(it.url) != null }) return true
+        return false
     }
 
     /**
-     * Returns a copy of this video with the `videoUrl` rewritten from
-     * `http://localhost:1<path>` to `http://localhost:$port<path>`.
+     * Returns a copy of this video with ALL `http://localhost:1` sentinel
+     * URLs (on the main video URL, audio tracks, AND subtitle tracks)
+     * rewritten to `http://localhost:$port`.
      *
      * Called by the player after starting the source's `HttpServer`
      * and reading its actual listening port.
      */
     fun copyHttpServer(port: Int): Video {
-        if (!usesHttpServer()) return this
-        val newUrl = LOCAL_URL_REGEX.replace(videoUrl, "http://localhost:$port")
-        return copy(videoUrl = newUrl)
+        val newHost = "http://localhost:$port"
+        return this.copy(
+            videoUrl = LOCAL_URL_REGEX.replace(videoUrl, newHost),
+            subtitleTracks = subtitleTracks.map {
+                it.copy(url = LOCAL_URL_REGEX.replace(it.url, newHost))
+            },
+            audioTracks = audioTracks.map {
+                it.copy(url = LOCAL_URL_REGEX.replace(it.url, newHost))
+            },
+        )
     }
 
     companion object {

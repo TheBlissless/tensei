@@ -1457,7 +1457,7 @@ fun PlayerScreen(
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                             ) {
                                                 Text(
-                                                    text = currentServerName.take(12),
+                                                    text = currentServerName,
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = Color.White,
                                                     maxLines = 1,
