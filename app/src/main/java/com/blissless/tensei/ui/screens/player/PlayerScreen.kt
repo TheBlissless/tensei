@@ -1579,8 +1579,7 @@ fun PlayerScreen(
 
                                 // CC/Subtitles button
                                 val hasExternalSubs = subtitleTracks.isNotEmpty() || subtitleUrl != null
-                                val hasEmbeddedSubs = embeddedSubtitleTracks.isNotEmpty()
-                                if (!isCompact && (hasExternalSubs || hasEmbeddedSubs)) {
+                                if (!isCompact && hasExternalSubs) {
                                     Box {
                                         Surface(
                                             shape = RoundedCornerShape(if (isCompact) 10.dp else 14.dp),
@@ -1670,27 +1669,6 @@ fun PlayerScreen(
                                                                 selectedSubtitleIndex = index
                                                                 selectedEmbeddedTrackIndex = -1
                                                                 rebuildWithSubtitles(true)
-                                                                showSubtitleMenu = false
-                                                            },
-                                                            leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) } } else null
-                                                        )
-                                                    }
-                                                }
-                                                if (embeddedSubtitleTracks.isNotEmpty()) {
-                                                    if (externalTrackList.isNotEmpty()) {
-                                                        HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-                                                    }
-                                                    Text("Embedded", color = Color.Gray, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                                                    embeddedSubtitleTracks.forEachIndexed { index, track ->
-                                                        val isSelected = subtitlesEnabled && selectedEmbeddedTrackIndex == index
-                                                        DropdownMenuItem(
-                                                            text = { Text(track.label, color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White) },
-                                                            onClick = {
-                                                                Log.d("SubDebug", "PlayerScreen MENU: Embedded track $index selected ('${track.label}' idx=${track.trackIndex})")
-                                                                engine.overrideSubtitleTrack(track.trackIndex, 0)
-                                                                Log.d("PlayerScreen", "selectEmbeddedSubtitle: selected '${track.label}' idx=${track.trackIndex}")
-                                                                selectedEmbeddedTrackIndex = index
-                                                                subtitlesEnabled = true
                                                                 showSubtitleMenu = false
                                                             },
                                                             leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) } } else null
