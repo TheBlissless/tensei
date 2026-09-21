@@ -16,6 +16,7 @@ import java.net.URLEncoder
 import androidx.core.net.toUri
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlin.time.Duration.Companion.milliseconds
 
 class MalApiService(context: Context) {
 
@@ -44,7 +45,7 @@ class MalApiService(context: Context) {
             conn.readTimeout = TIMEOUT_MS
             try {
                 conn.outputStream.use { it.write(formParams.toByteArray(Charsets.UTF_8)) }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 return@repeat
             }
             val responseCode = conn.responseCode
@@ -210,7 +211,7 @@ class MalApiService(context: Context) {
                     // A transient 429/5xx on one page previously truncated the whole list (the
                     // loop broke and silently returned a partial result). Retry once before giving up.
                     android.util.Log.w("MalList", "getAnimeList page offset=$offset failed (null response), retrying once")
-                    delay(1500)
+                    delay(1500.milliseconds)
                     response = makeGetRequest(url)
                 }
                 if (response == null) {
@@ -346,7 +347,7 @@ class MalApiService(context: Context) {
                 var response = makeGetRequest(url)
                 if (response == null) {
                     android.util.Log.w("MalList", "getMangaList page offset=$offset failed (null response), retrying once")
-                    delay(1500)
+                    delay(1500.milliseconds)
                     response = makeGetRequest(url)
                 }
                 if (response == null) {
