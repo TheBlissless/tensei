@@ -309,6 +309,12 @@ fun DetailedMangaScreen(
 
     val displayData = detail ?: manga.asDetail()
 
+    // Single source of truth for the displayed chapter count so the header ("N ch.") and the
+    // Information card's "Chapters" cell can never disagree. The extension-derived total wins
+    // because AniList counts extras/prologues the release actually splits differently.
+    val resolvedChapterCount = extensionTotalChapters.takeIf { it > 0 }
+        ?: displayData.chapters.takeIf { it > 0 }
+
     var lastDetailSig by remember { mutableStateOf("") }
     val detailSig = "${detail != null}|${displayData.description != null}|${displayData.genres.size}|${displayData.tags.size}|" +
         "${displayData.characters?.nodes?.size ?: 0}|${displayData.staff?.edges?.size ?: 0}|${displayData.relations.size}|" +
@@ -637,8 +643,8 @@ fun DetailedMangaScreen(
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = when (displayData.status) {
-                                        "RELEASING" -> Color(0xFF4CAF50).copy(alpha = 0.2f)
-                                        "FINISHED" -> Color(0xFF2196F3).copy(alpha = 0.2f)
+                                        "RELEASING" -> Color(0xFF2196F3).copy(alpha = 0.2f)
+                                        "FINISHED" -> Color(0xFF4CAF50).copy(alpha = 0.2f)
                                         "NOT_YET_RELEASED" -> Color(0xFFFFC107).copy(alpha = 0.2f)
                                         "CANCELLED" -> Color(0xFFF44336).copy(alpha = 0.2f)
                                         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -647,8 +653,8 @@ fun DetailedMangaScreen(
                                     Text(
                                         statusDisplay, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
                                         color = when (displayData.status) {
-                                            "RELEASING" -> Color(0xFF4CAF50)
-                                            "FINISHED" -> Color(0xFF2196F3)
+                                            "RELEASING" -> Color(0xFF2196F3)
+                                            "FINISHED" -> Color(0xFF4CAF50)
                                             "NOT_YET_RELEASED" -> Color(0xFFFFC107)
                                             "CANCELLED" -> Color(0xFFF44336)
                                             else -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -672,7 +678,7 @@ fun DetailedMangaScreen(
                                 displayData.format?.let {
                                     Text(formatDisplay, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                val chapterCount = displayData.chapters.takeIf { it > 0 }
+                                val chapterCount = resolvedChapterCount
                                 if (chapterCount != null) {
                                     Text("\u2022", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                     Text("$chapterCount ch.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -900,7 +906,7 @@ fun DetailedMangaScreen(
                 // Info Card (manga specs)
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
-                    MangaInfoCard(displayData = displayData, statusDisplay = statusDisplay, extensionTotalChapters = extensionTotalChapters)
+                    MangaInfoCard(displayData = displayData, statusDisplay = statusDisplay, chaptersCount = resolvedChapterCount)
                 }
 
                 // Genres
@@ -1648,7 +1654,7 @@ fun DetailedMangaScreen(
 private fun MangaInfoCard(
     displayData: MangaDetail,
     statusDisplay: String,
-    extensionTotalChapters: Int,
+    chaptersCount: Int?,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -1728,8 +1734,6 @@ private fun MangaInfoCard(
             }
 
             // Bento spec grid
-            val chaptersCount = extensionTotalChapters.takeIf { it > 0 }
-                ?: displayData.chapters.takeIf { it > 0 }
             val specs = buildList {
                 displayData.format?.let {
                     add(SpecEntry(label = "Format", value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Category))

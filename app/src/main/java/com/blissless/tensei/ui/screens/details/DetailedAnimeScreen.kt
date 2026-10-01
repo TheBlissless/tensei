@@ -779,8 +779,8 @@ fun DetailedAnimeScreen(
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = when (displayData.status) {
-                                        "RELEASING" -> Color(0xFF4CAF50).copy(alpha = 0.2f)
-                                        "FINISHED" -> Color(0xFF2196F3).copy(alpha = 0.2f)
+                                        "RELEASING" -> Color(0xFF2196F3).copy(alpha = 0.2f)
+                                        "FINISHED" -> Color(0xFF4CAF50).copy(alpha = 0.2f)
                                         "NOT_YET_RELEASED" -> Color(0xFFFFC107).copy(alpha = 0.2f)
                                         "CANCELLED" -> Color(0xFFF44336).copy(alpha = 0.2f)
                                         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -789,8 +789,8 @@ fun DetailedAnimeScreen(
                                     Text(
                                         statusDisplay, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
                                         color = when (displayData.status) {
-                                            "RELEASING" -> Color(0xFF4CAF50)
-                                            "FINISHED" -> Color(0xFF2196F3)
+                                            "RELEASING" -> Color(0xFF2196F3)
+                                            "FINISHED" -> Color(0xFF4CAF50)
                                             "NOT_YET_RELEASED" -> Color(0xFFFFC107)
                                             "CANCELLED" -> Color(0xFFF44336)
                                             else -> MaterialTheme.colorScheme.onSurfaceVariant
