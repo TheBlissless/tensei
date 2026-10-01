@@ -840,11 +840,11 @@ private fun StreamSettingsPage(
                         extUiState.extensions.find { it.packageName == defaultExtPackage }?.name ?: defaultExtPackage
                     else "None"
                 } else {
-                    val streamName = defaultStreamExtension?.let { auth -> streamExtensions.find { it.second == auth }?.first }
+                    val streamName = defaultStreamExtension?.takeIf { it.isNotBlank() }?.let { auth -> streamExtensions.find { it.second == auth }?.first }
                     if (streamName != null) streamName
                     else {
-                        val name = magnetExtensions.find { it.second == defaultMagnetExtension }?.first
-                        name ?: defaultMagnetExtension ?: "None"
+                        val name = defaultMagnetExtension?.takeIf { it.isNotBlank() }?.let { auth -> magnetExtensions.find { it.second == auth }?.first }
+                        name ?: defaultMagnetExtension?.takeIf { it.isNotBlank() } ?: "None"
                     }
                 }
             )

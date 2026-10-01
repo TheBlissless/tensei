@@ -1407,8 +1407,21 @@ private fun formatMangaProgress(progress: String?): String? {
     }
 }
 
+private fun ordinal(n: Int): String {
+    val suffix = when {
+        n % 100 in 11..13 -> "th"
+        n % 10 == 1 -> "st"
+        n % 10 == 2 -> "nd"
+        n % 10 == 3 -> "rd"
+        else -> "th"
+    }
+    return "$n$suffix"
+}
+
 private fun formatTimestamp(timestamp: Long): String {
-    val sdf = SimpleDateFormat("d MMMM, yyyy - HH:mm", Locale.getDefault())
-    return sdf.format(Date(timestamp * 1000))
+    val date = Date(timestamp * 1000)
+    val day = SimpleDateFormat("d", Locale.getDefault()).format(date).toInt()
+    val rest = SimpleDateFormat("MMMM, yyyy - HH:mm", Locale.getDefault()).format(date)
+    return "${ordinal(day)} $rest"
 }
 

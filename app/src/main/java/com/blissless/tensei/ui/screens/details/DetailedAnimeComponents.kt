@@ -393,12 +393,14 @@ internal fun NoDefaultExtensionDialog(
  * spec grid built from the anime's metadata.
  *
  * @param displayData  The detailed anime data to show
- * @param statusDisplay The human-readable status string (e.g. "Airing", "Released")
+ * @param userStatusDisplay The user's own list status (e.g. "Watching", "Completed"). Null when
+ *   the user has not tracked this title. The series publication status is already shown as the
+ *   header badge, so it is deliberately not repeated here.
  */
 @Composable
 internal fun InfoCard(
     displayData: com.blissless.tensei.data.models.DetailedAnimeData,
-    statusDisplay: String,
+    userStatusDisplay: String?,
 ) {
     Card(
         modifier = Modifier
@@ -525,16 +527,16 @@ internal fun InfoCard(
                         )
                     )
                 }
-                displayData.status?.let {
-                    add(
-                        SpecEntry(
-                            label = "Status",
-                            value = statusDisplay,
-                            icon = Icons.Default.PlayCircle
-                        )
-                    )
-                }
-                if (displayData.season != null && displayData.year != null) {
+userStatusDisplay?.let {
+        add(
+            SpecEntry(
+                label = "Status",
+                value = it,
+                icon = Icons.Default.PlayCircle
+            )
+        )
+    }
+    if (displayData.season != null && displayData.year != null) {
                     add(
                         SpecEntry(
                             label = "Season",

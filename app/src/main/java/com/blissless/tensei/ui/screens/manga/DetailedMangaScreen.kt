@@ -216,6 +216,20 @@ fun DetailedMangaScreen(
     val favoritedMangaIds by viewModel.favoritedMangaIds.collectAsState()
     // Reactive favorite state from AniList (overrides the static isFavorite parameter)
     val isMangaFavorited = manga.id in favoritedMangaIds
+    var showRemoveFavoriteDialog by remember { mutableStateOf(false) }
+
+    // Un-favouriting is destructive and trivially undoable only by re-tapping, so route it
+    // through a confirmation. The actual toggle is deferred to the dialog's confirm action.
+    val toggleFavorite: () -> Unit = {
+        if (isLoggedIn) {
+            viewModel.toggleMangaFavorite(manga.id)
+        } else {
+            viewModel.toggleOfflineFavorite(manga.id, manga.title, manga.cover, manga.banner, manga.year, manga.averageScore)
+        }
+    }
+    val onFavoriteClick: () -> Unit = {
+        if (isMangaFavorited) showRemoveFavoriteDialog = true else toggleFavorite()
+    }
 
     // Live status/progress from the local tracking lists so the status dialog and
     // status chip update immediately after a change (no need to reopen the screen).
@@ -340,6 +354,11 @@ fun DetailedMangaScreen(
         "HIATUS" -> "Hiatus"
         else -> displayData.status ?: "Unknown"
     }
+
+    // The Information card's Status cell shows the user's tracking status, not the series
+    // publication status (that one already has the header badge). Driven by the live tracking
+    // state so it updates the instant the status dialog saves.
+    val userStatusDisplay = statusToCheck?.let { MangaStatusLabels[it] ?: it }
 
     val formatDisplay = when (displayData.format) {
         "MANGA" -> "Manga"
@@ -836,13 +855,7 @@ fun DetailedMangaScreen(
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     OutlinedButton(
-                                        onClick = {
-                                            if (isLoggedIn) {
-                                                viewModel.toggleMangaFavorite(manga.id)
-                                            } else {
-                                                viewModel.toggleOfflineFavorite(manga.id, manga.title, manga.cover, manga.banner, manga.year, manga.averageScore)
-                                            }
-                                        },
+                                        onClick = onFavoriteClick,
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -874,13 +887,7 @@ fun DetailedMangaScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     OutlinedButton(
-                                        onClick = {
-                                            if (isLoggedIn) {
-                                                viewModel.toggleMangaFavorite(manga.id)
-                                            } else {
-                                                viewModel.toggleOfflineFavorite(manga.id, manga.title, manga.cover, manga.banner, manga.year, manga.averageScore)
-                                            }
-                                        },
+                                        onClick = onFavoriteClick,
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -906,7 +913,7 @@ fun DetailedMangaScreen(
                 // Info Card (manga specs)
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
-                    MangaInfoCard(displayData = displayData, statusDisplay = statusDisplay, chaptersCount = resolvedChapterCount)
+                    MangaInfoCard(displayData = displayData, userStatusDisplay = userStatusDisplay, chaptersCount = resolvedChapterCount)
                 }
 
                 // Genres
@@ -1633,6 +1640,23 @@ fun DetailedMangaScreen(
         )
     }
 
+    if (showRemoveFavoriteDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showRemoveFavoriteDialog = false },
+            title = { Text("Remove Favorite") },
+            text = { Text("Remove ${manga.title} from your favorites?") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showRemoveFavoriteDialog = false
+                    toggleFavorite()
+                }) { Text("Remove") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showRemoveFavoriteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     if (showRatingSheet) {
         MangaRatingSheet(
             title = manga.title,
@@ -1653,7 +1677,7 @@ fun DetailedMangaScreen(
 @Composable
 private fun MangaInfoCard(
     displayData: MangaDetail,
-    statusDisplay: String,
+    userStatusDisplay: String?,
     chaptersCount: Int?,
 ) {
     Card(
@@ -1738,8 +1762,8 @@ private fun MangaInfoCard(
                 displayData.format?.let {
                     add(SpecEntry(label = "Format", value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Category))
                 }
-                displayData.status?.let {
-                    add(SpecEntry(label = "Status", value = statusDisplay, icon = Icons.Default.PlayArrow))
+                userStatusDisplay?.let {
+                    add(SpecEntry(label = "Status", value = it, icon = Icons.Default.PlayArrow))
                 }
                 displayData.source?.let {
                     add(SpecEntry(label = "Source", value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Description))

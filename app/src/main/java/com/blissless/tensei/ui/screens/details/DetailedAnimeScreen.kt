@@ -196,6 +196,7 @@ fun DetailedAnimeScreen(
     var reopenEpisodePickerAfterSettings by remember { mutableStateOf(false) }
     var showStatusDialog by remember { mutableStateOf(false) }
     var showRatingSheet by remember { mutableStateOf(false) }
+    var showRemoveFavoriteDialog by remember { mutableStateOf(false) }
 
     val defaultExtPkg by viewModel.defaultExtensionPackage.collectAsState()
     val defaultMagnetExt by viewModel.defaultMagnetExtension.collectAsState()
@@ -215,6 +216,37 @@ fun DetailedAnimeScreen(
     val effectiveIsFavorite = when {
         isLoggedIn -> isFavorite || aniListIsFavorite
         else -> localFavExists
+    }
+
+    // Un-favouriting is destructive and trivially undoable only by re-tapping, so route it
+    // through a confirmation. The actual toggle is deferred to the dialog's confirm action.
+    val toggleFavorite: () -> Unit = {
+        if (isLoggedIn) {
+            val animeMedia = AnimeMedia(
+                id = anime.id,
+                title = anime.title,
+                titleEnglish = anime.titleEnglish,
+                cover = anime.cover,
+                banner = anime.banner,
+                totalEpisodes = anime.episodes,
+                averageScore = anime.averageScore,
+                genres = anime.genres,
+                year = anime.year
+            )
+            viewModel.toggleAniListFavorite(anime.id, animeMedia)
+        } else {
+            viewModel.toggleOfflineFavorite(
+                anime.id,
+                anime.title,
+                anime.cover,
+                anime.banner,
+                anime.year,
+                anime.averageScore
+            )
+        }
+    }
+    val onFavoriteClick: () -> Unit = {
+        if (effectiveIsFavorite) showRemoveFavoriteDialog = true else toggleFavorite()
     }
     val effectiveLocalStatus = if (isLoggedIn) null else localAnimeStatus[anime.id]?.status
     val effectiveLocalProgress = if (isLoggedIn) null else localAnimeStatus[anime.id]?.progress
@@ -389,6 +421,11 @@ fun DetailedAnimeScreen(
         "HIATUS" -> "Hiatus"
         else -> displayData.status ?: "Unknown"
     }
+
+    // The Information card's Status cell shows the user's tracking status, not the series
+    // publication status (that one already has the header badge). Driven by the live tracking
+    // state so it updates the instant the status dialog saves.
+    val userStatusDisplay = statusToCheck?.let { StatusLabels[it] ?: it }
 
     val formatDisplay = when (displayData.format) {
         "TV" -> "TV Series"
@@ -987,31 +1024,7 @@ fun DetailedAnimeScreen(
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     OutlinedButton(
-                                        onClick = {
-                                            if (isLoggedIn) {
-                                                val animeMedia = AnimeMedia(
-                                                    id = anime.id,
-                                                    title = anime.title,
-                                                    titleEnglish = anime.titleEnglish,
-                                                    cover = anime.cover,
-                                                    banner = anime.banner,
-                                                    totalEpisodes = anime.episodes,
-                                                    averageScore = anime.averageScore,
-                                                    genres = anime.genres,
-                                                    year = anime.year
-                                                )
-                                                viewModel.toggleAniListFavorite(anime.id, animeMedia)
-                                            } else {
-                                                viewModel.toggleOfflineFavorite(
-                                                    anime.id,
-                                                    anime.title,
-                                                    anime.cover,
-                                                    anime.banner,
-                                                    anime.year,
-                                                    anime.averageScore
-                                                )
-                                            }
-                                        },
+                                        onClick = onFavoriteClick,
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -1045,31 +1058,7 @@ fun DetailedAnimeScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     OutlinedButton(
-                                        onClick = {
-                                            if (isLoggedIn) {
-                                                val animeMedia = AnimeMedia(
-                                                    id = anime.id,
-                                                    title = anime.title,
-                                                    titleEnglish = anime.titleEnglish,
-                                                    cover = anime.cover,
-                                                    banner = anime.banner,
-                                                    totalEpisodes = anime.episodes,
-                                                    averageScore = anime.averageScore,
-                                                    genres = anime.genres,
-                                                    year = anime.year
-                                                )
-                                                viewModel.toggleAniListFavorite(anime.id, animeMedia)
-                                            } else {
-                                                viewModel.toggleOfflineFavorite(
-                                                    anime.id,
-                                                    anime.title,
-                                                    anime.cover,
-                                                    anime.banner,
-                                                    anime.year,
-                                                    anime.averageScore
-                                                )
-                                            }
-                                        },
+                                        onClick = onFavoriteClick,
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
@@ -1098,7 +1087,7 @@ fun DetailedAnimeScreen(
                     Spacer(modifier = Modifier.height(20.dp))
                     InfoCard(
                         displayData = displayData,
-                        statusDisplay = statusDisplay,
+                        userStatusDisplay = userStatusDisplay,
                     )
                 }
 
@@ -2010,6 +1999,23 @@ fun DetailedAnimeScreen(
                 }
                 if (progress != null) displayProgress = progress
                 showStatusDialog = false
+            }
+        )
+    }
+
+    if (showRemoveFavoriteDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showRemoveFavoriteDialog = false },
+            title = { Text("Remove Favorite") },
+            text = { Text("Remove ${anime.title} from your favorites?") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showRemoveFavoriteDialog = false
+                    toggleFavorite()
+                }) { Text("Remove") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { showRemoveFavoriteDialog = false }) { Text("Cancel") }
             }
         )
     }
