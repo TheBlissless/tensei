@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -100,7 +101,6 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.MangaExploreMedia
-import com.blissless.tensei.ui.components.LoadingSkeleton
 import com.blissless.tensei.ui.components.SectionTitle
 import com.blissless.tensei.ui.components.AppIconCircle
 import com.blissless.tensei.ui.components.CarouselPageDots
@@ -129,10 +129,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 import kotlin.time.Duration.Companion.milliseconds
 import java.util.Locale
-import com.blissless.tensei.ui.components.SectionHeaderSkeleton
 import com.blissless.tensei.ui.components.RailCardTitle
 import com.blissless.tensei.ui.components.TenseiErrorBanner
-import com.blissless.tensei.ui.components.TenseiRailSkeleton
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
@@ -337,16 +335,17 @@ fun MangaScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             if (showMangaSkeleton) {
-                // Loading skeleton while the manga API is still fetching results.
+                // Whole-screen skeleton. Same composable the Anime tab uses; the status-bar
+                // inset matters here because neither tab draws its top bar while loading.
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
                         .padding(bottom = Sizes.listBottomNavClearance)
+                        .statusBarsPadding()
                 ) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    LoadingSkeleton()
-                    Spacer(modifier = Modifier.height(80.dp))
+                    ExploreScreenSkeleton()
+                    Spacer(Modifier.height(Sizes.listBottomNavClearance))
                 }
             } else {
             Column(
@@ -467,16 +466,10 @@ fun MangaScreen(
                         )
                     }
                 }
-            } else if (!mangaTimedOut) {
-                // Fetch is still resolving — skeleton the carousel and the first
-                // rails instead of flashing a bare spinner.
-                FeaturedCarouselSkeleton()
-                Spacer(Modifier.height(16.dp))
-                repeat(3) { index ->
-                    SectionHeaderSkeleton()
-                    TenseiRailSkeleton(itemCount = 3)
-                    if (index < 2) Spacer(Modifier.height(16.dp))
-                }
+} else if (!mangaTimedOut) {
+                // Fetch is still resolving — same skeleton as the whole-screen state,
+                // instead of a spinner or a bare empty screen.
+                ExploreScreenSkeleton()
             } else {
                 // Manga fetch concluded with nothing returned — show the AniList unavailable banner.
                 Box(

@@ -107,6 +107,7 @@ import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.LoadingSkeleton
 import com.blissless.tensei.ui.components.SectionHeader
 import com.blissless.tensei.ui.theme.PillShape
+import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
 import com.blissless.tensei.ui.theme.tenseiColors
@@ -1429,10 +1430,12 @@ private fun MangaHorizontalRow(
             }
             Column(modifier = Modifier.width(140.dp)) {
                 Card(
-                    shape = RoundedCornerShape(4.dp),
+                    // 4dp read as a near-square poster next to the Anime rail cards,
+                    // which use the shared poster radius.
+                    shape = Radius.posterShape,
                     modifier = Modifier
                         .height(195.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(Radius.posterShape)
                         .clickable { onMangaClick(manga) }
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
@@ -1452,7 +1455,7 @@ private fun MangaHorizontalRow(
                         Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
                             if (progressText != null) {
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
+                                    shape = Radius.chipShape,
                                     color = Color.Black.copy(alpha = 0.65f),
                                     modifier = Modifier.align(Alignment.TopStart)
                                 ) {
@@ -1553,11 +1556,13 @@ private fun MangaContinueReadingCard(
     val displayMangaTitle = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title
 
     Card(
-        shape = RoundedCornerShape(18.dp),
+        // 18dp was a bespoke value; the Anime continue-watching cards use the shared
+        // card radius, so the two rails looked like different card families.
+        shape = Radius.cardShape,
         modifier = Modifier
             .width(240.dp)
             .height(140.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(Radius.cardShape)
             .clickable { onResumeClick() }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -1595,7 +1600,7 @@ private fun MangaContinueReadingCard(
                     verticalAlignment = Alignment.Top
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = Radius.chipShape,
                         color = Color.Black.copy(alpha = 0.65f)
                     ) {
                         Text(

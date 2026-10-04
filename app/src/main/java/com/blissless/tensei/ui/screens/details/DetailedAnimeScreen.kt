@@ -855,7 +855,7 @@ fun DetailedAnimeScreen(
                                 }
                                 if (displayData.year != null && displayData.format != null) {
                                     Text(
-                                        "â€¢",
+                                        "\u2022",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )
@@ -870,7 +870,7 @@ fun DetailedAnimeScreen(
                                 val episodeCount = displayData.episodes.takeIf { it > 0 }
                                 if (episodeCount != null) {
                                     Text(
-                                        "â€¢",
+                                        "\u2022",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )

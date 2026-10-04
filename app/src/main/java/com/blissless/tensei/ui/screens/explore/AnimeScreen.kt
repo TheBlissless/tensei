@@ -89,7 +89,6 @@ import com.blissless.tensei.dialogs.HomeAnimeStatusDialog
 import com.blissless.tensei.ui.components.AnimeCardBounds
 import com.blissless.tensei.ui.components.ExploreAnimeHorizontalList
 import com.blissless.tensei.ui.components.LoadingPlaceholder
-import com.blissless.tensei.ui.components.LoadingSkeleton
 import com.blissless.tensei.ui.screens.episode.RichEpisodeScreen
 import com.blissless.tensei.ui.components.SectionTitle
 import com.blissless.tensei.ui.screens.details.DetailedAnimeScreen
@@ -637,7 +636,8 @@ fun AnimeScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             if (showExploreSkeleton) {
-                // Loading skeleton while the AniList API is still fetching results.
+                // Whole-screen skeleton. Same composable the Manga tab uses, so the two
+                // loading states can't drift apart.
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -645,9 +645,8 @@ fun AnimeScreen(
                         .padding(bottom = Sizes.listBottomNavClearance)
                         .statusBarsPadding()
                 ) {
-Spacer(modifier = Modifier.height(24.dp))
-                    LoadingSkeleton()
-                    Spacer(modifier = Modifier.height(80.dp))
+                    ExploreScreenSkeleton()
+                    Spacer(modifier = Modifier.height(Sizes.listBottomNavClearance))
                 }
             } else {
             Column(
