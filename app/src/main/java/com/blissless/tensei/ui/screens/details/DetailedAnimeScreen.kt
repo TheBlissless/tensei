@@ -128,9 +128,16 @@ import com.blissless.tensei.data.models.TagData
 import com.blissless.tensei.dialogs.AnimeRatingSheet
 import com.blissless.tensei.dialogs.HomeAnimeStatusDialog
 import com.blissless.tensei.dialogs.userScoreToDisplay
+import com.blissless.tensei.ui.components.DetailRailSkeleton
+import com.blissless.tensei.ui.components.DetailTextCardSkeleton
+import com.blissless.tensei.ui.components.SkeletonPill
+import com.blissless.tensei.ui.components.SkeletonTextLine
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
-import com.blissless.tensei.ui.theme.StatusColors
 import com.blissless.tensei.ui.theme.StatusLabels
+import com.blissless.tensei.ui.theme.statusAccentFor
+import com.blissless.tensei.ui.theme.statusColor
+import com.blissless.tensei.ui.theme.tenseiColors
+import com.blissless.tensei.ui.theme.ratingColorOnArtwork
 import com.blissless.tensei.ui.screens.episode.RichEpisodeScreen
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -366,7 +373,7 @@ fun DetailedAnimeScreen(
 
     // Auto-recovery: while the detail page is showing MAL-fallback data (AniList down),
     // re-check AniList every 60s. The reload shows the loading state; when AniList answers
-    // again the detail — and its relations/recommendations rows — swap back seamlessly.
+    // again the detail â€” and its relations/recommendations rows â€” swap back seamlessly.
     val animeDetailSource by viewModel.animeDetailSource.collectAsState()
     LaunchedEffect(anime.id, animeDetailSource) {
         while (animeDetailSource == "mal") {
@@ -581,7 +588,7 @@ fun DetailedAnimeScreen(
                             if (offsetY.isRunning || dismissSlideOffset.isRunning) return@launch
                             if (dismissSlideOffset.value > 0f || offsetY.value > dismissThreshold) {
                                 // A fling dismissal started but stalled, or the sheet is past the
-                                // dismiss threshold — close it so it never stays stuck half-open.
+                                // dismiss threshold â€” close it so it never stays stuck half-open.
                                 dismissWithAnimation()
                             } else if (offsetY.value > 0f) {
                                 offsetY.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
@@ -802,34 +809,31 @@ fun DetailedAnimeScreen(
                                 displayData.averageScore?.let { score ->
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.background(Color(0xFFFFD700).copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                        modifier = Modifier.background(tenseiColors.rating.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
                                             .padding(horizontal = 10.dp, vertical = 6.dp)
                                     ) {
-                                        Icon(Icons.Default.Star, null, tint = Color(0xFFFFD700), modifier = Modifier.size(18.dp))
+                                        Icon(Icons.Default.Star, null, tint = tenseiColors.rating, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             String.format(Locale.US, "%.1f", score / 10.0),
-                                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFFFD700)
+                                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = tenseiColors.rating
                                         )
                                     }
                                 }
+                                if (displayData.averageScore == null && isLoadingDetails) {
+                                    SkeletonPill(width = 68.dp, height = 30.dp)
+                                }
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = when (displayData.status) {
-                                        "RELEASING" -> Color(0xFF2196F3).copy(alpha = 0.2f)
-                                        "FINISHED" -> Color(0xFF4CAF50).copy(alpha = 0.2f)
-                                        "NOT_YET_RELEASED" -> Color(0xFFFFC107).copy(alpha = 0.2f)
-                                        "CANCELLED" -> Color(0xFFF44336).copy(alpha = 0.2f)
+                                    color = when {
+                                        displayData.status != null -> statusAccentFor(displayData.status).copy(alpha = 0.2f)
                                         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                     }
                                 ) {
                                     Text(
                                         statusDisplay, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
-                                        color = when (displayData.status) {
-                                            "RELEASING" -> Color(0xFF2196F3)
-                                            "FINISHED" -> Color(0xFF4CAF50)
-                                            "NOT_YET_RELEASED" -> Color(0xFFFFC107)
-                                            "CANCELLED" -> Color(0xFFF44336)
+                                        color = when {
+                                            displayData.status != null -> statusAccentFor(displayData.status)
                                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                                         },
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
@@ -851,17 +855,33 @@ fun DetailedAnimeScreen(
                                 }
                                 if (displayData.year != null && displayData.format != null) {
                                     Text(
-                                        "•",
+                                        "â€¢",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )
                                 }
-                                displayData.format?.let { _ ->
+                                displayData.format?.let {
                                     Text(
                                         formatDisplay,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                }
+                                val episodeCount = displayData.episodes.takeIf { it > 0 }
+                                if (episodeCount != null) {
+                                    Text(
+                                        "â€¢",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                    Text(
+                                        "$episodeCount eps",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                if (displayData.year == null && displayData.format == null && episodeCount == null && isLoadingDetails) {
+                                    SkeletonTextLine(width = 96.dp, height = 11.dp)
                                 }
                             }
                         }
@@ -933,7 +953,7 @@ fun DetailedAnimeScreen(
                                     }
                                 }
                                 if (statusToCheck != null || effectiveUserScore != null) {
-                                    val statusColor = StatusColors[statusToCheck] ?: MaterialTheme.colorScheme.primary
+                                    val listStatusColor = statusColor(statusToCheck)
                                     Column(horizontalAlignment = Alignment.End) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (effectiveUserScore != null) {
@@ -942,14 +962,14 @@ fun DetailedAnimeScreen(
                                                         Icons.Default.Star,
                                                         contentDescription = null,
                                                         modifier = Modifier.size(13.dp),
-                                                        tint = Color(0xFFFBBF24)
+                                                        tint = tenseiColors.rating
                                                     )
                                                     Spacer(modifier = Modifier.width(2.dp))
                                                     Text(
                                                         text = "${userScoreToDisplay(effectiveUserScore)}",
                                                         style = MaterialTheme.typography.labelMedium,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = Color(0xFFFBBF24)
+                                                        color = tenseiColors.rating
                                                     )
                                                 }
                                                 Spacer(modifier = Modifier.width(6.dp))
@@ -957,12 +977,12 @@ fun DetailedAnimeScreen(
                                             if (statusToCheck != null) {
                                                 Surface(
                                                     shape = RoundedCornerShape(6.dp),
-                                                    color = statusColor.copy(alpha = 0.12f)
+                                                    color = listStatusColor.copy(alpha = 0.12f)
                                                 ) {
                                                     Text(
                                                         text = StatusLabels[statusToCheck] ?: statusToCheck,
                                                         style = MaterialTheme.typography.labelMedium,
-                                                        color = statusColor,
+                                                        color = listStatusColor,
                                                         fontWeight = FontWeight.SemiBold,
                                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                                     )
@@ -1008,12 +1028,12 @@ fun DetailedAnimeScreen(
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (effectiveUserScore != null && effectiveUserScore > 0) Color(0xFFFFD700).copy(alpha = 0.15f) else Color.Transparent,
-                                            contentColor = if (effectiveUserScore != null && effectiveUserScore > 0) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurface
+                                            containerColor = if (effectiveUserScore != null && effectiveUserScore > 0) tenseiColors.rating.copy(alpha = 0.15f) else Color.Transparent,
+                                            contentColor = if (effectiveUserScore != null && effectiveUserScore > 0) tenseiColors.rating else MaterialTheme.colorScheme.onSurface
                                         ),
                                         border = BorderStroke(
                                             1.5.dp,
-                                            if (effectiveUserScore != null && effectiveUserScore > 0) Color(0xFFFFD700) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                            if (effectiveUserScore != null && effectiveUserScore > 0) tenseiColors.rating else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                         )
                                     ) {
                                         Icon(
@@ -1028,19 +1048,19 @@ fun DetailedAnimeScreen(
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (effectiveIsFavorite) Color(0xFFFF1744).copy(alpha = 0.15f) else Color.Transparent,
-                                            contentColor = if (effectiveIsFavorite) Color(0xFFFF1744) else MaterialTheme.colorScheme.onSurface
+                                            containerColor = if (effectiveIsFavorite) tenseiColors.favorite.copy(alpha = 0.15f) else Color.Transparent,
+                                            contentColor = if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
                                         ),
                                         border = BorderStroke(
                                             1.5.dp,
-                                            if (effectiveIsFavorite) Color(0xFFFF1744) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                            if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                         )
                                     ) {
                                         Icon(
                                             if (effectiveIsFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                             null,
                                             Modifier.size(20.dp),
-                                            tint = if (effectiveIsFavorite) Color(0xFFFF1744) else MaterialTheme.colorScheme.onSurface
+                                            tint = if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
@@ -1062,19 +1082,19 @@ fun DetailedAnimeScreen(
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (effectiveIsFavorite) Color(0xFFFF1744).copy(alpha = 0.15f) else Color.Transparent,
-                                            contentColor = if (effectiveIsFavorite) Color(0xFFFF1744) else MaterialTheme.colorScheme.onSurface
+                                            containerColor = if (effectiveIsFavorite) tenseiColors.favorite.copy(alpha = 0.15f) else Color.Transparent,
+                                            contentColor = if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
                                         ),
                                         border = BorderStroke(
                                             1.5.dp,
-                                            if (effectiveIsFavorite) Color(0xFFFF1744) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                            if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                         )
                                     ) {
                                         Icon(
                                             if (effectiveIsFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                             null,
                                             Modifier.size(20.dp),
-                                            tint = if (effectiveIsFavorite) Color(0xFFFF1744) else MaterialTheme.colorScheme.onSurface
+                                            tint = if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
@@ -1088,6 +1108,7 @@ fun DetailedAnimeScreen(
                     InfoCard(
                         displayData = displayData,
                         userStatusDisplay = userStatusDisplay,
+                        isLoading = isLoadingDetails,
                     )
                 }
 
@@ -1107,6 +1128,11 @@ fun DetailedAnimeScreen(
                         Spacer(modifier = Modifier.height(20.dp))
                         GenresCard(genres = displayData.genres)
                     }
+                } else if (isLoadingDetails) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailTextCardSkeleton(headerWidthFraction = 0.35f, bodyLines = 1)
+                    }
                 }
 
                 if (displayData.tags.isNotEmpty()) {
@@ -1119,6 +1145,11 @@ fun DetailedAnimeScreen(
                             onToggleShowAll = { showAllTags = !showAllTags },
                         )
                     }
+                } else if (isLoadingDetails) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailTextCardSkeleton(headerWidthFraction = 0.5f, bodyLines = 2)
+                    }
                 }
 
                 if (!displayData.description.isNullOrEmpty()) {
@@ -1130,9 +1161,14 @@ fun DetailedAnimeScreen(
                             onToggleShowFull = { showFullDescription = !showFullDescription },
                         )
                     }
+                } else if (isLoadingDetails) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailTextCardSkeleton(bodyLines = 4)
+                    }
                 }
 
-                // Show all relations including manga — manga relations are clickable and
+                // Show all relations including manga â€” manga relations are clickable and
                 // will open the manga detail screen (wired via onRelationClick in MainActivity).
                 val filteredRelations = displayData.relations
 
@@ -1357,6 +1393,11 @@ fun DetailedAnimeScreen(
                             }
                         }
                     }
+                } else if (isLoadingDetails) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailRailSkeleton(itemCount = 5, itemWidth = 110.dp)
+                    }
                 }
 
                 // Recommendations
@@ -1488,7 +1529,7 @@ fun DetailedAnimeScreen(
                                                         Text(
                                                             "${(score / 10.0).toString().take(3)}",
                                                             style = MaterialTheme.typography.labelSmall,
-                                                            color = Color(0xFFFFD700),
+                                                            color = ratingColorOnArtwork(),
                                                             fontWeight = FontWeight.Bold,
                                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                                         )
@@ -1526,6 +1567,11 @@ fun DetailedAnimeScreen(
                                 }
                             }
                         }
+                    }
+                } else if (isLoadingDetails) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailRailSkeleton(itemCount = 5, itemWidth = 110.dp)
                     }
                 }
 
@@ -1694,6 +1740,11 @@ fun DetailedAnimeScreen(
                                 }
                             }
                         }
+                    }
+                } else if (isLoadingDetails) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailRailSkeleton(itemCount = 6, itemWidth = 80.dp, posterAspectRatio = 1f)
                     }
                 }
 
@@ -1870,6 +1921,11 @@ fun DetailedAnimeScreen(
                             }
                         }
                     }
+                } else if (isLoadingDetails) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailRailSkeleton(itemCount = 6, itemWidth = 80.dp, posterAspectRatio = 1f)
+                    }
                 }
 
                 item { Spacer(modifier = Modifier.height(80.dp)) }
@@ -1882,7 +1938,7 @@ fun DetailedAnimeScreen(
         ModalBottomSheet(
             onDismissRequest = { selectedTagForDescription = null },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier

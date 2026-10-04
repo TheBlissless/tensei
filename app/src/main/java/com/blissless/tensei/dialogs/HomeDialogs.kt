@@ -50,6 +50,7 @@ import coil.compose.AsyncImage
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.StatusButton
+import com.blissless.tensei.ui.theme.tenseiColors
 
 /**
  * Converts a stored AniList score (0-100 raw) to its 0-10 display value.
@@ -192,14 +193,14 @@ fun HomeAnimeStatusDialog(
                         modifier = Modifier.weight(1f).height(44.dp).scale(if (markedForRemoval && showAnimation) scale else 1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (markedForRemoval) Color.Red.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.15f),
-                            contentColor = if (markedForRemoval) Color.Red else Color.White
+                            containerColor = if (markedForRemoval) tenseiColors.destructive.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.15f),
+                            contentColor = if (markedForRemoval) tenseiColors.destructive else Color.White
                         ),
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Remove", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = if (markedForRemoval) Color.Red else Color.White.copy(alpha = 0.7f))
+                        Text("Remove", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = if (markedForRemoval) tenseiColors.destructive else Color.White.copy(alpha = 0.7f))
                     }
                 }
 
@@ -242,7 +243,7 @@ fun HomeAnimeStatusDialog(
                     },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (markedForRemoval) Color.Red else MaterialTheme.colorScheme.primary, contentColor = if (markedForRemoval) Color.White else MaterialTheme.colorScheme.onPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = if (markedForRemoval) tenseiColors.destructive else MaterialTheme.colorScheme.primary, contentColor = if (markedForRemoval) Color.White else MaterialTheme.colorScheme.onPrimary)
                 ) { Text(if (markedForRemoval) "Remove from List" else "Save Changes", fontWeight = FontWeight.Bold) }
             }
         }

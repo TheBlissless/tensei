@@ -86,7 +86,8 @@ import com.blissless.tensei.data.models.MangaExploreMedia
 import com.blissless.tensei.ui.components.AnimeCardBounds
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
 import com.blissless.tensei.ui.screens.status.SortOption
-import com.blissless.tensei.ui.theme.StatusColors
+import com.blissless.tensei.ui.theme.statusColor
+import com.blissless.tensei.ui.theme.ratingColorOnArtwork
 import java.util.Locale
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -126,7 +127,7 @@ fun ExploreCategoryListScreen(
         label = "offsetY"
     )
 
-    var selectedSort by remember { mutableStateOf(SortOption.ALPHABETICAL_A_Z) }
+    var selectedSort by remember { mutableStateOf(SortOption.LAST_UPDATED) }
     var showSortSheet by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -137,6 +138,7 @@ fun ExploreCategoryListScreen(
             t.contains(searchQuery, ignoreCase = true)
         }
         when (selectedSort) {
+            SortOption.LAST_UPDATED -> filtered
             SortOption.ALPHABETICAL_A_Z -> filtered.sortedBy {
                 (if (preferEnglishTitles && !it.titleEnglish.isNullOrEmpty()) it.titleEnglish else it.title).lowercase()
             }
@@ -162,6 +164,7 @@ fun ExploreCategoryListScreen(
         val filtered = if (searchQuery.isBlank()) mangaList
         else mangaList.filter { titleOf(it).contains(searchQuery, ignoreCase = true) }
         when (selectedSort) {
+            SortOption.LAST_UPDATED -> filtered
             SortOption.ALPHABETICAL_A_Z -> filtered.sortedBy { titleOf(it).lowercase() }
             SortOption.ALPHABETICAL_Z_A -> filtered.sortedByDescending { titleOf(it).lowercase() }
             SortOption.YEAR_NEWEST -> filtered.sortedByDescending {
@@ -406,7 +409,7 @@ fun ExploreCategoryListScreen(
                                     modifier = Modifier.size(22.dp)
                                 )
                                 Text(
-                                    option.label,
+                                    option.displayLabel(isManga),
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                     modifier = Modifier.weight(1f)
@@ -494,7 +497,7 @@ private fun ExploreCategoryAnimeCard(
 ) {
     val context = LocalContext.current
     var cardBounds by remember { mutableStateOf<android.graphics.RectF?>(null) }
-    val statusColor = if (showStatusColors) (StatusColors[currentStatus] ?: Color.Transparent) else Color.Transparent
+    val listStatusColor = if (showStatusColors) statusColor(currentStatus) else Color.Transparent
     val hasStatus = currentStatus != null
 
     val episodeText = remember(anime.latestEpisode, anime.episodes) {
@@ -515,7 +518,7 @@ private fun ExploreCategoryAnimeCard(
     }
 
     val buttonContainerColor = if (hasStatus && showStatusColors) {
-        statusColor.copy(alpha = 0.8f)
+        listStatusColor.copy(alpha = 0.8f)
     } else {
         Color.Black.copy(alpha = 0.6f)
     }
@@ -608,14 +611,14 @@ private fun ExploreCategoryAnimeCard(
                     }
                 }
 
-                if (showStatusColors && statusColor != Color.Transparent) {
+                if (showStatusColors && listStatusColor != Color.Transparent) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .fillMaxWidth()
                             .height(3.dp)
                             .padding(top = 52.dp)
-                            .background(statusColor)
+                            .background(listStatusColor)
                     )
                 }
 
@@ -749,7 +752,7 @@ private fun ExploreCategoryMangaCard(
                         Text(
                             text = "★ ${String.format(Locale.US, "%.1f", score / 10.0)}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFFFD700),
+                            color = ratingColorOnArtwork(),
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                         )

@@ -50,6 +50,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
+import com.blissless.tensei.ui.components.DetailSpecGridSkeleton
+import com.blissless.tensei.ui.components.DetailStatStripSkeleton
+import com.blissless.tensei.ui.theme.tenseiColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -62,12 +65,31 @@ import java.time.format.DateTimeFormatter
 
 // ─── Utility functions ─────────────────────────────────────────────────────
 
+/**
+ * English ordinal suffix for a day of month: 1st, 2nd, 3rd, 4th … 11th, 21st, 22nd.
+ */
+internal fun ordinalSuffix(day: Int): String = when {
+    day % 100 in 11..13 -> "th"
+    day % 10 == 1 -> "st"
+    day % 10 == 2 -> "nd"
+    day % 10 == 3 -> "rd"
+    else -> "th"
+}
+
+/**
+ * Formats an ISO `yyyy-MM-dd` string as "1st October 2024".
+ *
+ * The month name follows the device locale (a German device still shows
+ * "1st Oktober"), while the day always carries the English ordinal suffix.
+ */
 internal fun formatDate(dateStr: String): String {
     return try {
         val parts = dateStr.split("-")
         if (parts.size == 3) {
             val date = LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
-            date.format(DateTimeFormatter.ofPattern("d MMMM, yyyy"))
+            val day = date.dayOfMonth
+            val month = date.format(DateTimeFormatter.ofPattern("MMMM"))
+            "$day${ordinalSuffix(day)} $month ${date.year}"
         } else dateStr
     } catch (_: Exception) {
         dateStr
@@ -396,11 +418,14 @@ internal fun NoDefaultExtensionDialog(
  * @param userStatusDisplay The user's own list status (e.g. "Watching", "Completed"). Null when
  *   the user has not tracked this title. The series publication status is already shown as the
  *   header badge, so it is deliberately not repeated here.
+ * @param isLoading True while the detail fetch is still running. Sections the list data already
+ *   filled in are rendered normally; only the empty ones fall back to a skeleton.
  */
 @Composable
 internal fun InfoCard(
     displayData: com.blissless.tensei.data.models.DetailedAnimeData,
     userStatusDisplay: String?,
+    isLoading: Boolean = false,
 ) {
     Card(
         modifier = Modifier
@@ -485,7 +510,7 @@ internal fun InfoCard(
                         val accent = when (label) {
                             "Episodes" -> MaterialTheme.colorScheme.primary
                             "Duration" -> MaterialTheme.colorScheme.tertiary
-                            "Score"    -> Color(0xFFFFB300)
+                            "Score"    -> tenseiColors.rating
                             else       -> MaterialTheme.colorScheme.primary
                         }
                         val icon = when (label) {
@@ -511,6 +536,11 @@ internal fun InfoCard(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            if (heroStats.isEmpty() && isLoading) {
+                DetailStatStripSkeleton()
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -578,6 +608,10 @@ userStatusDisplay?.let {
                         add(SpecEntry(label = "Ended", value = formatDate(it)))
                     }
                 }
+            }
+
+            if (specs.isEmpty() && isLoading) {
+                DetailSpecGridSkeleton()
             }
 
             var i = 0

@@ -86,3 +86,76 @@ val TenseiTypography = Typography(
         letterSpacing = 0.5.sp
     )
 )
+
+/**
+ * Roles that Material's scale doesn't cover but the app uses everywhere.
+ *
+ * Keeping them here (instead of inline `fontSize = 11.sp, letterSpacing = 1.5.sp`
+ * at each call site) is what makes section labels, rail titles and badges look
+ * like one system rather than a dozen approximations of one system.
+ */
+object TenseiType {
+    /** Uppercase, wide-tracked rail/section label. */
+    val sectionLabel = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.8.sp
+    )
+
+    /** Card title under a poster. Two lines max. */
+    val cardTitle = TextStyle(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp,
+        lineHeight = 17.sp,
+        letterSpacing = 0.sp
+    )
+
+    /** Secondary metadata under a card title ("12 eps • 2024"). */
+    val cardMeta = TextStyle(
+        fontWeight = FontWeight.Normal,
+        fontSize = 11.sp,
+        lineHeight = 15.sp,
+        letterSpacing = 0.2.sp
+    )
+
+    /** Text inside a small badge on artwork. */
+    val badge = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 10.sp,
+        lineHeight = 13.sp,
+        letterSpacing = 0.4.sp
+    )
+
+    /** Large numeric stat / score readout. */
+    val statValue = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 22.sp,
+        lineHeight = 26.sp,
+        letterSpacing = (-0.4).sp
+    )
+
+    /** Small uppercase eyebrow above a value. */
+    val statLabel = TextStyle(
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 0.9.sp
+    )
+
+    /** Screen / page title. */
+    val screenTitle = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        letterSpacing = (-0.3).sp
+    )
+
+    /** Hero title over a featured banner. */
+    val heroTitle = TextStyle(
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        letterSpacing = (-0.4).sp
+    )
+}

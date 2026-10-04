@@ -96,6 +96,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.blissless.tensei.data.models.SubtitleSettings
+import com.blissless.tensei.ui.theme.Spacing
 import kotlin.math.roundToInt
 
 internal const val LOREM_IPSUM = "The quick brown fox jumps over the lazy dog.\nThis is a second line for testing."
@@ -914,7 +915,7 @@ internal fun ImmediateColorPickerContent(
     }
 
     Column(
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
+        modifier = Modifier.padding(horizontal = Spacing.gutter).padding(bottom = Spacing.xs),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         val paletteSize = 220.dp

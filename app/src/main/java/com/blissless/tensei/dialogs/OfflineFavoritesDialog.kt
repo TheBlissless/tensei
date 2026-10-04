@@ -40,6 +40,7 @@ import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.StoredFavorite
+import com.blissless.tensei.ui.theme.tenseiColors
 
 @Composable
 fun OfflineFavoritesDialog(
@@ -163,7 +164,7 @@ private fun OfflineFavoriteItem(
             IconButton(onClick = onRemove) {
                 Icon(
                     Icons.Filled.Favorite, "Remove from favorites",
-                    tint = Color(0xFFFF1744), modifier = Modifier.size(24.dp)
+                    tint = tenseiColors.favorite, modifier = Modifier.size(24.dp)
                 )
             }
         }

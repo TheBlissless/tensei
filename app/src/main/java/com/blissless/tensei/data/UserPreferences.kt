@@ -6,6 +6,7 @@ import com.blissless.tensei.data.models.LocalAnimeEntry
 import com.blissless.tensei.data.models.StoredFavorite
 import com.blissless.tensei.data.models.SubtitleProfileData
 import com.blissless.tensei.data.models.SubtitleSettings
+import com.blissless.tensei.ui.theme.ColorMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +24,7 @@ class UserPreferences(context: Context) {
         // Preference keys
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_DISABLE_MATERIAL_COLORS = "disable_material_colors"
+        private const val KEY_COLOR_MODE = "color_mode"
         private const val KEY_PREFERRED_CATEGORY = "preferred_category"
         private const val KEY_SHOW_STATUS_COLORS = "show_status_colors"
         private const val KEY_SHOW_ANIME_CARD_BUTTONS = "show_anime_card_buttons"
@@ -106,6 +108,10 @@ class UserPreferences(context: Context) {
 
     private val _disableMaterialColors = MutableStateFlow(true)
     val disableMaterialColors: StateFlow<Boolean> = _disableMaterialColors.asStateFlow()
+
+    /** One of [ColorMode] values: "material", "semi_monochrome" or "monochrome". */
+    private val _colorMode = MutableStateFlow(ColorMode.SEMI_MONOCHROME.value)
+    val colorMode: StateFlow<String> = _colorMode.asStateFlow()
 
     private val _hideEpisodeDescription = MutableStateFlow(true)
     val hideEpisodeDescription: StateFlow<Boolean> = _hideEpisodeDescription.asStateFlow()
@@ -301,6 +307,13 @@ class UserPreferences(context: Context) {
         _appIcon.value = sharedPreferences.getString(KEY_APP_ICON, "default") ?: "default"
         _maxPerformance.value = sharedPreferences.getBoolean(KEY_MAX_PERFORMANCE, false)
         _disableMaterialColors.value = sharedPreferences.getBoolean(KEY_DISABLE_MATERIAL_COLORS, true)
+        // Color mode supersedes the old boolean. Fall back to it on first run so
+        // existing installs keep whatever they had chosen; the neutral legacy
+        // value maps to the new default (semi monochrome).
+        _colorMode.value = sharedPreferences.getString(
+            KEY_COLOR_MODE,
+            if (_disableMaterialColors.value) ColorMode.SEMI_MONOCHROME.value else ColorMode.MATERIAL.value
+        ) ?: ColorMode.SEMI_MONOCHROME.value
         _preferredCategory.value = sharedPreferences.getString(KEY_PREFERRED_CATEGORY, "sub") ?: "sub"
         _showStatusColors.value = sharedPreferences.getBoolean(KEY_SHOW_STATUS_COLORS, false)
         _showAnimeCardButtons.value = sharedPreferences.getBoolean(KEY_SHOW_ANIME_CARD_BUTTONS, false)
@@ -405,8 +418,19 @@ class UserPreferences(context: Context) {
     }
 
     fun setDisableMaterialColors(enabled: Boolean) {
-        _disableMaterialColors.value = enabled
-        sharedPreferences.edit { putBoolean(KEY_DISABLE_MATERIAL_COLORS, enabled) }
+        setColorMode(if (enabled) ColorMode.MONOCHROME.value else ColorMode.MATERIAL.value)
+    }
+
+    fun setColorMode(mode: String) {
+        val resolved = ColorMode.fromValue(mode)
+        _colorMode.value = resolved.value
+        // Legacy mirrors: neutral surfaces in every non-Material mode.
+        val neutral = resolved.usesNeutralSurfaces
+        _disableMaterialColors.value = neutral
+        sharedPreferences.edit {
+            putString(KEY_COLOR_MODE, resolved.value)
+            putBoolean(KEY_DISABLE_MATERIAL_COLORS, neutral)
+        }
     }
 
     fun setHideEpisodeDescription(enabled: Boolean) {

@@ -102,7 +102,10 @@ import com.blissless.tensei.data.models.MangaExploreMedia
 import com.blissless.tensei.data.models.MediaTag
 import com.blissless.tensei.data.models.toDetailedAnimeData
 import com.blissless.tensei.ui.screens.details.DetailedAnimeScreen
-import com.blissless.tensei.ui.theme.StatusColors
+import com.blissless.tensei.ui.theme.statusColorOnArtwork
+import com.blissless.tensei.ui.components.SkeletonBlock
+import com.blissless.tensei.ui.components.shimmer
+import com.blissless.tensei.ui.theme.ratingColorOnArtwork
 import com.blissless.tensei.ui.theme.StatusLabels
 import com.blissless.tensei.ui.theme.MangaStatusLabels
 import kotlinx.coroutines.Job
@@ -741,11 +744,9 @@ fun SearchScreen(
                 }
             }
 
-            if (isSearching) {
-                Box(modifier = Modifier.fillMaxSize().padding(top = 128.dp), contentAlignment = Alignment.TopCenter) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
-            } else if (hasSearched && filteredResults.isEmpty() && filteredMangaResults.isEmpty()) {
+if (isSearching) {
+            SearchResultsSkeleton()
+        } else if (hasSearched && filteredResults.isEmpty() && filteredMangaResults.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 128.dp)) {
                         Icon(Icons.Default.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(48.dp))
@@ -1067,7 +1068,7 @@ private fun SearchResultCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxWidth().aspectRatio(2f/3f).clip(RoundedCornerShape(12.dp))
                 )
-                if (listStatus != null && StatusColors[listStatus] != Color.Transparent) {
+                if (listStatus != null && statusColorOnArtwork(listStatus) != Color.Transparent) {
                     Surface(
                         modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
                         shape = RoundedCornerShape(6.dp),
@@ -1075,7 +1076,7 @@ private fun SearchResultCard(
                     ) {
 Text(
                             if (anime == null) MangaStatusLabels[listStatus] ?: listStatus else StatusLabels[listStatus] ?: listStatus,
-                            color = StatusColors[listStatus] ?: Color.Transparent,
+                            color = statusColorOnArtwork(listStatus),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -1087,9 +1088,9 @@ Text(
                         modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(12.dp))
+                        Icon(Icons.Default.Star, contentDescription = null, tint = ratingColorOnArtwork(), modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(2.dp))
-                        Text(String.format(Locale.getDefault(), "%.1f", displayScore), color = Color(0xFFFFD700), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(String.format(Locale.getDefault(), "%.1f", displayScore), color = ratingColorOnArtwork(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -1128,6 +1129,50 @@ Text(
  * List-status badges (CURRENT/PLANNING/COMPLETED) are moved to the
  * top-START corner so they don't collide with the type chip.
  */
+/**
+ * Placeholder for the search results grid. Mirrors the real grid's 2 columns,
+ * insets and card geometry (2:3 poster + two text lines) so results don't reflow
+ * when the query resolves.
+ */
+@Composable
+private fun SearchResultsSkeleton() {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier
+            .fillMaxSize()
+            .shimmer(),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        userScrollEnabled = false,
+    ) {
+        items(6) {
+            Column {
+                SkeletonBlock(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(2f / 3f),
+                    cornerRadius = 12.dp,
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                SkeletonBlock(
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .height(12.dp)
+                        .padding(horizontal = 4.dp)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                SkeletonBlock(
+                    modifier = Modifier
+                        .width(52.dp)
+                        .height(9.dp)
+                        .padding(horizontal = 4.dp)
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun MediaSearchResultCard(
     isAnime: Boolean,
@@ -1183,7 +1228,7 @@ private fun MediaSearchResultCard(
 
                 // List-status badge — moved to top-START in the unified card
                 // so it doesn't overlap with the type chip on the top-end.
-                if (listStatus != null && StatusColors[listStatus] != Color.Transparent) {
+                if (listStatus != null && statusColorOnArtwork(listStatus) != Color.Transparent) {
                     Surface(
                         modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
                         shape = RoundedCornerShape(6.dp),
@@ -1191,7 +1236,7 @@ private fun MediaSearchResultCard(
                     ) {
                         Text(
                             if (isAnime) StatusLabels[listStatus] ?: listStatus else MangaStatusLabels[listStatus] ?: listStatus,
-                            color = StatusColors[listStatus] ?: Color.Transparent,
+                            color = statusColorOnArtwork(listStatus),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -1204,9 +1249,9 @@ private fun MediaSearchResultCard(
                         modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFD700), modifier = Modifier.size(12.dp))
+                        Icon(Icons.Default.Star, contentDescription = null, tint = ratingColorOnArtwork(), modifier = Modifier.size(12.dp))
                         Spacer(modifier = Modifier.width(2.dp))
-                        Text(String.format(Locale.getDefault(), "%.1f", displayScore), color = Color(0xFFFFD700), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(String.format(Locale.getDefault(), "%.1f", displayScore), color = ratingColorOnArtwork(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
 

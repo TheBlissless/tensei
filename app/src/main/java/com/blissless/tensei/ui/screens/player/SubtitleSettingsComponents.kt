@@ -1,5 +1,6 @@
 package com.blissless.tensei.ui.screens.player
 
+import com.blissless.tensei.ui.theme.Spacing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -63,7 +64,7 @@ internal fun PanelHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(horizontal = Spacing.gutter, vertical = Spacing.lg),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -107,7 +108,7 @@ internal fun SectionDivider() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = Spacing.gutter)
             .height(1.dp)
             .background(PanelDivider)
     )
@@ -122,7 +123,7 @@ internal fun ToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp),
+            .padding(horizontal = Spacing.gutter, vertical = Spacing.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -152,7 +153,7 @@ internal fun SliderRow(
     valueRange: ClosedFloatingPointRange<Float>,
     displayValue: String
 ) {
-    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+    Column(modifier = Modifier.padding(horizontal = Spacing.gutter)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically

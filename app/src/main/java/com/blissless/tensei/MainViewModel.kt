@@ -475,6 +475,7 @@ class MainViewModel : ViewModel() {
     val appIcon: StateFlow<String> get() = userPreferences.appIcon
     val maxPerformance: StateFlow<Boolean> get() = userPreferences.maxPerformance
     val disableMaterialColors: StateFlow<Boolean> get() = userPreferences.disableMaterialColors
+    val colorMode: StateFlow<String> get() = userPreferences.colorMode
     val hideEpisodeDescription: StateFlow<Boolean> get() = userPreferences.hideEpisodeDescription
     val preferredCategory: StateFlow<String> get() = userPreferences.preferredCategory
     val showStatusColors: StateFlow<Boolean> get() = userPreferences.showStatusColors
@@ -983,11 +984,13 @@ class MainViewModel : ViewModel() {
             }
         }
 
-        _offlineCurrentlyWatching.value = currentlyWatching.sortedByDescending { it.averageScore ?: 0 }
-        _offlinePlanningToWatch.value = planningToWatch.sortedByDescending { it.averageScore ?: 0 }
-        _offlineCompleted.value = completed.sortedByDescending { it.averageScore ?: 0 }
-        _offlineOnHold.value = onHold.sortedByDescending { it.averageScore ?: 0 }
-        _offlineDropped.value = dropped.sortedByDescending { it.averageScore ?: 0 }
+        // Keep the cache's stored ordering rather than re-sorting by score, so the
+        // "Last Updated" default the list screens offer reflects the saved order.
+        _offlineCurrentlyWatching.value = currentlyWatching
+        _offlinePlanningToWatch.value = planningToWatch
+        _offlineCompleted.value = completed
+        _offlineOnHold.value = onHold
+        _offlineDropped.value = dropped
 
         // Prefetch streams for offline "Continue Watching" list
         // prefetchOfflineWatchingStreams() // Disabled for now

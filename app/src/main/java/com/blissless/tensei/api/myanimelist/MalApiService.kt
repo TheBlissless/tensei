@@ -201,7 +201,7 @@ class MalApiService(context: Context) {
                 val fields =
                     "list_status{status,score,num_episodes_watched,updated_at},title,main_picture,num_episodes,alternative_titles"
                 var url =
-                    "$MAL_API_BASE/users/@me/animelist?fields=$fields&limit=$pageSize&offset=$offset&nsfw=true"
+                    "$MAL_API_BASE/users/@me/animelist?fields=$fields&limit=$pageSize&offset=$offset&nsfw=true&sort=list_updated_at"
                 if (status != null) {
                     url += "&status=$status"
                 }
@@ -339,7 +339,7 @@ class MalApiService(context: Context) {
                 val fields =
                     "list_status{status,score,num_chapters_read,num_volumes_read,updated_at},title,main_picture,num_chapters,num_volumes,alternative_titles,status"
                 var url =
-                    "$MAL_API_BASE/users/@me/mangalist?fields=$fields&limit=$pageSize&offset=$offset&nsfw=true"
+                    "$MAL_API_BASE/users/@me/mangalist?fields=$fields&limit=$pageSize&offset=$offset&nsfw=true&sort=list_updated_at"
                 if (status != null) {
                     url += "&status=$status"
                 }

@@ -29,9 +29,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -104,10 +102,14 @@ import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.MangaExploreMedia
 import com.blissless.tensei.ui.components.LoadingSkeleton
 import com.blissless.tensei.ui.components.SectionTitle
-import com.blissless.tensei.ui.components.appIconDrawable
+import com.blissless.tensei.ui.components.AppIconCircle
+import com.blissless.tensei.ui.components.CarouselPageDots
+import com.blissless.tensei.ui.components.ExploreTopBarRow
+import com.blissless.tensei.ui.components.SearchCircleAction
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
 import com.blissless.tensei.ui.screens.manga.MangaStatusDialog
-import com.blissless.tensei.ui.theme.StatusColors
+import com.blissless.tensei.ui.theme.statusColor
+import com.blissless.tensei.ui.theme.tenseiColors
 import com.blissless.tensei.util.ErrorHandler
 import com.blissless.tensei.viewmodel.fetchMangaExplore
 import com.blissless.tensei.viewmodel.isLoadingManga
@@ -127,6 +129,13 @@ import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 import kotlin.time.Duration.Companion.milliseconds
 import java.util.Locale
+import com.blissless.tensei.ui.components.SectionHeaderSkeleton
+import com.blissless.tensei.ui.components.RailCardTitle
+import com.blissless.tensei.ui.components.TenseiErrorBanner
+import com.blissless.tensei.ui.components.TenseiRailSkeleton
+import com.blissless.tensei.ui.theme.Radius
+import com.blissless.tensei.ui.theme.Sizes
+import com.blissless.tensei.ui.theme.Spacing
 
 /**
  * Manga explore screen. Mirrors the anime [AnimeScreen] layout but renders
@@ -312,17 +321,19 @@ fun MangaScreen(
         }
     }
 
+    val requestRefresh: () -> Unit = {
+        if (viewModel.tryManualRefresh("manga")) {
+            isRefreshing = true
+            scope.launch {
+                viewModel.fetchMangaExplore()
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = {
-                if (viewModel.tryManualRefresh("manga")) {
-                    isRefreshing = true
-                    scope.launch {
-                        viewModel.fetchMangaExplore()
-                    }
-                }
-            },
+            onRefresh = requestRefresh,
             modifier = Modifier.fillMaxSize()
         ) {
             if (showMangaSkeleton) {
@@ -345,34 +356,12 @@ fun MangaScreen(
                     .padding(bottom = 80.dp)
             ) {
             if (apiError != null || isOffline) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).windowInsetsPadding(WindowInsets.statusBars),
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (isOffline) Color(0xFF1A1A1A) else if (isOled) Color(0xFF93000A) else MaterialTheme.colorScheme.errorContainer,
-                    tonalElevation = 2.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
-                            contentDescription = null,
-                            tint = if (isOffline) Color.White.copy(alpha = 0.7f) else if (isOled) Color(0xFFFFDAD6).copy(alpha = 0.7f) else MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isOffline) "No internet connection" else "AniList is currently unavailable",
-                            color = if (isOffline) Color.White.copy(alpha = 0.8f) else if (isOled) Color(0xFFFFDAD6) else MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
+                TenseiErrorBanner(
+                    message = if (isOffline) "No internet connection" else "AniList is currently unavailable",
+                    icon = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
+                    onRetry = requestRefresh,
+                )
+                Spacer(modifier = Modifier.height(Spacing.sm))
             }
 
             // No "Manga" header — sections flow directly.
@@ -432,6 +421,7 @@ fun MangaScreen(
                         isVisible = isVisible,
                         isDialogOpen = showMangaStatusDialog || showMangaNoExtensionDialog
                     )
+                    Spacer(Modifier.height(16.dp))
                 }
 
                 // Section rows in fixed order. Trending now also renders as a row with the full
@@ -478,19 +468,14 @@ fun MangaScreen(
                     }
                 }
             } else if (!mangaTimedOut) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(modifier = Modifier.size(28.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Loading manga...",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                // Fetch is still resolving — skeleton the carousel and the first
+                // rails instead of flashing a bare spinner.
+                FeaturedCarouselSkeleton()
+                Spacer(Modifier.height(16.dp))
+                repeat(3) { index ->
+                    SectionHeaderSkeleton()
+                    TenseiRailSkeleton(itemCount = 3)
+                    if (index < 2) Spacer(Modifier.height(16.dp))
                 }
             } else {
                 // Manga fetch concluded with nothing returned — show the AniList unavailable banner.
@@ -592,7 +577,7 @@ private fun MangaExploreHorizontalRow(
 
     LazyRow(
         state = listState,
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.railGutter),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -605,13 +590,10 @@ private fun MangaExploreHorizontalRow(
             val coverUrl = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: manga.coverImage?.medium ?: ""
             val status = mangaStatusMap[manga.id]
             val hasStatus = status != null
-            val statusIndicatorColor = if (showMangaStatusColors && status != null) {
-                (StatusColors[status] ?: Color.Transparent)
-            } else {
-                Color.Transparent
-            }
-            val buttonContainerColor = if (showMangaStatusColors && status != null) {
-                (StatusColors[status] ?: Color.Black).copy(alpha = 0.8f)
+            val resolvedStatusColor = statusColor(status)
+            val statusIndicatorColor = if (showMangaStatusColors) resolvedStatusColor else Color.Transparent
+            val buttonContainerColor = if (showMangaStatusColors) {
+                resolvedStatusColor.copy(alpha = 0.8f)
             } else {
                 Color.Black.copy(alpha = 0.6f)
             }
@@ -650,10 +632,10 @@ private fun MangaExploreHorizontalRow(
             val finalScale = baseScale * introScale
             val finalAlpha = baseAlpha * easedProgress
 
-            // Match anime card dimensions exactly: 120dp wide, 170dp tall, RoundedCornerShape(4.dp)
+            // Same geometry as the anime rail so both tabs read as one system.
             Column(
                 modifier = Modifier
-                    .width(120.dp)
+                    .width(Sizes.railPosterWidth)
                     .graphicsLayer {
                         scaleX = finalScale
                         scaleY = finalScale
@@ -665,8 +647,8 @@ private fun MangaExploreHorizontalRow(
                     }
             ) {
                 Card(
-                    shape = RoundedCornerShape(4.dp),
-                    modifier = Modifier.height(170.dp).clip(RoundedCornerShape(4.dp)).clickable { onMangaClick(manga) }
+                    shape = Radius.posterShape,
+                    modifier = Modifier.height(Sizes.railPosterHeight).clip(Radius.posterShape).clickable { onMangaClick(manga) }
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         if (coverUrl.isNotEmpty()) {
@@ -705,7 +687,7 @@ private fun MangaExploreHorizontalRow(
                             ) {
                                 Text(
                                     "★ ${String.format(Locale.US, "%.1f", score / 10.0)}",
-                                    color = Color(0xFFFFD700),
+                                    color = tenseiColors.rating,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -741,7 +723,7 @@ private fun MangaExploreHorizontalRow(
                                 FilledTonalIconButton(
                                     onClick = { onStatusClick(manga) },
                                     modifier = Modifier.size(34.dp),
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = Radius.chipShape,
                                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                                         containerColor = buttonContainerColor,
                                         contentColor = Color.White
@@ -768,7 +750,7 @@ private fun MangaExploreHorizontalRow(
                                 FilledTonalIconButton(
                                     onClick = { onReadClick(manga) },
                                     modifier = Modifier.size(34.dp),
-                                    shape = RoundedCornerShape(4.dp),
+                                    shape = Radius.chipShape,
                                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                                         containerColor = Color.Black.copy(alpha = 0.5f),
                                         contentColor = Color.White
@@ -784,17 +766,7 @@ private fun MangaExploreHorizontalRow(
                         }
                     }
                 }
-                Box(modifier = Modifier.width(120.dp).height(36.dp)) {
-                    Text(
-                        text = title,
-                        modifier = Modifier.padding(top = 8.dp),
-                        maxLines = 2,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+RailCardTitle(title = title)
             }
         }
     }
@@ -935,68 +907,33 @@ private fun MangaFeaturedCarousel(
                         )
                     )
                 )
-                .padding(start = 20.dp, end = 20.dp, top = 32.dp)
                 .align(Alignment.TopCenter)
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.12f),
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            AsyncImage(
-                                model = appIconDrawable(appIcon),
-                                contentDescription = "App",
-                                modifier = Modifier.size(32.dp).clip(CircleShape)
-                            )
-                        }
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val currentPage = pagerState.currentPage % actualCount
-                        repeat(actualCount) { index ->
-                            Box(
-                                modifier = Modifier
-                                    .size(if (index == currentPage) 16.dp else 5.dp, 5.dp)
-                                    .background(
-                                        if (index == currentPage) Color.White
-                                        else Color.White.copy(alpha = 0.4f),
-                                        RoundedCornerShape(3.dp)
-                                    )
-                            )
-                        }
-                    }
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.12f),
-                        modifier = Modifier.size(40.dp),
-                        onClick = onSearchClick
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
+            ExploreTopBarRow(
+                leading = {
+                    AppIconCircle(
+                        appIcon = appIcon,
+                        containerColor = Color.White.copy(alpha = 0.12f)
+                    )
+                },
+                center = {
+                    CarouselPageDots(
+                        count = actualCount,
+                        currentIndex = pagerState.currentPage % actualCount
+                    )
+                },
+                trailing = {
+                    SearchCircleAction(
+                        onClick = onSearchClick,
+                        containerColor = Color.White.copy(alpha = 0.12f),
+                        contentColor = Color.White
+                    )
                 }
-            }
+            )
         }
 
         Box(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).align(Alignment.BottomCenter),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl).align(Alignment.BottomCenter),
             contentAlignment = Alignment.BottomCenter
         ) {
             val currentManga by remember {
@@ -1050,7 +987,7 @@ private fun MangaFeaturedCarousel(
                             val scoreValue = avgScore / 10.0
                             Text(
                                 text = "★ ${"%.1f".format(scoreValue)}",
-                                color = Color(0xFFFFD700),
+                                color = tenseiColors.rating,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1075,7 +1012,7 @@ private fun MangaFeaturedCarousel(
                     ) {
                         val currentStatus = mangaStatusMap[currentManga.id]
                         val isSaved = currentStatus != null
-                        val statusColor = if (isSaved) (StatusColors[currentStatus] ?: Color.White) else Color.White
+                        val savedStatusColor = if (isSaved) statusColor(currentStatus) else Color.White
 
                         IconButton(
                             onClick = { onStatusClick(currentManga) },
@@ -1083,14 +1020,14 @@ private fun MangaFeaturedCarousel(
                         ) {
                             Surface(
                                 shape = CircleShape,
-                                color = (if (isSaved) statusColor else Color.White).copy(alpha = 0.15f),
+                                color = savedStatusColor.copy(alpha = 0.15f),
                                 modifier = Modifier.size(44.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         if (isSaved) Icons.Default.Bookmark else Icons.Outlined.BookmarkAdd,
                                         contentDescription = "Save",
-                                        tint = if (isSaved) statusColor else Color.White,
+                                        tint = savedStatusColor,
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
@@ -1099,7 +1036,9 @@ private fun MangaFeaturedCarousel(
 
                         Button(
                             onClick = { onReadClick(currentManga) },
-                            modifier = Modifier.height(50.dp),
+                            modifier = Modifier
+                                .width(Sizes.heroActionButtonWidth)
+                                .height(50.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color.White.copy(alpha = 0.15f),

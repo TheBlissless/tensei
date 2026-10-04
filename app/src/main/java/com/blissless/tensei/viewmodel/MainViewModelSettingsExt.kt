@@ -28,6 +28,9 @@ import kotlinx.coroutines.launch
 fun MainViewModel.setDisableMaterialColors(enabled: Boolean) =
     userPreferences.setDisableMaterialColors(enabled)
 
+fun MainViewModel.setColorMode(mode: String) =
+    userPreferences.setColorMode(mode)
+
 fun MainViewModel.setHideEpisodeDescription(enabled: Boolean) =
     userPreferences.setHideEpisodeDescription(enabled)
 

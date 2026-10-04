@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Update
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Card
@@ -88,10 +89,22 @@ import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.ui.components.HomeAnimeCardBounds
 import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
+import com.blissless.tensei.ui.theme.tenseiColors
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 
+/**
+ * Sort orders offered by the list screens (home status lists and explore
+ * category lists).
+ *
+ * [LAST_UPDATED] is first and is the default everywhere. It is deliberately a
+ * no-op: AniList's `MediaListCollection` and MAL's `users/@me/animelist` both
+ * return entries most-recently-updated first, and neither the repositories nor
+ * the ViewModels pass a sort argument, so preserving the incoming order *is*
+ * "sort by last updated" without needing an `updatedAt` field on the models.
+ */
 enum class SortOption(val label: String, val icon: ImageVector) {
+    LAST_UPDATED("Last Updated", Icons.Default.Update),
     ALPHABETICAL_A_Z("A-Z", Icons.AutoMirrored.Filled.Sort),
     ALPHABETICAL_Z_A("Z-A", Icons.AutoMirrored.Filled.Sort),
     YEAR_NEWEST("Year \u2193", Icons.Default.DateRange),
@@ -99,7 +112,14 @@ enum class SortOption(val label: String, val icon: ImageVector) {
     EPISODES_MOST("Eps \u2193", Icons.Default.PlayArrow),
     EPISODES_LEAST("Eps \u2191", Icons.Default.PlayArrow),
     SCORE_HIGH("Score \u2193", Icons.Default.Star),
-    SCORE_LOW("Score \u2191", Icons.Default.Star)
+    SCORE_LOW("Score \u2191", Icons.Default.Star);
+
+    /** Label as shown in the sort sheet, with manga wording where it differs. */
+    fun displayLabel(isManga: Boolean): String = if (!isManga) label else when (this) {
+        EPISODES_MOST -> "Chapters \u2193"
+        EPISODES_LEAST -> "Chapters \u2191"
+        else -> label
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -136,7 +156,7 @@ fun StatusListScreen(
         label = "offsetY"
     )
 
-    var selectedSort by remember { mutableStateOf(SortOption.ALPHABETICAL_A_Z) }
+    var selectedSort by remember { mutableStateOf(SortOption.LAST_UPDATED) }
     var showSortSheet by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -147,6 +167,7 @@ fun StatusListScreen(
             t.contains(searchQuery, ignoreCase = true)
         }
         when (selectedSort) {
+            SortOption.LAST_UPDATED -> filtered
             SortOption.ALPHABETICAL_A_Z -> filtered.sortedBy {
                 (if (preferEnglishTitles && !it.titleEnglish.isNullOrEmpty()) it.titleEnglish else it.title).lowercase()
             }
@@ -174,6 +195,7 @@ fun StatusListScreen(
         val filtered = if (searchQuery.isBlank()) mangaList
         else mangaList.filter { mangaTitleOf(it).contains(searchQuery, ignoreCase = true) }
         when (selectedSort) {
+            SortOption.LAST_UPDATED -> filtered
             SortOption.ALPHABETICAL_A_Z -> filtered.sortedBy { mangaTitleOf(it).lowercase() }
             SortOption.ALPHABETICAL_Z_A -> filtered.sortedByDescending { mangaTitleOf(it).lowercase() }
             SortOption.YEAR_NEWEST -> filtered.sortedByDescending { it.year ?: Int.MIN_VALUE }
@@ -490,13 +512,7 @@ fun StatusListScreen(
                     HorizontalDivider()
                     SortOption.entries.forEach { option ->
                         val isSelected = option == selectedSort
-                        val displayLabel = if (isManga) {
-                            when (option) {
-                                SortOption.EPISODES_MOST -> "Chapters \u2193"
-                                SortOption.EPISODES_LEAST -> "Chapters \u2191"
-                                else -> option.label
-                            }
-                        } else option.label
+                        val displayLabel = option.displayLabel(isManga)
                         Surface(
                             onClick = { focusManager.clearFocus(); selectedSort = option; showSortSheet = false; scrollToTop() },
                             color = if (isSelected) iconTint.copy(alpha = 0.12f) else Color.Transparent,
@@ -673,7 +689,7 @@ private fun StatusListAnimeCard(
                             Text(
                                 text = "★ ${String.format(java.util.Locale.US, "%.1f", anime.averageScore / 10.0)}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFFFFD700),
+                                color = tenseiColors.rating,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )
@@ -830,7 +846,7 @@ private fun StatusListMangaCard(
                             Text(
                                 text = "★ ${String.format(java.util.Locale.US, "%.1f", manga.averageScore / 10.0)}",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFFFFD700),
+                                color = tenseiColors.rating,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                             )

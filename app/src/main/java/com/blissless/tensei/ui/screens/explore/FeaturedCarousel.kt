@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import com.blissless.tensei.ui.theme.Sizes
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -62,17 +63,73 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.blissless.tensei.data.models.ExploreAnime
-import com.blissless.tensei.ui.components.appIconDrawable
-import com.blissless.tensei.ui.theme.StatusCompleted
-import com.blissless.tensei.ui.theme.StatusCurrent
-import com.blissless.tensei.ui.theme.StatusDropped
-import com.blissless.tensei.ui.theme.StatusPaused
-import com.blissless.tensei.ui.theme.StatusPlanning
+import com.blissless.tensei.ui.components.AppIconCircle
+import com.blissless.tensei.ui.components.CarouselPageDots
+import com.blissless.tensei.ui.components.ExploreTopBarRow
+import com.blissless.tensei.ui.components.SearchCircleAction
+import com.blissless.tensei.ui.components.SkeletonBlock
+import com.blissless.tensei.ui.components.shimmer
+import com.blissless.tensei.ui.theme.statusColorOnArtwork
+import com.blissless.tensei.ui.theme.ratingColorOnArtwork
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 import com.blissless.tensei.util.ErrorHandler
+import com.blissless.tensei.ui.theme.Spacing
+
+/**
+ * Placeholder for the featured carousel. Mirrors the real carousel's height
+ * (560dp, full-bleed) and its page-indicator strip so the explore list doesn't
+ * jump when the featured query lands.
+ *
+ * Shared by the anime and manga carousels.
+ */
+@Composable
+fun FeaturedCarouselSkeleton(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(560.dp)
+            .shimmer(),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        SkeletonBlock(
+            modifier = Modifier
+                .fillMaxSize(),
+            cornerRadius = 0.dp,
+        )
+        // Title / meta lines the real card draws over the artwork.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.gutter, vertical = Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+        ) {
+            SkeletonBlock(
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(22.dp)
+            )
+            SkeletonBlock(
+                modifier = Modifier
+                    .fillMaxWidth(0.4f)
+                    .height(13.dp)
+            )
+        }
+        Row(
+            modifier = Modifier.padding(bottom = Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            repeat(3) {
+                SkeletonBlock(
+                    modifier = Modifier.size(7.dp),
+                    cornerRadius = 3.5.dp,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun FeaturedCarousel(
@@ -202,68 +259,33 @@ fun FeaturedCarousel(
                             )
                         )
                     )
-                    .padding(start = 20.dp, end = 20.dp, top = 32.dp)
                     .align(Alignment.TopCenter)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.12f),
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                AsyncImage(
-                                    model = appIconDrawable(appIcon),
-                                    contentDescription = "App",
-                                    modifier = Modifier.size(32.dp).clip(CircleShape)
-                                )
-                            }
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val currentPage = pagerState.currentPage % actualCount
-                            repeat(actualCount) { index ->
-                                Box(
-                                    modifier = Modifier
-                                        .size(if (index == currentPage) 16.dp else 5.dp, 5.dp)
-                                        .background(
-                                            if (index == currentPage) Color.White
-                                            else Color.White.copy(alpha = 0.4f),
-                                            RoundedCornerShape(3.dp)
-                                        )
-                                )
-                            }
-                        }
-                        Surface(
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.12f),
-                            modifier = Modifier.size(40.dp),
-                            onClick = onSearchClick
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "Search",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
+                ExploreTopBarRow(
+                    leading = {
+                        AppIconCircle(
+                            appIcon = appIcon,
+                            containerColor = Color.White.copy(alpha = 0.12f)
+                        )
+                    },
+                    center = {
+                        CarouselPageDots(
+                            count = actualCount,
+                            currentIndex = pagerState.currentPage % actualCount
+                        )
+                    },
+                    trailing = {
+                        SearchCircleAction(
+                            onClick = onSearchClick,
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White
+                        )
                     }
-                }
+                )
             }
 
             Box(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).align(Alignment.BottomCenter),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl).align(Alignment.BottomCenter),
                 contentAlignment = Alignment.BottomCenter
             ) {
             val currentAnime by remember {
@@ -314,7 +336,7 @@ fun FeaturedCarousel(
                             val scoreValue = avgScore / 10.0
                             Text(
                                 text = "★ ${"%.1f".format(scoreValue)}",
-                                color = Color(0xFFFFD700),
+                                color = ratingColorOnArtwork(),
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -336,14 +358,7 @@ fun FeaturedCarousel(
                     ) {
                         val currentStatus = animeStatusMap[currentAnime.id]
                         val isSaved = currentStatus != null
-                        val statusColor = when (currentStatus) {
-                            "COMPLETED" -> StatusCompleted
-                            "CURRENT" -> StatusCurrent
-                            "PLANNING" -> StatusPlanning
-                            "PAUSED" -> StatusPaused
-                            "DROPPED" -> StatusDropped
-                            else -> Color.White
-                        }
+                        val statusHue = if (isSaved) statusColorOnArtwork(currentStatus) else Color.White
                         
                         IconButton(
                             onClick = { onStatusClick(currentAnime) },
@@ -351,14 +366,14 @@ fun FeaturedCarousel(
                         ) {
                             Surface(
                                 shape = CircleShape,
-                                color = (if (isSaved) statusColor else Color.White).copy(alpha = 0.15f),
+                                color = statusHue.copy(alpha = 0.15f),
                                 modifier = Modifier.size(44.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         if (isSaved) Icons.Default.Bookmark else Icons.Outlined.BookmarkAdd,
                                         contentDescription = "Save",
-                                        tint = if (isSaved) statusColor else Color.White,
+                                        tint = statusHue,
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
@@ -367,7 +382,9 @@ fun FeaturedCarousel(
                         
                         Button(
                             onClick = { onPlayClick(currentAnime) },
-                            modifier = Modifier.height(50.dp),
+                            modifier = Modifier
+                                .width(Sizes.heroActionButtonWidth)
+                                .height(50.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color.White.copy(alpha = 0.15f),

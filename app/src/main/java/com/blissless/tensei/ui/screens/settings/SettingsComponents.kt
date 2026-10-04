@@ -57,6 +57,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.blissless.tensei.R
 import com.blissless.tensei.ui.components.appIconDrawable
+import com.blissless.tensei.ui.theme.Spacing
 
 /**
  * Reusable UI components for the Settings screen.
@@ -90,7 +91,7 @@ internal fun SettingsLandingPage(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = Spacing.gutter)
             .padding(top = 36.dp, bottom = 100.dp)
     ) {
         Row(
@@ -135,7 +136,7 @@ internal fun SettingsLandingPage(
                     SettingsListItem(group = group, onClick = { onGroupClick(group.id) })
                     if (index < groups.lastIndex) {
                         HorizontalDivider(
-                            modifier = Modifier.padding(start = 72.dp, end = 20.dp),
+                            modifier = Modifier.padding(start = 72.dp, end = Spacing.gutter),
                             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
                             thickness = 0.5.dp
                         )
@@ -159,7 +160,7 @@ internal fun SettingsListItem(
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = Spacing.gutter, vertical = Spacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -247,7 +248,7 @@ internal fun SettingsPageScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp)
+                    .padding(horizontal = Spacing.gutter)
                     .padding(top = 8.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 content = content
@@ -257,7 +258,7 @@ internal fun SettingsPageScaffold(
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f)
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = Spacing.gutter),
                 content = content
             )
         }

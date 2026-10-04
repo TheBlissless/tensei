@@ -105,7 +105,7 @@ private val MonochromeOledColorScheme = darkColorScheme(
 @Composable
 fun AppTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
-    useMonochrome: Boolean = false,
+    colorMode: ColorMode = ColorMode.SEMI_MONOCHROME,
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
@@ -117,31 +117,49 @@ fun AppTheme(
         ThemeMode.DARK, ThemeMode.OLED -> true
     }
 
+    val neutralSurfaces = colorMode.usesNeutralSurfaces
+
     val colorScheme = when {
-        useMonochrome && themeMode == ThemeMode.OLED -> MonochromeOledColorScheme
-        useMonochrome && darkTheme -> MonochromeDarkColorScheme
-        useMonochrome -> MonochromeLightColorScheme
+        neutralSurfaces && themeMode == ThemeMode.OLED -> MonochromeOledColorScheme
+        neutralSurfaces && darkTheme -> MonochromeDarkColorScheme
+        neutralSurfaces -> MonochromeLightColorScheme
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         darkTheme -> darkColorScheme()
         else -> lightColorScheme()
     }.let { scheme ->
-        if (themeMode == ThemeMode.OLED && !useMonochrome) {
+        if (themeMode == ThemeMode.OLED && !neutralSurfaces) {
             scheme.copy(
                 surface = OledBlack,
                 background = OledBlack,
                 surfaceVariant = OledBlack,
+                surfaceContainerLowest = OledBlack,
+                surfaceContainerLow = OledBlack,
+                surfaceContainer = Color(0xFF0A0A0A),
+                surfaceContainerHigh = Color(0xFF141414),
+                surfaceContainerHighest = Color(0xFF1E1E1E),
                 primaryContainer = scheme.primaryContainer.copy(alpha = 0.2f)
             )
         } else scheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = TenseiTypography,
-        content = content
-    )
+    val tenseiColors = when (colorMode) {
+        ColorMode.MONOCHROME -> monochromeTenseiColors(colorScheme)
+        ColorMode.SEMI_MONOCHROME ->
+            if (themeMode == ThemeMode.OLED) oledTenseiColors(colorScheme) else semiMonochromeTenseiColors()
+        ColorMode.MATERIAL ->
+            if (themeMode == ThemeMode.OLED) oledTenseiColors(colorScheme) else DefaultTenseiColors
+    }
+
+    ProvideTenseiColors(tenseiColors) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = TenseiTypography,
+            shapes = TenseiShapes,
+            content = content
+        )
+    }
 }
 
 

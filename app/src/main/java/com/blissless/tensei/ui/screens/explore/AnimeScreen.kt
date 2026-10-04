@@ -25,10 +25,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
@@ -123,6 +122,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.text.style.TextAlign
 import com.blissless.tensei.util.ErrorHandler
 import kotlinx.coroutines.Job
+import com.blissless.tensei.ui.components.TenseiErrorBanner
+import com.blissless.tensei.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -621,15 +622,17 @@ fun AnimeScreen(
         if (seasonalAnime.isNotEmpty()) exploreTimedOut = false
     }
 
+    val requestRefresh: () -> Unit = {
+        if (viewModel.tryManualRefresh("explore")) {
+            isRefreshing = true
+            viewModel.forceRefreshExplore()
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = {
-                if (viewModel.tryManualRefresh("explore")) {
-                    isRefreshing = true
-                    viewModel.forceRefreshExplore()
-                }
-            },
+            onRefresh = requestRefresh,
             modifier = Modifier.fillMaxSize()
         ) {
             if (showExploreSkeleton) {
@@ -639,8 +642,9 @@ fun AnimeScreen(
                         .fillMaxSize()
                         .verticalScroll(scrollState)
                         .padding(bottom = 80.dp)
+                        .statusBarsPadding()
                 ) {
-                    Spacer(modifier = Modifier.height(24.dp))
+Spacer(modifier = Modifier.height(24.dp))
                     LoadingSkeleton()
                     Spacer(modifier = Modifier.height(80.dp))
                 }
@@ -652,34 +656,12 @@ fun AnimeScreen(
                     .padding(bottom = 80.dp)
             ) {
             if (apiError != null || isOffline) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).windowInsetsPadding(WindowInsets.statusBars),
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (isOffline) Color(0xFF1A1A1A) else if (isOled) Color(0xFF93000A) else MaterialTheme.colorScheme.errorContainer,
-                    tonalElevation = 2.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
-                            contentDescription = null,
-                            tint = if (isOffline) Color.White.copy(alpha = 0.7f) else if (isOled) Color(0xFFFFDAD6).copy(alpha = 0.7f) else MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isOffline) "No internet connection" else "AniList is currently unavailable",
-                            color = if (isOffline) Color.White.copy(alpha = 0.8f) else if (isOled) Color(0xFFFFDAD6) else MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
+                TenseiErrorBanner(
+                    message = if (isOffline) "No internet connection" else "AniList is currently unavailable",
+                    icon = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
+                    onRetry = requestRefresh,
+                )
+                Spacer(modifier = Modifier.height(Spacing.sm))
             }
             
             // Featured Carousel with HorizontalPager (capped to 10 items, mirroring the
@@ -710,16 +692,10 @@ fun AnimeScreen(
                     autoScrollEnabled = isVisible && !showDialog
                 )
             } else if (apiError == null && !isOffline && showLoadingUi) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(280.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                FeaturedCarouselSkeleton()
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // This Season
             if (filteredSeasonalAnime.isNotEmpty() || showLoadingUi) {
@@ -764,7 +740,7 @@ fun AnimeScreen(
                     viewModel = viewModel
                 )
             } else if (showLoadingUi) {
-                LoadingPlaceholder(isOled)
+                LoadingPlaceholder()
             }
 
             // Top Rated Series
@@ -810,7 +786,7 @@ fun AnimeScreen(
                     viewModel = viewModel
                 )
             } else if (showLoadingUi) {
-                LoadingPlaceholder(isOled)
+                LoadingPlaceholder()
             }
 
             // Top Rated Movies
@@ -856,7 +832,7 @@ fun AnimeScreen(
                     viewModel = viewModel
                 )
             } else if (showLoadingUi) {
-                LoadingPlaceholder(isOled)
+                LoadingPlaceholder()
             }
 
             // Genre Sections (alphabetical order)
@@ -984,7 +960,7 @@ private fun GenreSection(
                 viewModel = viewModel
             )
         } else if (isLoading) {
-            LoadingPlaceholder(isOled)
+            LoadingPlaceholder()
         }
     }
 }

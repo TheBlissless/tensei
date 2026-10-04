@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -68,6 +69,14 @@ import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.ContinueWatchingEntry
 import com.blissless.tensei.data.models.TmdbEpisode
+import com.blissless.tensei.ui.components.shimmer
+import com.blissless.tensei.ui.theme.Radius
+import com.blissless.tensei.ui.theme.SectionAccentWidth
+import com.blissless.tensei.ui.theme.SectionStripeShape
+import com.blissless.tensei.ui.theme.Sizes
+import com.blissless.tensei.ui.theme.Spacing
+import com.blissless.tensei.ui.theme.TenseiType
+import com.blissless.tensei.ui.theme.artworkGradient
 import kotlin.math.absoluteValue
 
 data class HomeAnimeCardBounds(
@@ -77,110 +86,50 @@ data class HomeAnimeCardBounds(
 )
 
 @Composable
-fun LoadingSkeleton() {
-    val shimmerColors = listOf(
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-    )
-    val shineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
-
-    val shineTransition = rememberInfiniteTransition(label = "skeletonShine")
-    val shineProgress by shineTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1400, easing = LinearEasing)
-        ),
-        label = "skeletonShineProgress"
-    )
-
-    Box(
-        modifier = Modifier.drawWithContent {
-            drawContent()
-            val sweepHalf = size.width * 0.6f
-            val centerX = -sweepHalf + shineProgress * (size.width + 2 * sweepHalf)
-            drawRect(
-                brush = Brush.linearGradient(
-                    colors = listOf(Color.Transparent, shineColor, Color.Transparent),
-                    start = Offset(centerX - sweepHalf, 0f),
-                    end = Offset(centerX + sweepHalf, size.height)
-                )
-            )
-        }
+fun LoadingSkeleton(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .shimmer(),
+        verticalArrangement = Arrangement.spacedBy(Spacing.section),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
-            repeat(3) { sectionIndex ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                ) {
-                    Box(
-                        modifier = Modifier.width(3.dp).height(20.dp).background(
-                            shimmerColors[0], RoundedCornerShape(2.dp)
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Box(
-                        modifier = Modifier.width(16.dp).height(16.dp).background(
-                            shimmerColors[0], RoundedCornerShape(4.dp)
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier.width(140.dp).height(16.dp).background(
-                            shimmerColors[0], RoundedCornerShape(4.dp)
-                        )
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Box(
-                        modifier = Modifier.width(32.dp).height(20.dp).background(
-                            shimmerColors[0], RoundedCornerShape(10.dp)
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp)
-                ) {
-                    items(4, key = { "skeleton_${sectionIndex}_$it" }) {
-                        Column(modifier = Modifier.width(140.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(195.dp)
-                                    .background(shimmerColors[0], RoundedCornerShape(14.dp))
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.8f)
-                                    .height(12.dp)
-                                    .padding(horizontal = 2.dp)
-                                    .background(shimmerColors[0], RoundedCornerShape(4.dp))
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(0.5f)
-                                    .height(3.dp)
-                                    .padding(horizontal = 2.dp)
-                                    .background(
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
-                                        RoundedCornerShape(2.dp)
-                                    )
-                            )
-                        }
-                    }
-                }
+        repeat(3) { sectionIndex ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.gutter)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(SectionAccentWidth)
+                        .height(20.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, SectionStripeShape)
+                )
+                Spacer(modifier = Modifier.width(Spacing.md))
+                SkeletonBlock(modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(Spacing.sm))
+                SkeletonBlock(modifier = Modifier.width(140.dp).height(14.dp))
+                Spacer(modifier = Modifier.weight(1f))
+                SkeletonBlock(
+                    modifier = Modifier
+                        .width(32.dp)
+                        .height(18.dp),
+                    cornerRadius = Radius.chip
+                )
             }
+
+            TenseiRailSkeleton(itemCount = 4)
         }
     }
 }
 
+/**
+ * Home's section header.
+ *
+ * Now a thin wrapper over [TenseiSectionHeader] so the Home rails and the
+ * Explore rails render the same label instead of looking like two features.
+ */
 @Composable
 fun SectionHeader(
     title: String,
@@ -189,51 +138,13 @@ fun SectionHeader(
     iconTint: Color = MaterialTheme.colorScheme.primary,
     onClick: () -> Unit = {}
 ) {
-    Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
-        shadowElevation = 1.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .clickable { onClick() }
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(24.dp)
-                    .background(iconTint, RoundedCornerShape(2.dp))
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.weight(1f))
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = iconTint.copy(alpha = 0.12f)
-            ) {
-                Text(
-                    "$count",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = iconTint,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                )
-            }
-        }
-    }
+    TenseiSectionHeader(
+        title = title,
+        icon = icon,
+        count = count,
+        accent = iconTint,
+        onClick = if (count > 0) onClick else null,
+    )
 }
 
 @Composable
@@ -270,8 +181,8 @@ fun HomeAnimeHorizontalList(
     Box(modifier = Modifier.fillMaxWidth()) {
         LazyRow(
             state = listState,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp)
+horizontalArrangement = Arrangement.spacedBy(Spacing.railItem),
+            contentPadding = PaddingValues(horizontal = Spacing.railGutter)
         ) {
             itemsIndexed(items = animeList, key = { _, anime -> "${listType}_${anime.id}" }) { index, anime ->
                 val layoutInfo by remember { derivedStateOf { listState.layoutInfo } }
@@ -426,12 +337,12 @@ fun HomeAnimeCard(
             .build()
     }
 
-    Column(modifier = Modifier.width(140.dp)) {
+    Column(modifier = Modifier.width(Sizes.railPosterWidth)) {
         Card(
-            shape = RoundedCornerShape(4.dp),
+            shape = Radius.posterShape,
             modifier = Modifier
-                .height(195.dp)
-                .clip(RoundedCornerShape(4.dp))
+                .height(Sizes.railPosterHeight)
+                .clip(Radius.posterShape)
                 .clickable {
                     onClick(
                         if (cardBounds != null && cardBounds!!.width() > 0 && cardBounds!!.height() > 0) {
@@ -453,50 +364,50 @@ fun HomeAnimeCard(
             Box(modifier = Modifier.fillMaxSize()) {
                 AsyncImage(model = imageRequest, contentDescription = anime.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
 
-                // Gradient overlays
-                Box(modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(50.dp)
-                    .background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))))
-                Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(80.dp)
-                    .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)))))
+                // Scrims keep the badge and progress bar legible over any cover.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .background(artworkGradient(0.55f, 0f))
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .background(artworkGradient(0f, 0.85f))
+                )
 
                 // Top Row: Episode Counter (left) + Info Button (right)
                 Row(
-                    modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(8.dp),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(Spacing.sm),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.65f)
-                    ) {
-                        Text(
-                            text = progressText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+                    TenseiScrimChip(text = progressText)
 
-                    FilledTonalIconButton(
-                        onClick = { onInfoClick(cardBounds?.let { HomeAnimeCardBounds(anime.id, anime.cover, it) }) },
-                        modifier = Modifier.size(30.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f), contentColor = Color.White)
-                    ) { Icon(imageVector = Icons.Outlined.Info, contentDescription = "Anime Info", modifier = Modifier.size(16.dp)) }
+                    TenseiOverlayAction(
+                        icon = Icons.Outlined.Info,
+                        contentDescription = "Anime info",
+                        onClick = {
+                            onInfoClick(cardBounds?.let { HomeAnimeCardBounds(anime.id, anime.cover, it) })
+                        },
+                    )
                 }
 
-                
-
-                // Bottom gradient for progress
+                // Bottom progress bar
                 if (showProgressBar && progressPercent > 0f) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .height(2.dp)
-                            .background(Color.Black.copy(alpha = 0.3f))
+                            .height(3.dp)
+                            .background(Color.Black.copy(alpha = 0.35f))
                     ) {
                         Box(
                             modifier = Modifier
@@ -514,17 +425,7 @@ fun HomeAnimeCard(
             !anime.titleEnglish.isNullOrEmpty() -> anime.titleEnglish
             else -> "Unknown"
         }
-        Box(modifier = Modifier.width(140.dp).height(40.dp)) {
-            Text(
-                text = displayTitle,
-                modifier = Modifier.padding(top = 8.dp),
-                maxLines = 2,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
+        RailCardTitle(title = displayTitle)
     }
 }
 
@@ -540,8 +441,8 @@ fun ContinueWatchingRow(
     onPlayClick: (AnimeMedia, Int) -> Unit
 ) {
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.railItem),
+        contentPadding = PaddingValues(horizontal = Spacing.railGutter)
     ) {
         itemsIndexed(items = animeList, key = { _, anime -> "continue_${anime.id}" }) { _, anime ->
             ContinueWatchingCard(
@@ -599,11 +500,11 @@ fun ContinueWatchingCard(
     }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = Radius.cardShape,
         modifier = Modifier
-            .width(220.dp)
-            .height(130.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .width(Sizes.continueCardWidth)
+            .height(Sizes.continueCardHeight)
+            .clip(Radius.cardShape)
             .clickable { onPlayClick() }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -619,32 +520,26 @@ fun ContinueWatchingCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.3f),
-                                Color.Black.copy(alpha = 0.85f)
-                            )
-                        )
-                    )
+                    .background(artworkGradient(0.3f, 0.88f))
             )
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(12.dp),
+                    .padding(Spacing.cardPadding),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.Black.copy(alpha = 0.7f)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Text(
-                        text = "Ep. $nextEpisode",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    TenseiScrimChip(text = "Ep. $nextEpisode")
+                    TenseiOverlayAction(
+                        icon = Icons.Default.PlayArrow,
+                        contentDescription = "Resume",
+                        onClick = onPlayClick,
+                        size = 34.dp,
                     )
                 }
 
@@ -652,33 +547,32 @@ fun ContinueWatchingCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(Color.White.copy(alpha = 0.2f))
+                            .height(4.dp)
+                            .clip(Radius.chipShape)
+                            .background(Color.White.copy(alpha = 0.22f))
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(progressPercent)
-                                .clip(RoundedCornerShape(3.dp))
                                 .background(progressColor)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(Spacing.sm))
 
                     if (remainingMs > 0 && savedDuration > 0L) {
                         Text(
                             text = formatTimeRemaining(remainingMs),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.7f)
+                            style = TenseiType.cardMeta,
+                            color = Color.White.copy(alpha = 0.72f)
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                     }
 
                     Text(
                         text = displayTitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
+                        style = TenseiType.cardTitle,
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -701,8 +595,8 @@ fun ContinueWatchingEpisodeRow(
     onDismissClick: (ContinueWatchingEntry) -> Unit
 ) {
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp)
+        horizontalArrangement = Arrangement.spacedBy(Spacing.railItem),
+        contentPadding = PaddingValues(horizontal = Spacing.railGutter)
     ) {
         itemsIndexed(items = entries, key = { _, entry -> "continue_ep_${entry.animeId}_${entry.episode}" }) { _, entry ->
             ContinueWatchingEpisodeCard(
@@ -755,11 +649,11 @@ fun ContinueWatchingEpisodeCard(
     val progressColor = if (disableMaterialColors) Color.White else MaterialTheme.colorScheme.primary
 
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = Radius.cardShape,
         modifier = Modifier
-            .width(240.dp)
-            .height(140.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .width(Sizes.continueCardWidth)
+            .height(Sizes.continueCardHeight)
+            .clip(Radius.cardShape)
             .clickable { onPlayClick() }
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -775,20 +669,13 @@ fun ContinueWatchingEpisodeCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.25f),
-                                Color.Black.copy(alpha = 0.9f)
-                            )
-                        )
-                    )
+                    .background(artworkGradient(0.25f, 0.9f))
             )
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = 8.dp, end = 8.dp, bottom = 14.dp, top = 8.dp),
+                    .padding(Spacing.cardPadding),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
@@ -796,65 +683,45 @@ fun ContinueWatchingEpisodeCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.65f)
-                    ) {
-                        Text(
-                            text = "Ep. ${entry.episode}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                            .clickable { onDismissClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Remove",
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    TenseiScrimChip(text = "Ep. ${entry.episode}")
+                    TenseiCircleAction(
+                        icon = Icons.Default.Close,
+                        contentDescription = "Remove from continue watching",
+                        onClick = onDismissClick,
+                        size = 32.dp,
+                    )
                 }
 
                 Column {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(5.dp)
-                            .clip(RoundedCornerShape(3.dp))
-                            .background(Color.White.copy(alpha = 0.15f))
+                            .height(4.dp)
+                            .clip(Radius.chipShape)
+                            .background(Color.White.copy(alpha = 0.22f))
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(progressPercent)
-                                .clip(RoundedCornerShape(3.dp))
                                 .background(progressColor)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(Spacing.sm))
 
                     if (remainingMs > 0 && savedDuration > 0L) {
                         Text(
                             text = formatTimeRemaining(remainingMs),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White.copy(alpha = 0.6f)
+                            style = TenseiType.cardMeta,
+                            color = Color.White.copy(alpha = 0.72f)
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                     }
 
                     Text(
                         text = displayTitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
+                        style = TenseiType.cardTitle,
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -872,6 +739,13 @@ private fun formatTimeRemaining(ms: Long): String {
     return "${min}:${sec.toString().padStart(2, '0')} remaining"
 }
 
+/**
+ * Status pill used by the list-status dialogs.
+ *
+ * Previously the unselected state was hardcoded to `Color.White.copy(0.08f)`,
+ * which meant these pills were invisible in light mode. Both states now derive
+ * from the colour scheme.
+ */
 @Composable
 fun StatusButton(
     icon: ImageVector,
@@ -881,20 +755,26 @@ fun StatusButton(
     modifier: Modifier = Modifier,
     selectedColor: Color = MaterialTheme.colorScheme.primary
 ) {
+    val scheme = MaterialTheme.colorScheme
     Button(
         onClick = onClick,
-        modifier = modifier.height(44.dp),
-        shape = RoundedCornerShape(10.dp),
+        modifier = modifier.height(Sizes.controlHeight),
+        shape = Radius.controlShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) selectedColor else Color.White.copy(alpha = 0.08f),
-            contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.8f)
+            containerColor = if (selected) selectedColor else scheme.surfaceVariant,
+            contentColor = if (selected) scheme.onPrimary else scheme.onSurfaceVariant
         ),
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = if (selected) 4.dp else 0.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.md, vertical = Spacing.xs)
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(label, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        Spacer(modifier = Modifier.width(Spacing.xs))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

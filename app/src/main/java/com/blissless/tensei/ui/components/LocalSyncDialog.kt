@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.blissless.tensei.ui.theme.tenseiColors
 
 /**
  * Dialog shown when the user logs in after having tracked anime offline.
@@ -66,7 +67,7 @@ fun LocalSyncDialog(
 
                 Text(
                     "1. Discard Local Changes",
-                    color = Color(0xFFF44336),
+                    color = tenseiColors.destructive,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
@@ -105,7 +106,7 @@ fun LocalSyncDialog(
         },
         confirmButton = {
             TextButton(onClick = onDiscard) {
-                Text("Discard", color = Color(0xFFF44336))
+                Text("Discard", color = tenseiColors.destructive)
             }
         },
         dismissButton = {

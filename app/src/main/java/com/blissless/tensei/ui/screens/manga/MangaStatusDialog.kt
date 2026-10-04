@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import com.blissless.tensei.ui.theme.Spacing
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -50,6 +51,7 @@ import coil.compose.AsyncImage
 import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.StatusButton
 import com.blissless.tensei.ui.theme.MangaStatusLabels
+import com.blissless.tensei.ui.theme.tenseiColors
 import com.blissless.tensei.dialogs.userScoreToDisplay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,7 +89,12 @@ fun MangaStatusDialog(
         sheetState = sheetState,
         containerColor = if (isOled) Color.Black else Color(0xFF1A1A1A)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 32.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.xxl)
+                .padding(bottom = Spacing.xxxl)
+        ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 AsyncImage(
                     model = coverUrl,
@@ -202,14 +209,14 @@ fun MangaStatusDialog(
                     modifier = Modifier.weight(1f).height(44.dp).scale(if (markedForRemoval && showAnimation) scale else 1f),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (markedForRemoval) Color.Red.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.15f),
-                        contentColor = if (markedForRemoval) Color.Red else Color.White
+                        containerColor = if (markedForRemoval) tenseiColors.destructive.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.15f),
+                        contentColor = if (markedForRemoval) tenseiColors.destructive else Color.White
                     ),
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Remove", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = if (markedForRemoval) Color.Red else Color.White.copy(alpha = 0.7f))
+                    Text("Remove", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = if (markedForRemoval) tenseiColors.destructive else Color.White.copy(alpha = 0.7f))
                 }
             }
 
@@ -255,7 +262,7 @@ fun MangaStatusDialog(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (markedForRemoval) Color.Red else MaterialTheme.colorScheme.primary,
+                    containerColor = if (markedForRemoval) tenseiColors.destructive else MaterialTheme.colorScheme.primary,
                     contentColor = if (markedForRemoval) Color.White else MaterialTheme.colorScheme.onPrimary
                 )
             ) {
@@ -288,7 +295,12 @@ fun MangaRatingSheet(
         sheetState = sheetState,
         containerColor = if (isOled) Color.Black else Color(0xFF1A1A1A)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 32.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.xxl)
+                .padding(bottom = Spacing.xxxl)
+        ) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 AsyncImage(
                     model = coverUrl,

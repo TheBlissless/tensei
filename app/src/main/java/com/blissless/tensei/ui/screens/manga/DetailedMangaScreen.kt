@@ -73,6 +73,12 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import com.blissless.tensei.ui.components.DetailRailSkeleton
+import com.blissless.tensei.ui.components.DetailSpecGridSkeleton
+import com.blissless.tensei.ui.components.DetailStatStripSkeleton
+import com.blissless.tensei.ui.components.DetailTextCardSkeleton
+import com.blissless.tensei.ui.components.SkeletonPill
+import com.blissless.tensei.ui.components.SkeletonTextLine
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -136,8 +142,12 @@ import com.blissless.tensei.ui.screens.details.GenresCard
 import com.blissless.tensei.ui.screens.details.SynopsisCard
 import com.blissless.tensei.ui.screens.details.TagsCard
 import com.blissless.tensei.ui.screens.details.easeOut
-import com.blissless.tensei.ui.theme.StatusColors
+import com.blissless.tensei.ui.screens.details.formatDate
 import com.blissless.tensei.ui.theme.StatusLabels
+import com.blissless.tensei.ui.theme.statusAccentFor
+import com.blissless.tensei.ui.theme.statusColor
+import com.blissless.tensei.ui.theme.tenseiColors
+import com.blissless.tensei.ui.theme.ratingColorOnArtwork
 import com.blissless.tensei.ui.theme.MangaStatusLabels
 import com.blissless.tensei.dialogs.userScoreToDisplay
 import com.blissless.tensei.viewmodel.clearMangaDetail
@@ -303,7 +313,7 @@ fun DetailedMangaScreen(
         }
     }
 
-    // Handle system back button — dismiss the detail screen
+    // Handle system back button â€” dismiss the detail screen
     BackHandler { dismissWithAnimation() }
 
     val alpha by animateFloatAsState(
@@ -311,7 +321,7 @@ fun DetailedMangaScreen(
         animationSpec = tween(durationMillis = 200, easing = LinearEasing), label = "alpha"
     )
 
-    // Blank listStatus (default) means the user has no status — normalize to null so the
+    // Blank listStatus (default) means the user has no status â€” normalize to null so the
     // "Add to List" section doesn't show a stale chip or "0 / x" progress.
     val statusToCheck = (liveStatus ?: currentStatus ?: manga.listStatus).takeIf { it.isNotBlank() }
     val statusProgress = liveProgress
@@ -463,7 +473,7 @@ fun DetailedMangaScreen(
                                 if (offsetY.isRunning || dismissSlideOffset.isRunning) return@launch
                                 if (dismissSlideOffset.value > 0f || offsetY.value > dismissThreshold) {
                                     // A fling dismissal started but stalled, or the sheet is past the
-                                    // dismiss threshold — close it so it never stays stuck half-open.
+                                    // dismiss threshold â€” close it so it never stays stuck half-open.
                                     dismissWithAnimation()
                                 } else if (offsetY.value > 0f) {
                                     offsetY.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
@@ -648,34 +658,31 @@ fun DetailedMangaScreen(
                                 displayData.averageScore?.let { score ->
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.background(Color(0xFFFFD700).copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                        modifier = Modifier.background(tenseiColors.rating.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
                                             .padding(horizontal = 10.dp, vertical = 6.dp)
                                     ) {
-                                        Icon(Icons.Default.Star, null, tint = Color(0xFFFFD700), modifier = Modifier.size(18.dp))
+                                        Icon(Icons.Default.Star, null, tint = tenseiColors.rating, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             String.format(Locale.US, "%.1f", score / 10.0),
-                                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFFFD700)
+                                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = tenseiColors.rating
                                         )
                                     }
                                 }
+                                if (displayData.averageScore == null && isLoading) {
+                                    SkeletonPill(width = 68.dp, height = 30.dp)
+                                }
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = when (displayData.status) {
-                                        "RELEASING" -> Color(0xFF2196F3).copy(alpha = 0.2f)
-                                        "FINISHED" -> Color(0xFF4CAF50).copy(alpha = 0.2f)
-                                        "NOT_YET_RELEASED" -> Color(0xFFFFC107).copy(alpha = 0.2f)
-                                        "CANCELLED" -> Color(0xFFF44336).copy(alpha = 0.2f)
+                                    color = when {
+                                        displayData.status != null -> statusAccentFor(displayData.status).copy(alpha = 0.2f)
                                         else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                     }
                                 ) {
                                     Text(
                                         statusDisplay, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
-                                        color = when (displayData.status) {
-                                            "RELEASING" -> Color(0xFF2196F3)
-                                            "FINISHED" -> Color(0xFF4CAF50)
-                                            "NOT_YET_RELEASED" -> Color(0xFFFFC107)
-                                            "CANCELLED" -> Color(0xFFF44336)
+                                        color = when {
+                                            displayData.status != null -> statusAccentFor(displayData.status)
                                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                                         },
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
@@ -701,6 +708,9 @@ fun DetailedMangaScreen(
                                 if (chapterCount != null) {
                                     Text("\u2022", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                     Text("$chapterCount ch.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                if (displayData.year == null && displayData.format == null && resolvedChapterCount == null && isLoading) {
+                                    SkeletonTextLine(width = 96.dp, height = 11.dp)
                                 }
                             }
                         }
@@ -774,7 +784,7 @@ fun DetailedMangaScreen(
                                     )
                                 }
                                 if (statusToCheck != null || liveScore != null) {
-                                    val statusColor = StatusColors[statusToCheck] ?: MaterialTheme.colorScheme.primary
+                                    val listStatusColor = statusColor(statusToCheck)
                                     Column(horizontalAlignment = Alignment.End) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (liveScore != null) {
@@ -783,24 +793,24 @@ fun DetailedMangaScreen(
                                                         Icons.Default.Star,
                                                         contentDescription = null,
                                                         modifier = Modifier.size(13.dp),
-                                                        tint = Color(0xFFFBBF24)
+                                                        tint = tenseiColors.rating
                                                     )
                                                     Spacer(modifier = Modifier.width(2.dp))
                                                     Text(
                                                         text = "${userScoreToDisplay(liveScore)}",
                                                         style = MaterialTheme.typography.labelMedium,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = Color(0xFFFBBF24)
+                                                        color = tenseiColors.rating
                                                     )
                                                 }
                                                 Spacer(modifier = Modifier.width(6.dp))
                                             }
                                             if (statusToCheck != null) {
-                                                Surface(shape = RoundedCornerShape(6.dp), color = statusColor.copy(alpha = 0.12f)) {
+                                                Surface(shape = RoundedCornerShape(6.dp), color = listStatusColor.copy(alpha = 0.12f)) {
                                                     Text(
                                                         text = MangaStatusLabels[statusToCheck] ?: statusToCheck,
                                                         style = MaterialTheme.typography.labelMedium,
-                                                        color = statusColor, fontWeight = FontWeight.SemiBold,
+                                                        color = listStatusColor, fontWeight = FontWeight.SemiBold,
                                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                                     )
                                                 }
@@ -839,12 +849,12 @@ fun DetailedMangaScreen(
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (liveScore != null && liveScore > 0) Color(0xFFFFD700).copy(alpha = 0.15f) else Color.Transparent,
-                                            contentColor = if (liveScore != null && liveScore > 0) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurface
+                                            containerColor = if (liveScore != null && liveScore > 0) tenseiColors.rating.copy(alpha = 0.15f) else Color.Transparent,
+                                            contentColor = if (liveScore != null && liveScore > 0) tenseiColors.rating else MaterialTheme.colorScheme.onSurface
                                         ),
                                         border = BorderStroke(
                                             1.5.dp,
-                                            if (liveScore != null && liveScore > 0) Color(0xFFFFD700) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                            if (liveScore != null && liveScore > 0) tenseiColors.rating else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                         )
                                     ) {
                                         Icon(
@@ -859,17 +869,17 @@ fun DetailedMangaScreen(
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (isMangaFavorited) Color(0xFFFF1744).copy(alpha = 0.15f) else Color.Transparent,
-                                            contentColor = if (isMangaFavorited) Color(0xFFFF1744) else MaterialTheme.colorScheme.onSurface
+                                            containerColor = if (isMangaFavorited) tenseiColors.favorite.copy(alpha = 0.15f) else Color.Transparent,
+                                            contentColor = if (isMangaFavorited) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
                                         ),
                                         border = BorderStroke(1.5.dp,
-                                            if (isMangaFavorited) Color(0xFFFF1744) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                            if (isMangaFavorited) tenseiColors.favorite else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                         )
                                     ) {
                                         Icon(
                                             if (isMangaFavorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                             null, Modifier.size(20.dp),
-                                            tint = if (isMangaFavorited) Color(0xFFFF1744) else MaterialTheme.colorScheme.onSurface
+                                            tint = if (isMangaFavorited) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
@@ -891,17 +901,17 @@ fun DetailedMangaScreen(
                                         modifier = Modifier.height(44.dp),
                                         shape = RoundedCornerShape(10.dp),
                                         colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (isMangaFavorited) Color(0xFFFF1744).copy(alpha = 0.15f) else Color.Transparent,
-                                            contentColor = if (isMangaFavorited) Color(0xFFFF1744) else MaterialTheme.colorScheme.onSurface
+                                            containerColor = if (isMangaFavorited) tenseiColors.favorite.copy(alpha = 0.15f) else Color.Transparent,
+                                            contentColor = if (isMangaFavorited) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
                                         ),
                                         border = BorderStroke(1.5.dp,
-                                            if (isMangaFavorited) Color(0xFFFF1744) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                            if (isMangaFavorited) tenseiColors.favorite else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                                         )
                                     ) {
                                         Icon(
                                             if (isMangaFavorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                                             null, Modifier.size(20.dp),
-                                            tint = if (isMangaFavorited) Color(0xFFFF1744) else MaterialTheme.colorScheme.onSurface
+                                            tint = if (isMangaFavorited) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
                                         )
                                     }
                                 }
@@ -913,7 +923,12 @@ fun DetailedMangaScreen(
                 // Info Card (manga specs)
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
-                    MangaInfoCard(displayData = displayData, userStatusDisplay = userStatusDisplay, chaptersCount = resolvedChapterCount)
+                    MangaInfoCard(
+                        displayData = displayData,
+                        userStatusDisplay = userStatusDisplay,
+                        chaptersCount = resolvedChapterCount,
+                        isLoading = isLoading,
+                    )
                 }
 
                 // Genres
@@ -921,6 +936,11 @@ fun DetailedMangaScreen(
                     item {
                         Spacer(modifier = Modifier.height(20.dp))
                         GenresCard(genres = displayData.genres)
+                    }
+                } else if (isLoading) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailTextCardSkeleton(headerWidthFraction = 0.35f, bodyLines = 1)
                     }
                 }
 
@@ -935,6 +955,11 @@ fun DetailedMangaScreen(
                             onToggleShowAll = { showAllTags = !showAllTags },
                         )
                     }
+                } else if (isLoading) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailTextCardSkeleton(headerWidthFraction = 0.5f, bodyLines = 2)
+                    }
                 }
 
                 // Synopsis
@@ -946,6 +971,11 @@ fun DetailedMangaScreen(
                             showFullDescription = showFullDescription,
                             onToggleShowFull = { showFullDescription = !showFullDescription },
                         )
+                    }
+                } else if (isLoading) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailTextCardSkeleton(bodyLines = 4)
                     }
                 }
 
@@ -1039,6 +1069,11 @@ fun DetailedMangaScreen(
                                 }
                             }
                         }
+                    }
+                } else if (isLoading) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailRailSkeleton(itemCount = 5, itemWidth = 110.dp)
                     }
                 }
 
@@ -1165,7 +1200,7 @@ fun DetailedMangaScreen(
                                                     ) {
                                                         Text("${(score / 10.0).toString().take(3)}",
                                                             style = MaterialTheme.typography.labelSmall,
-                                                            color = Color(0xFFFFD700),
+                                                            color = ratingColorOnArtwork(),
                                                             fontWeight = FontWeight.Bold,
                                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
                                                     }
@@ -1191,6 +1226,11 @@ fun DetailedMangaScreen(
                                 }
                             }
                         }
+                    }
+                } else if (isLoading) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailRailSkeleton(itemCount = 5, itemWidth = 110.dp)
                     }
                 }
 
@@ -1310,6 +1350,11 @@ fun DetailedMangaScreen(
                                 }
                             }
                         }
+                    }
+                } else if (isLoading) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailRailSkeleton(itemCount = 6, itemWidth = 80.dp, posterAspectRatio = 1f)
                     }
                 }
 
@@ -1438,6 +1483,11 @@ fun DetailedMangaScreen(
                             }
                         }
                     }
+                } else if (isLoading) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailRailSkeleton(itemCount = 6, itemWidth = 80.dp, posterAspectRatio = 1f)
+                    }
                 }
 
                 // Rankings
@@ -1502,6 +1552,9 @@ fun DetailedMangaScreen(
                                         else -> "Seasonal"
                                     }
                                     val isAllTime = ranking.allTime == true
+                                    val allTimeAccent = tenseiColors.rating
+                                    val allTimeRankText = if (tenseiColors.monochrome) 
+                                        MaterialTheme.colorScheme.onSurface else Color(0xFF1a1205)
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -1512,8 +1565,13 @@ fun DetailedMangaScreen(
                                                 .size(46.dp)
                                                 .clip(RoundedCornerShape(13.dp))
                                                 .background(
-                                                    if (isAllTime) {
+                                                    if (isAllTime && !tenseiColors.monochrome) {
                                                         Brush.linearGradient(listOf(Color(0xFFd97706), Color(0xFFfbbf24)))
+                                                    } else if (isAllTime) {
+                                                        Brush.linearGradient(listOf(
+                                                            allTimeAccent.copy(alpha = 0.18f),
+                                                            allTimeAccent.copy(alpha = 0.18f)
+                                                        ))
                                                     } else {
                                                         Brush.linearGradient(listOf(
                                                             MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
@@ -1527,7 +1585,7 @@ fun DetailedMangaScreen(
                                                 "#${ranking.rank ?: "-"}",
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 16.sp,
-                                                color = if (isAllTime) Color(0xFF1a1205) else MaterialTheme.colorScheme.primary
+                                                color = if (isAllTime) allTimeRankText else MaterialTheme.colorScheme.primary
                                             )
                                         }
                                         Spacer(modifier = Modifier.width(12.dp))
@@ -1544,7 +1602,7 @@ fun DetailedMangaScreen(
                                                     Icon(
                                                         imageVector = Icons.Filled.EmojiEvents,
                                                         contentDescription = null,
-                                                        tint = Color(0xFFfbbf24),
+                                                        tint = allTimeAccent,
                                                         modifier = Modifier.size(14.dp)
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
@@ -1552,7 +1610,7 @@ fun DetailedMangaScreen(
                                                 Text(
                                                     rankingContextLabel,
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = if (isAllTime) Color(0xFFfbbf24) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                                    color = if (isAllTime) allTimeAccent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                                                 )
                                             }
                                         }
@@ -1565,6 +1623,11 @@ fun DetailedMangaScreen(
                                 }
                             }
                         }
+                    }
+                } else if (isLoading) {
+                    item {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        DetailTextCardSkeleton(headerWidthFraction = 0.4f, bodyLines = 4)
                     }
                 }
 
@@ -1579,7 +1642,7 @@ fun DetailedMangaScreen(
         androidx.compose.material3.ModalBottomSheet(
             onDismissRequest = { selectedTagForDescription = null },
             sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 40.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1679,6 +1742,7 @@ private fun MangaInfoCard(
     displayData: MangaDetail,
     userStatusDisplay: String?,
     chaptersCount: Int?,
+    isLoading: Boolean = false,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -1724,7 +1788,7 @@ private fun MangaInfoCard(
                 ) {
                     heroStats.forEachIndexed { index, (label, value) ->
                         val accent = when (label) {
-                            "Score" -> Color(0xFFFFB300)
+                            "Score" -> tenseiColors.rating
                             "Volumes" -> MaterialTheme.colorScheme.tertiary
                             "Popularity" -> MaterialTheme.colorScheme.primary
                             "Favorites" -> Color(0xFFEC4899)
@@ -1757,8 +1821,13 @@ private fun MangaInfoCard(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            // Bento spec grid
-            val specs = buildList {
+if (heroStats.isEmpty() && isLoading) {
+                    DetailStatStripSkeleton()
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Bento spec grid
+                val specs = buildList {
                 displayData.format?.let {
                     add(SpecEntry(label = "Format", value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Category))
                 }
@@ -1769,7 +1838,9 @@ private fun MangaInfoCard(
                     add(SpecEntry(label = "Source", value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Description))
                 }
                 displayData.authorNames()?.let {
-                    add(SpecEntry(label = "Author", value = it, icon = Icons.Default.Person))
+                    // Authors get a full row â€” author lists are long and get
+                    // squeezed into a truncated half-width cell otherwise.
+                    add(SpecEntry(label = "Author", value = it, icon = Icons.Default.Person, fullSpan = true))
                 }
                 if (chaptersCount != null) {
                     add(SpecEntry(label = "Chapters", value = chaptersCount.toString()))
@@ -1779,22 +1850,26 @@ private fun MangaInfoCard(
                 }
                 val startedDate = displayData.startDate
                 if (startedDate != null) {
-                    add(SpecEntry(label = "Started", value = formatMangaDate(startedDate)))
+                    add(SpecEntry(label = "Started", value = formatDate(startedDate)))
                 } else displayData.year?.let {
                     add(SpecEntry(label = "Started", value = it.toString()))
                 }
                 if (displayData.status != "RELEASING" && displayData.status != "NOT_YET_RELEASED") {
                     val endedDate = displayData.endDate
                     if (endedDate != null) {
-                        add(SpecEntry(label = "Ended", value = formatMangaDate(endedDate)))
+                        add(SpecEntry(label = "Ended", value = formatDate(endedDate)))
                     } else displayData.endYear?.let {
                         add(SpecEntry(label = "Ended", value = it.toString()))
                     }
                 }
             }
 
-            var i = 0
-            while (i < specs.size) {
+if (specs.isEmpty() && isLoading) {
+                    DetailSpecGridSkeleton()
+                }
+
+                var i = 0
+                while (i < specs.size) {
                 val current = specs[i]
                 val next = specs.getOrNull(i + 1)
                 if (next != null && !current.fullSpan) {
@@ -1849,18 +1924,6 @@ private fun formatNumber(n: Int): String = when {
     n >= 1_000_000 -> "${n / 1_000_000}M"
     n >= 1_000 -> "${n / 1_000}K"
     else -> n.toString()
-}
-
-private fun formatMangaDate(dateStr: String): String {
-    return try {
-        val parts = dateStr.split("-").mapNotNull { it.toIntOrNull() }
-        if (parts.size == 3) {
-            val date = java.time.LocalDate.of(parts[0], parts[1], parts[2])
-            date.format(java.time.format.DateTimeFormatter.ofPattern("d MMMM, yyyy"))
-        } else dateStr
-    } catch (_: Exception) {
-        dateStr
-    }
 }
 
 private fun MangaMedia.asDetail(): MangaDetail = MangaDetail(

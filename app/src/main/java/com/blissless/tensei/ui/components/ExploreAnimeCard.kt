@@ -62,7 +62,13 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.blissless.tensei.data.models.ExploreAnime
-import com.blissless.tensei.ui.theme.StatusColors
+import com.blissless.tensei.ui.theme.Radius
+import com.blissless.tensei.ui.theme.Sizes
+import com.blissless.tensei.ui.theme.Spacing
+import com.blissless.tensei.ui.theme.TenseiType
+import com.blissless.tensei.ui.theme.artworkGradient
+import com.blissless.tensei.ui.theme.statusColor
+import com.blissless.tensei.ui.theme.tenseiColors
 import com.blissless.tensei.ui.theme.StatusLabels
 import java.util.Locale
 import kotlin.math.absoluteValue
@@ -108,8 +114,8 @@ fun ExploreAnimeHorizontalList(
     
     LazyRow(
         state = listState,
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(horizontal = Spacing.railGutter),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.railItem)
     ) {
         itemsIndexed(
             items = animeList,
@@ -252,14 +258,10 @@ fun ExploreAnimeCard(
     }
 
     val effectiveStatus = if (isLoggedIn) currentStatus else localStatus
-    
-    val statusIndicatorColor = remember(effectiveStatus, showStatusColors) {
-        if (showStatusColors && effectiveStatus != null) {
-            StatusColors[effectiveStatus] ?: Color.Transparent
-        } else {
-            Color.Transparent
-        }
-    }
+
+    val resolvedStatusColor = statusColor(effectiveStatus)
+
+    val statusIndicatorColor = if (showStatusColors) resolvedStatusColor else Color.Transparent
 
     val displayScore = remember(anime.averageScore) {
         anime.averageScore?.let { it / 10.0 }
@@ -273,20 +275,18 @@ fun ExploreAnimeCard(
         }
     }
 
-    val buttonContainerColor = remember(showStatusColors, effectiveStatus) {
-        if (showStatusColors && effectiveStatus != null) {
-            (StatusColors[effectiveStatus] ?: Color.Black).copy(alpha = 0.8f)
-        } else {
-            Color.Black.copy(alpha = 0.6f)
-        }
+    val buttonContainerColor = if (showStatusColors) {
+        resolvedStatusColor.copy(alpha = 0.8f)
+    } else {
+        Color.Black.copy(alpha = 0.6f)
     }
 
-    Column(modifier = Modifier.width(120.dp)) {
+    Column(modifier = Modifier.width(Sizes.railPosterWidth)) {
         Card(
-            shape = RoundedCornerShape(4.dp),
+            shape = Radius.posterShape,
             modifier = Modifier
-                .height(170.dp)
-                .clip(RoundedCornerShape(4.dp))
+                .height(Sizes.railPosterHeight)
+                .clip(Radius.posterShape)
                 .clickable(onClick = {
                     val bounds = cardBounds
                     onClick(
@@ -314,10 +314,20 @@ fun ExploreAnimeCard(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                Box(modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(40.dp)
-                    .background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.5f), Color.Transparent))))
-                Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(80.dp)
-                    .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)))))
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .background(artworkGradient(0.5f, 0f))
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .background(artworkGradient(0f, 0.85f))
+                )
 
                 if (statusIndicatorColor != Color.Transparent) {
                     Box(
@@ -330,40 +340,22 @@ fun ExploreAnimeCard(
                 }
 
                 displayScore?.let { score ->
-                    Surface(
+                    TenseiScrimChip(
+                        text = "★ ${String.format(Locale.US, "%.1f", score)}",
+                        color = tenseiColors.rating,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(6.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.65f)
-                    ) {
-                        Text(
-                            "★ ${String.format(Locale.US, "%.1f", score)}",
-                            color = Color(0xFFFFD700),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
+                            .padding(Spacing.sm),
+                    )
                 }
 
                 if (episodeText.isNotEmpty()) {
-                    Surface(
+                    TenseiScrimChip(
+                        text = episodeText,
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(6.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.65f)
-                    ) {
-                        Text(
-                            episodeText,
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
+                            .padding(Spacing.sm),
+                    )
                 }
 
                 if (showAnimeCardButtons) {
@@ -441,93 +433,40 @@ fun ExploreAnimeCard(
             else -> "Unknown"
         }
 
-        Text(
-            text = displayTitle,
-            modifier = Modifier.padding(top = 8.dp).height(36.dp),
-            maxLines = 2,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Medium,
-            overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        RailCardTitle(title = displayTitle)
     }
 }
 
+/**
+ * Explore rail placeholder. Now renders the same geometry as the real rail so
+ * the list doesn't jump when data lands (it previously used 120x170 with a 12dp
+ * radius against a real 140x195 card with a 4dp radius).
+ */
 @Composable
-internal fun LoadingPlaceholder(isOled: Boolean = false) {
-    val skeletonColor = if (isOled) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surfaceVariant
-
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(3, key = { "loading_$it" }) {
-            Column(modifier = Modifier.width(120.dp)) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(170.dp)
-                        .background(skeletonColor, RoundedCornerShape(12.dp))
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .height(12.dp)
-                        .padding(horizontal = 2.dp)
-                        .background(skeletonColor, RoundedCornerShape(4.dp))
-                )
-            }
-        }
-    }
+internal fun LoadingPlaceholder() {
+    TenseiRailSkeleton(itemCount = 3, showTitleBlock = true)
 }
 
+/**
+ * Explore's section header.
+ *
+ * Delegates to [TenseiSectionHeader] so Explore rails look identical to Home
+ * rails instead of being a second, plainer variant.
+ */
 @Composable
-internal fun SectionTitle(title: String, count: Int? = null, isOled: Boolean = false, onClick: (() -> Unit)? = null) {
-    Row(
-        modifier = Modifier
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(start = 16.dp, top = 22.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height(18.dp)
-                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        count?.let {
-            Spacer(modifier = Modifier.width(8.dp))
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-            ) {
-                Text(
-                    "$it",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                )
-            }
-        }
-        if (onClick != null) {
-            Spacer(modifier = Modifier.width(4.dp))
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = "View all",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-    }
+internal fun SectionTitle(
+    title: String,
+    count: Int? = null,
+    isOled: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    accent: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary,
+) {
+    TenseiSectionHeader(
+        title = title,
+        count = count,
+        accent = accent,
+        onClick = onClick,
+    )
 }
 
 

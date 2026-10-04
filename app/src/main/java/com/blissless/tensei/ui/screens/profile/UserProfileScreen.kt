@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -61,6 +62,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -85,16 +88,25 @@ import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.api.myanimelist.LoginProvider
 import com.blissless.tensei.data.models.UserAnimeStats
-import com.blissless.tensei.ui.theme.StatusCompleted
-import com.blissless.tensei.ui.theme.StatusColors
-import com.blissless.tensei.ui.theme.StatusCurrent
-import com.blissless.tensei.ui.theme.StatusDropped
+import com.blissless.tensei.ui.components.SectionHeaderSkeleton
+import com.blissless.tensei.ui.components.SkeletonBlock
+import com.blissless.tensei.ui.components.TenseiDisclosureHeader
+import com.blissless.tensei.ui.components.TenseiTopBar
+import com.blissless.tensei.ui.components.shimmer
+import com.blissless.tensei.ui.theme.Radius
+import com.blissless.tensei.ui.theme.Spacing
+import com.blissless.tensei.ui.theme.themeStatusColors
+import com.blissless.tensei.ui.theme.statusColor
 import com.blissless.tensei.ui.theme.StatusLabels
 import com.blissless.tensei.ui.theme.MangaStatusLabels
-import com.blissless.tensei.ui.theme.StatusPaused
-import com.blissless.tensei.ui.theme.StatusPlanning
+import com.blissless.tensei.ui.theme.tenseiColors
 import java.text.SimpleDateFormat
 import java.util.Date
+import kotlin.system.measureTimeMillis
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import java.util.Locale
 // Extension functions on MainViewModel (defined in com.blissless.tensei.viewmodel)
 import com.blissless.tensei.viewmodel.fetchAniListFavorites
@@ -151,6 +163,9 @@ enum class UserProfileSection {
     ABOUT_ME, FAVORITES, HISTORY
 }
 
+/** Minimum time a profile skeleton stays up, so cache hits don't flash. */
+private const val ProfileSkeletonMinDurationMs = 450L
+
 @Composable
 fun UserProfileScreen(
     viewModel: MainViewModel,
@@ -184,18 +199,40 @@ fun UserProfileScreen(
     val mangaHeld by viewModel.mangaPaused.collectAsState()
     val mangaAbandoned by viewModel.mangaDropped.collectAsState()
 
+    // Nothing on this screen exposes a loading flag, so while the profile fetches
+    // are in flight every tab would otherwise render its "empty" state and the
+    // placeholder name "User". Track the fetches here so each tab can skeleton.
+    var isProfileLoading by remember { mutableStateOf(false) }
+
     LaunchedEffect(loginProvider) {
         if (loginProvider == LoginProvider.ANILIST || loginProvider == LoginProvider.BOTH) {
-            viewModel.loadAniListFavoritesFromStorage()
-            // Refresh the Viewer profile (name/avatar/banner/bio/joined/stats) and
-            // ensure _userId is populated BEFORE the child fetches that depend on it —
-            // otherwise fetchUserStats / fetchUserActivity / fetchAniListFavorites
-            // return early with null userId and About Me stays empty.
-            viewModel.fetchUser()
-            viewModel.fetchAniListFavorites()
-            viewModel.fetchUserActivity()
-            viewModel.fetchUserStats()
-            viewModel.fetchMangaUserProfile()
+            isProfileLoading = true
+            val elapsed = measureTimeMillis {
+                viewModel.loadAniListFavoritesFromStorage()
+                // Refresh the Viewer profile (name/avatar/banner/bio/joined/stats) and
+                // ensure _userId is populated BEFORE the child fetches that depend on it —
+                // otherwise fetchUserStats / fetchUserActivity / fetchAniListFavorites
+                // return early with null userId and About Me stays empty.
+                viewModel.fetchUser()
+                // The four remaining fetches are independent of each other, so run them
+                // concurrently instead of paying for them one after another.
+                coroutineScope {
+                    listOf(
+                        async { viewModel.fetchAniListFavorites() },
+                        async { viewModel.fetchUserActivity() },
+                        async { viewModel.fetchUserStats() },
+                        async { viewModel.fetchMangaUserProfile() },
+                    ).awaitAll()
+                }
+            }
+            // Avoid a one-frame skeleton flash when everything resolves from cache.
+            if (elapsed < ProfileSkeletonMinDurationMs) {
+                delay(ProfileSkeletonMinDurationMs - elapsed)
+            }
+            isProfileLoading = false
+        } else {
+            // MAL-only profiles render from the already-loaded list state.
+            isProfileLoading = false
         }
     }
 
@@ -271,7 +308,6 @@ fun UserProfileScreen(
     val statuses = historyData.statuses
     val progressDisplay = historyData.progressList
 
-    val statusBarsPadding = WindowInsets.statusBars.asPaddingValues()
     val navigationBarsPadding = WindowInsets.navigationBars.asPaddingValues()
 
     BackHandler { onBack() }
@@ -281,50 +317,51 @@ fun UserProfileScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = statusBarsPadding.calculateTopPadding() + 8.dp, start = 8.dp, end = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack, "Back",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Spacer(Modifier.weight(1f))
-            Text(
-                when (selectedSection) {
-                    UserProfileSection.ABOUT_ME -> "About Me"
-                    UserProfileSection.FAVORITES -> "Favorites"
-                    UserProfileSection.HISTORY -> "History"
-                },
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(Modifier.weight(1f))
-            if (selectedSection == UserProfileSection.ABOUT_ME && userSiteUrl != null) {
-                IconButton(onClick = {
-                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, userSiteUrl)
+        TenseiTopBar(
+            title = when (selectedSection) {
+                UserProfileSection.ABOUT_ME -> "About Me"
+                UserProfileSection.FAVORITES -> "Favorites"
+                UserProfileSection.HISTORY -> "History"
+            },
+            leadingIcon = Icons.AutoMirrored.Rounded.ArrowBack,
+            onLeadingClick = onBack,
+            containerColor = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onBackground,
+            bottomDivider = true,
+            actions = {
+                if (selectedSection == UserProfileSection.ABOUT_ME && userSiteUrl != null) {
+                    IconButton(onClick = {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, userSiteUrl)
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Share Profile"))
+                    }) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = "Share profile",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
-                    context.startActivity(Intent.createChooser(shareIntent, "Share Profile"))
-                }) {
-                    Icon(Icons.Default.Share, "Share", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            } else {
-                Spacer(Modifier.width(48.dp))
-            }
-        }
+            },
+        )
 
         Box(
             modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp)
         ) {
+            // Only skeleton a tab that has nothing to show yet — if data already
+            // arrived (cache or a fast response) keep rendering it.
+            val aboutLoading = isProfileLoading && userName == null
+            val favoritesLoading = isProfileLoading &&
+                favorites.isEmpty() && mangaFavorites.isEmpty()
+            val historyLoading = isProfileLoading &&
+                history.isEmpty() && mangaActivity.isEmpty()
+
             when (selectedSection) {
-                UserProfileSection.ABOUT_ME -> AboutMeContent(
+                UserProfileSection.ABOUT_ME -> if (aboutLoading) {
+                    ProfileAboutSkeleton()
+                } else AboutMeContent(
                     username = userName ?: "User",
                     userAvatar = userAvatar, userBanner = userBanner,
                     userBio = userBio,
@@ -345,7 +382,9 @@ fun UserProfileScreen(
                         LibraryStatus("DROPPED", mangaAbandoned.size)
                     )
                 )
-                UserProfileSection.FAVORITES -> {
+                UserProfileSection.FAVORITES -> if (favoritesLoading) {
+                    ProfileFavoritesSkeleton()
+                } else {
                     val allManga = mangaReading + mangaPlanning + mangaFinished + mangaHeld + mangaAbandoned
                     val mangaScoreLookup = allManga.associate { it.id to it.userScore }
                     val enrichedMangaFavorites = mangaFavorites.map { mf ->
@@ -388,7 +427,9 @@ fun UserProfileScreen(
                     }
                 )
                 }
-                UserProfileSection.HISTORY -> HistoryContent(
+                UserProfileSection.HISTORY -> if (historyLoading) {
+                    ProfileHistorySkeleton()
+                } else HistoryContent(
                     history = history,
                     mangaHistory = mangaActivity,
                     preferEnglishTitles = preferEnglishTitles,
@@ -431,7 +472,12 @@ fun UserProfileScreen(
                 // row + its padding) so they don't fall through to the page content behind the
                 // profile overlay. Child button taps are unaffected.
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { }
-                .padding(start = 24.dp, end = 24.dp, top = 12.dp, bottom = navigationBarsPadding.calculateBottomPadding() + 12.dp),
+                .padding(
+                    start = Spacing.gutter,
+                    end = Spacing.gutter,
+                    top = Spacing.md,
+                    bottom = navigationBarsPadding.calculateBottomPadding() + Spacing.md,
+                ),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -489,6 +535,226 @@ private fun UserProfileNavButton(
             title, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall
         )
+    }
+}
+
+/**
+ * Mirrors the geometry of [TenseiDisclosureHeader] so switching tabs doesn't
+ * reflow once the real headers land.
+ */
+@Composable
+private fun ProfileHeaderSkeleton(modifier: Modifier = Modifier) {
+    SectionHeaderSkeleton(
+        modifier = modifier.padding(horizontal = Spacing.xs, vertical = Spacing.sm)
+    )
+}
+
+@Composable
+private fun ProfileAboutSkeleton() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .shimmer()
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        SkeletonBlock(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(112.dp),
+            cornerRadius = 14.dp,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SkeletonBlock(
+                modifier = Modifier.size(64.dp),
+                cornerRadius = 32.dp,
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                SkeletonBlock(
+                    modifier = Modifier
+                        .width(140.dp)
+                        .height(16.dp)
+                )
+                SkeletonBlock(
+                    modifier = Modifier
+                        .width(90.dp)
+                        .height(11.dp)
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            repeat(3) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .height(12.dp)
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .width(34.dp)
+                            .height(20.dp)
+                    )
+                }
+            }
+        }
+        ProfileHeaderSkeleton()
+        repeat(3) {
+            SkeletonBlock(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
+                cornerRadius = 12.dp,
+            )
+        }
+        ProfileHeaderSkeleton()
+        repeat(3) {
+            SkeletonBlock(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
+                cornerRadius = 12.dp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileFavoritesSkeleton() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .shimmer()
+            // Mirrors the favourites grid's inset so the headers don't shift.
+            .padding(vertical = 8.dp, horizontal = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        ProfileHeaderSkeleton()
+        repeat(2) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                repeat(2) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                    ) {
+                        SkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(2f / 3f),
+                            cornerRadius = 12.dp,
+                        )
+                        SkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.85f)
+                                .height(12.dp)
+                        )
+                        SkeletonBlock(
+                            modifier = Modifier
+                                .fillMaxWidth(0.5f)
+                                .height(9.dp)
+                        )
+                    }
+                }
+            }
+        }
+        ProfileHeaderSkeleton()
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            repeat(2) {
+                SkeletonBlock(
+                    modifier = Modifier
+                        .weight(1f)
+                        .aspectRatio(2f / 3f),
+                    cornerRadius = 12.dp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileHistorySkeleton() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .shimmer()
+            // Mirrors the history list's inset so the headers don't shift.
+            .padding(vertical = 8.dp, horizontal = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        ProfileHeaderSkeleton()
+        repeat(5) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SkeletonBlock(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(80.dp),
+                    cornerRadius = 10.dp,
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .fillMaxWidth(0.7f)
+                            .height(12.dp)
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .width(84.dp)
+                            .height(16.dp)
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .width(56.dp)
+                            .height(9.dp)
+                    )
+                }
+            }
+        }
+        ProfileHeaderSkeleton()
+        repeat(2) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SkeletonBlock(
+                    modifier = Modifier
+                        .width(56.dp)
+                        .height(80.dp),
+                    cornerRadius = 10.dp,
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .fillMaxWidth(0.6f)
+                            .height(12.dp)
+                    )
+                    SkeletonBlock(
+                        modifier = Modifier
+                            .width(72.dp)
+                            .height(16.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -617,14 +883,14 @@ private fun AboutMeContent(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
-                LibrarySection(title = "Anime Library", statuses = animeLibrary, labels = StatusLabels, colors = StatusColors)
+                LibrarySection(title = "Anime Library", statuses = animeLibrary, labels = StatusLabels, colors = themeStatusColors())
             }
 
             val mangaTotal = mangaLibrary.sumOf { it.count }
             if (mangaTotal > 0) {
                 Spacer(modifier = Modifier.height(20.dp))
 
-                LibrarySection(title = "Manga Library", statuses = mangaLibrary, labels = MangaStatusLabels, colors = StatusColors)
+                LibrarySection(title = "Manga Library", statuses = mangaLibrary, labels = MangaStatusLabels, colors = themeStatusColors())
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -810,7 +1076,7 @@ private fun FavoritesContent(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     ProfileSectionHeader(
                         title = "Anime",
-                        icon = Icons.Default.PlayArrow,
+                        icon = Icons.Rounded.Movie,
                         count = favorites.size,
                         expanded = animeExpanded,
                         onClick = { animeExpanded = !animeExpanded }
@@ -833,7 +1099,7 @@ private fun FavoritesContent(
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     ProfileSectionHeader(
                         title = "Manga",
-                        icon = Icons.Default.Bookmark,
+                        icon = Icons.Rounded.MenuBook,
                         count = mangaFavorites.size,
                         expanded = mangaExpanded,
                         onClick = { mangaExpanded = !mangaExpanded }
@@ -856,6 +1122,12 @@ private fun FavoritesContent(
     }
 }
 
+/**
+ * Expand/collapse header used by the favourites and history sections.
+ *
+ * Now delegates to [TenseiDisclosureHeader] so it shares the stripe + count
+ * pill language of every other section header in the app.
+ */
 @Composable
 private fun ProfileSectionHeader(
     title: String,
@@ -864,45 +1136,13 @@ private fun ProfileSectionHeader(
     expanded: Boolean,
     onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(28.dp)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), RoundedCornerShape(9.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-        }
-        Spacer(Modifier.width(10.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Spacer(Modifier.width(8.dp))
-        Box(
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
-                .padding(horizontal = 6.dp, vertical = 1.dp)
-        ) {
-            Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.weight(1f))
-        Icon(
-            imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = if (expanded) "Collapse" else "Expand",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp)
-        )
-    }
+    TenseiDisclosureHeader(
+        title = title,
+        icon = icon,
+        count = count,
+        expanded = expanded,
+        onClick = onClick,
+    )
 }
 
 @Composable
@@ -962,7 +1202,7 @@ private fun FavoriteItem(
                 FavoriteCoverBadge(
                     text = displayScore.toString(),
                     icon = Icons.Default.Star,
-                    tintColor = Color(0xFFFFD700),
+                    tintColor = tenseiColors.rating,
                     modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
                 )
             }
@@ -983,7 +1223,7 @@ private fun FavoriteItem(
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showRemoveDialog = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Favorite, "Remove from favorites", tint = Color(0xFFFF1744), modifier = Modifier.size(15.dp))
+                    Icon(Icons.Filled.Favorite, "Remove from favorites", tint = tenseiColors.favorite, modifier = Modifier.size(15.dp))
                 }
             }
         }
@@ -1065,13 +1305,15 @@ private fun HistoryContent(
         LazyColumn(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(vertical = 8.dp)
+            // Must mirror the favourites grid's horizontal inset, otherwise the
+            // disclosure headers shift sideways when switching tabs.
+            contentPadding = PaddingValues(vertical = 8.dp, horizontal = 2.dp)
         ) {
             if (history.isNotEmpty()) {
                 item {
                     ProfileSectionHeader(
                         title = "Anime",
-                        icon = Icons.Default.PlayArrow,
+                        icon = Icons.Rounded.Movie,
                         count = history.size,
                         expanded = animeExpanded,
                         onClick = { animeExpanded = !animeExpanded }
@@ -1096,7 +1338,7 @@ private fun HistoryContent(
                 item {
                     ProfileSectionHeader(
                         title = "Manga",
-                        icon = Icons.Default.Bookmark,
+                        icon = Icons.Rounded.MenuBook,
                         count = mangaHistory.size,
                         expanded = mangaExpanded,
                         onClick = { mangaExpanded = !mangaExpanded }
@@ -1123,17 +1365,17 @@ private fun HistoryItem(
 ) {
     val (statusIcon, statusColor, statusLabel) = when {
         status?.contains("completed", ignoreCase = true) == true || status?.contains("finished", ignoreCase = true) == true ->
-            Triple(Icons.Default.Check, StatusCompleted, "Completed")
+            Triple(Icons.Default.Check, statusColor("COMPLETED"), "Completed")
         status?.contains("paused", ignoreCase = true) == true || status?.contains("hold", ignoreCase = true) == true ->
-            Triple(Icons.Default.Pause, StatusPaused, "On Hold")
+            Triple(Icons.Default.Pause, statusColor("PAUSED"), "On Hold")
         status?.contains("dropped", ignoreCase = true) == true ->
-            Triple(Icons.Default.Delete, StatusDropped, "Dropped")
+            Triple(Icons.Default.Delete, statusColor("DROPPED"), "Dropped")
         status?.contains("plan", ignoreCase = true) == true ->
-            Triple(Icons.Default.Bookmark, StatusPlanning, "Planning to Watch")
+            Triple(Icons.Default.Bookmark, statusColor("PLANNING"), "Planning to Watch")
         status?.contains("watching", ignoreCase = true) == true || status?.contains("watched", ignoreCase = true) == true ||
             status?.contains("repeating", ignoreCase = true) == true || status?.contains("rewatched", ignoreCase = true) == true ->
-            Triple(Icons.Default.PlayArrow, StatusCurrent, "Watched")
-        else -> Triple(Icons.Default.PlayArrow, StatusCurrent, status ?: "")
+            Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), "Watched")
+        else -> Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), status ?: "")
     }
 
     val displayTitle = if (preferEnglishTitles && !entry.titleEnglish.isNullOrEmpty()) entry.titleEnglish else entry.title
@@ -1277,7 +1519,7 @@ private fun MangaFavoriteItem(
                 FavoriteCoverBadge(
                     text = displayScore.toString(),
                     icon = Icons.Default.Star,
-                    tintColor = Color(0xFFFFD700),
+                    tintColor = tenseiColors.rating,
                     modifier = Modifier.align(Alignment.TopEnd).padding(6.dp)
                 )
             }
@@ -1298,7 +1540,7 @@ private fun MangaFavoriteItem(
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showRemoveDialog = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Favorite, "Remove from favorites", tint = Color(0xFFFF1744), modifier = Modifier.size(15.dp))
+                    Icon(Icons.Filled.Favorite, "Remove from favorites", tint = tenseiColors.favorite, modifier = Modifier.size(15.dp))
                 }
             }
         }
@@ -1330,18 +1572,18 @@ private fun MangaActivityItem(
     val status = node.status ?: ""
     val (statusIcon, statusColor, statusLabel) = when {
         status.contains("completed", ignoreCase = true) || status.contains("finished", ignoreCase = true) ->
-            Triple(Icons.Default.Check, StatusCompleted, "Completed")
+            Triple(Icons.Default.Check, statusColor("COMPLETED"), "Completed")
         status.contains("paused", ignoreCase = true) || status.contains("hold", ignoreCase = true) ->
-            Triple(Icons.Default.Pause, StatusPaused, "On Hold")
+            Triple(Icons.Default.Pause, statusColor("PAUSED"), "On Hold")
         status.contains("dropped", ignoreCase = true) ->
-            Triple(Icons.Default.Delete, StatusDropped, "Dropped")
+            Triple(Icons.Default.Delete, statusColor("DROPPED"), "Dropped")
         status.contains("plan", ignoreCase = true) ->
-            Triple(Icons.Default.Bookmark, StatusPlanning, "Planning to Read")
+            Triple(Icons.Default.Bookmark, statusColor("PLANNING"), "Planning to Read")
         status.contains("reading", ignoreCase = true) || status.contains("read", ignoreCase = true) ||
             status.contains("current", ignoreCase = true) || status.contains("repeating", ignoreCase = true) ||
             status.contains("reread", ignoreCase = true) ->
-            Triple(Icons.Default.PlayArrow, StatusCurrent, "Read")
-        else -> Triple(Icons.Default.PlayArrow, StatusCurrent, status)
+            Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), "Read")
+        else -> Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), status)
     }
 
     val progressSuffix = formatMangaProgress(node.progress)

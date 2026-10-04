@@ -1,5 +1,6 @@
 package com.blissless.tensei.ui.screens.player
 
+import com.blissless.tensei.ui.theme.Spacing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -61,7 +62,7 @@ internal fun TemplatePanel(
         SectionDivider()
         Spacer(Modifier.height(12.dp))
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             TEMPLATES.chunked(4).forEach { row ->
@@ -128,7 +129,7 @@ internal fun OutlinePanel(
         if (enabled) {
             Spacer(Modifier.height(12.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Color", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
@@ -139,7 +140,7 @@ internal fun OutlinePanel(
                 colors = OUTLINE_PRESETS,
                 selectedColor = color,
                 onColorSelect = onColorChange,
-                modifier = Modifier.padding(horizontal = 20.dp)
+                modifier = Modifier.padding(horizontal = Spacing.gutter)
             )
         }
     }
@@ -177,7 +178,7 @@ internal fun ShadowPanel(
         if (enabled) {
             Spacer(Modifier.height(8.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Blur", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
@@ -192,7 +193,7 @@ internal fun ShadowPanel(
                 displayValue = "${blur.toInt()} px"
             )
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Offset X", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
@@ -207,7 +208,7 @@ internal fun ShadowPanel(
                 displayValue = "${offsetX.toInt()} px"
             )
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Offset Y", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
@@ -223,7 +224,7 @@ internal fun ShadowPanel(
             )
             Spacer(Modifier.height(8.dp))
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Color", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
@@ -234,7 +235,7 @@ internal fun ShadowPanel(
                 colors = SHADOW_PRESETS,
                 selectedColor = color,
                 onColorSelect = onColorChange,
-                modifier = Modifier.padding(horizontal = 20.dp)
+                modifier = Modifier.padding(horizontal = Spacing.gutter)
             )
         }
     }
@@ -255,14 +256,14 @@ internal fun BgPanel(
         SectionDivider()
         Spacer(Modifier.height(12.dp))
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Presets", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
         }
         Spacer(Modifier.height(8.dp))
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             BG_SUB_PRESETS.forEach { colorLong ->
@@ -349,7 +350,7 @@ internal fun FontFamilyPanel(
         SectionDivider()
         Spacer(Modifier.height(12.dp))
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             FONT_PRESETS.forEach { (name, family) ->

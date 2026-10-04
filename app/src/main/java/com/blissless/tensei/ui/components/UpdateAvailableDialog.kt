@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.blissless.tensei.update.GitHubRelease
+import com.blissless.tensei.ui.theme.Radius
 
 /**
  * "Update Available" dialog shown on startup when a new GitHub release is found.
@@ -71,7 +72,7 @@ fun UpdateAvailableDialog(
             Button(
                 onClick = onUpdate,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                shape = RoundedCornerShape(10.dp)
+                shape = Radius.controlShape
             ) {
                 Text("Update")
             }

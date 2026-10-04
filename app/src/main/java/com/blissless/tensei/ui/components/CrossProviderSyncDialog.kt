@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
@@ -51,6 +50,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.blissless.tensei.ui.theme.PillShape
+import com.blissless.tensei.ui.theme.Radius
+import com.blissless.tensei.ui.theme.Spacing
 
 /**
  * Modern cross-provider sync prompt. The user first picks a direction (AniList → MAL or
@@ -86,7 +88,7 @@ fun CrossProviderSyncDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = Radius.sheetShape,
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = if (isOled) 0.dp else 6.dp,
             shadowElevation = 12.dp,
@@ -94,10 +96,10 @@ fun CrossProviderSyncDialog(
                 .fillMaxWidth(0.92f)
                 .border(
                     BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-                    RoundedCornerShape(28.dp)
+                    Radius.sheetShape
                 )
         ) {
-            Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 22.dp)) {
+            Column(modifier = Modifier.padding(horizontal = Spacing.xxl, vertical = Spacing.xl)) {
                 // Header: the two provider logos with an animated direction arrow, centered.
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -236,10 +238,10 @@ fun CrossProviderSyncDialog(
                     },
                     enabled = direction != null,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(Radius.controlShape)
                         .fillMaxWidth()
                         .height(52.dp),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = Radius.controlShape
                 ) {
                     Text(
                         when (direction) {
@@ -254,10 +256,10 @@ fun CrossProviderSyncDialog(
                 TextButton(
                     onClick = onDismiss,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(Radius.controlShape)
                         .fillMaxWidth()
                         .height(44.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = Radius.controlShape
                 ) {
                     Text("Not now", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -340,12 +342,12 @@ private fun DirectionOption(
     )
     val total = changesAnime + changesManga
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = Radius.cardShape,
         color = containerColor,
         border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(Radius.cardShape)
             .clickable(onClick = onClick)
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
@@ -413,7 +415,7 @@ private fun CountPill(count: Int, accent: Color, isOled: Boolean) {
     val fg = if (inSync) MaterialTheme.colorScheme.onSurfaceVariant else accent
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
+            .clip(PillShape)
             .background(bg)
             .padding(horizontal = 9.dp, vertical = 3.dp)
     ) {

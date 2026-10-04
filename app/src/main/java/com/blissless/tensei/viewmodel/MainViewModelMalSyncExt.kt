@@ -292,11 +292,13 @@ internal suspend fun MainViewModel.fetchMalList(): Boolean {
         }
     }
 
-    _currentlyWatching.value = currentlyWatching.sortedByDescending { it.averageScore ?: 0 }
-    _planningToWatch.value = planningToWatch.sortedByDescending { it.averageScore ?: 0 }
-    _completed.value = completed.sortedByDescending { it.averageScore ?: 0 }
-    _onHold.value = onHold.sortedByDescending { it.averageScore ?: 0 }
-    _dropped.value = dropped.sortedByDescending { it.averageScore ?: 0 }
+    // Keep MAL's own ordering (most recently updated first). Re-sorting here by
+    // averageScore would override the "Last Updated" default the list screens offer.
+    _currentlyWatching.value = currentlyWatching
+    _planningToWatch.value = planningToWatch
+    _completed.value = completed
+    _onHold.value = onHold
+    _dropped.value = dropped
 
     // Diagnostic: per-status counts and duplicate/skip detection (compare against the MAL
     // website's own status counts; duplicates here indicate offset-pagination skips).

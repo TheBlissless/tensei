@@ -113,6 +113,7 @@ import com.blissless.tensei.ui.screens.manga.MangaAllRelationsScreen
 import com.blissless.tensei.ui.screens.manga.MangaAllRecommendationsScreen
 import com.blissless.tensei.ui.screens.manga.MangaAllStaffScreen
 import com.blissless.tensei.ui.theme.AppTheme
+import com.blissless.tensei.ui.theme.ColorMode
 import com.blissless.tensei.ui.theme.ThemeMode
 import com.blissless.tensei.update.UpdateViewModel
 import com.blissless.tensei.util.toast
@@ -381,6 +382,8 @@ class MainActivity : ComponentActivity() {
             val themeModeStr by mainViewModel.themeMode.collectAsState()
             val isOled by mainViewModel.isOled.collectAsState()
             val disableMaterialColors by mainViewModel.disableMaterialColors.collectAsState()
+            val colorMode by mainViewModel.colorMode.collectAsState()
+            val resolvedColorMode = remember(colorMode) { ColorMode.fromValue(colorMode) }
             val showStatusColors by mainViewModel.showStatusColors.collectAsState()
             val showAnimeCardButtons by mainViewModel.showAnimeCardButtons.collectAsState()
             val showMangaCardButtons by mainViewModel.showMangaCardButtons.collectAsState()
@@ -455,14 +458,14 @@ class MainActivity : ComponentActivity() {
             }
 
             val dialogThemeMode = remember(themeModeStr) { ThemeMode.fromValue(themeModeStr) }
-            AppTheme(themeMode = dialogThemeMode, useMonochrome = disableMaterialColors) {
+            AppTheme(themeMode = dialogThemeMode, colorMode = resolvedColorMode) {
             crossCopyPrompt?.takeIf { it.visible }?.let { prompt ->
                 com.blissless.tensei.ui.components.CrossProviderSyncDialog(
                     aniToMalAnime = prompt.aniToMalAnime,
                     aniToMalManga = prompt.aniToMalManga,
                     malToAniAnime = prompt.malToAniAnime,
                     malToAniManga = prompt.malToAniManga,
-                    useMonochrome = disableMaterialColors,
+                    useMonochrome = resolvedColorMode == ColorMode.MONOCHROME,
                     isOled = isOled,
                     onDismiss = { mainViewModel.dismissCrossProviderCopyPrompt() },
                     onSyncAniListToMal = { mainViewModel.applyCrossProviderCopy(toMal = true) },
@@ -473,7 +476,7 @@ class MainActivity : ComponentActivity() {
             } // end AppTheme wrapping the cross-provider dialogs
 
             val themeMode = remember(themeModeStr) { ThemeMode.fromValue(themeModeStr) }
-            AppTheme(themeMode = themeMode, useMonochrome = disableMaterialColors) {
+            AppTheme(themeMode = themeMode, colorMode = resolvedColorMode) {
                 MainScreen(
                     viewModel = mainViewModel,
                     isOled = isOled,
@@ -2932,7 +2935,6 @@ fun MainScreen(
                         autoSkipOpening = autoSkipOpening,
                         autoSkipEnding = autoSkipEnding,
                         autoPlayNextEpisode = autoPlayNextEpisode,
-                        disableMaterialColors = disableMaterialColors,
                         preferredCategory = preferredCategory,
                         initialGroup = settingsInitialGroup,
                         onBack = { showSettings = false; pendingSettingsGroup = null; settingsReturnVersion++ }
@@ -2946,7 +2948,8 @@ fun MainScreen(
             contentWindowInsets = WindowInsets(0, 0, 0, 0)
         ) { padding ->
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-                when (currentPage) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (currentPage) {
                     0 -> ScheduleScreen(
                         viewModel = viewModel,
                         isOled = isOled,
@@ -3324,19 +3327,23 @@ fun MainScreen(
                     )
                 }
 
-                com.blissless.tensei.ui.components.BottomNavigationBar(
-                    selectedIndex = currentPage,
-                    isOled = isOled,
-                    disableMaterialColors = disableMaterialColors,
-                    hideNavbar = hideNavbar,
-                    isLoadingStream = isLoadingStream,
-                    showSearchScreen = showSearchScreen || showUserProfilePage,
-                    onSelect = {
-                        currentPage = it
-                    },
-                    scope = scope,
-                )
-
+                Box(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                ) {
+                    com.blissless.tensei.ui.components.BottomNavigationBar(
+                        selectedIndex = currentPage,
+                        isOled = isOled,
+                        disableMaterialColors = disableMaterialColors,
+                        hideNavbar = hideNavbar,
+                        isLoadingStream = isLoadingStream,
+                        showSearchScreen = showSearchScreen || showUserProfilePage,
+                        onSelect = {
+                            currentPage = it
+                        },
+                        scope = scope,
+                    )
+                }
+            }
                 streamError?.let { error ->
                     com.blissless.tensei.ui.components.StreamErrorDialog(
                         error = error,

@@ -53,6 +53,7 @@ import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.AnimeRelation
+import com.blissless.tensei.ui.theme.ratingColorOnArtwork
 import kotlinx.coroutines.delay
 
 @Composable
@@ -204,7 +205,7 @@ fun AllRecommendationsScreen(
                                                 Text(
                                                     "${(score / 10.0).toString().take(3)}",
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = Color(0xFFFFD700),
+                                                    color = ratingColorOnArtwork(),
                                                     fontWeight = FontWeight.Bold,
                                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                                 )

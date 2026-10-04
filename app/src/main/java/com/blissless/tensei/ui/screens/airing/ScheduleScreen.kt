@@ -85,7 +85,7 @@ import com.blissless.tensei.data.models.toDetailedAnimeData
 import com.blissless.tensei.ui.components.appIconDrawable
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
 import com.blissless.tensei.ui.screens.details.DetailedAnimeScreen
-import com.blissless.tensei.ui.theme.StatusColors
+import com.blissless.tensei.ui.theme.statusColor
 import com.blissless.tensei.ui.theme.StatusLabels
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -97,6 +97,19 @@ import kotlin.math.absoluteValue
 import kotlin.time.Duration.Companion.milliseconds
 import com.blissless.tensei.util.toast
 import com.blissless.tensei.util.longToast
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import com.blissless.tensei.ui.components.AppIconCircle
+import com.blissless.tensei.ui.components.ExploreTopBarRow
+import com.blissless.tensei.ui.components.SearchCircleAction
+import com.blissless.tensei.ui.components.TenseiErrorBanner
+import com.blissless.tensei.ui.components.SkeletonBlock
+import com.blissless.tensei.ui.components.shimmer
+import com.blissless.tensei.ui.theme.Spacing
+import com.blissless.tensei.ui.theme.Radius
+import com.blissless.tensei.ui.theme.TenseiType
 
 val DayNames = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 val DayAbbreviations = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
@@ -364,71 +377,70 @@ fun ScheduleScreen(
     val selectedDayPastCount = filteredScheduleByDay[selectedDay]?.count { it.airingAt <= currentTime } ?: 0
     val selectedDayFutureCount = filteredScheduleByDay[selectedDay]?.count { it.airingAt > currentTime } ?: 0
 
-    val bg = MaterialTheme.colorScheme.background
     val onBg = MaterialTheme.colorScheme.onBackground
 
-    Column(modifier = Modifier.fillMaxSize().background(bg)) {
+    val requestRefresh: () -> Unit = {
+        if (viewModel.tryManualRefresh("schedule")) {
+            isRefreshing = true
+            currentTime = System.currentTimeMillis() / 1000
+            viewModel.fetchAiringSchedule(force = true)
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
         if (apiError != null || isOffline) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = if (isOffline) Color(0xFF1A1A1A) else if (isOled) Color(0xFF93000A) else MaterialTheme.colorScheme.errorContainer,
-                tonalElevation = 2.dp
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
-                        contentDescription = null,
-                        tint = if (isOffline) Color.White.copy(alpha = 0.7f) else if (isOled) Color(0xFFFFDAD6).copy(alpha = 0.7f) else MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (isOffline) "No internet connection" else "AniList is currently unavailable",
-                        color = if (isOffline) Color.White.copy(alpha = 0.8f) else if (isOled) Color(0xFFFFDAD6) else MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 36.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AsyncImage(
-                model = appIconDrawable(appIcon),
-                contentDescription = null,
-                modifier = Modifier.size(40.dp).clip(CircleShape)
+            TenseiErrorBanner(
+                message = if (isOffline) "No internet connection" else "AniList is currently unavailable",
+                icon = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
+                onRetry = requestRefresh,
             )
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Airing Schedule", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                Text(if (viewMode == 0) "$todayPastCount aired · $totalUpcomingThisWeek upcoming" else if (selectedDayPastCount > 0) "$selectedDayPastCount aired · $selectedDayFutureCount upcoming" else "$selectedDayFutureCount upcoming",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Surface(
-                onClick = onSearchClick,
-                shape = CircleShape,
-                color = Color.White.copy(alpha = 0.12f),
-                modifier = Modifier.size(40.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
         }
 
-        Spacer(Modifier.height(12.dp))
+        val scheduleSubtitle = if (viewMode == 0) {
+            "$todayPastCount aired · $totalUpcomingThisWeek upcoming"
+        } else if (selectedDayPastCount > 0) {
+            "$selectedDayPastCount aired · $selectedDayFutureCount upcoming"
+        } else {
+            "$selectedDayFutureCount upcoming"
+        }
+
+        ExploreTopBarRow(
+            leading = { AppIconCircle(appIcon) },
+            center = {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = Spacing.sm),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = "Airing Schedule",
+                        style = TenseiType.screenTitle,
+                        color = onBg,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = scheduleSubtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = onBg.copy(alpha = 0.65f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            },
+            trailing = {
+                SearchCircleAction(
+                    onClick = onSearchClick,
+                    contentDescription = "Search the schedule"
+                )
+            }
+        )
+
+        Spacer(Modifier.height(Spacing.xxl))
 
         val orderedDaysForSelector = if (viewMode == 0) orderedDays else orderedDays
         val currentDayForSelector = if (viewMode == 0) visibleDayByScroll else selectedDay
@@ -436,7 +448,15 @@ fun ScheduleScreen(
         // Day selector: horizontally swipeable day buttons (Day name, date, airing count)
         val dateFormat = remember { SimpleDateFormat("MMM", Locale.getDefault()) }
         val dayOfMonthFormat = remember { SimpleDateFormat("d", Locale.getDefault()) }
+        val daySelectorState = rememberLazyListState()
+        LaunchedEffect(currentDayForSelector, orderedDaysForSelector) {
+            val index = orderedDaysForSelector.indexOf(currentDayForSelector)
+            if (index >= 0) {
+                daySelectorState.animateScrollToItem(index)
+            }
+        }
         LazyRow(
+            state = daySelectorState,
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -504,7 +524,7 @@ fun ScheduleScreen(
 
         PullToRefreshBox(
             isRefreshing = isRefreshing,
-            onRefresh = { if (viewModel.tryManualRefresh("schedule")) { isRefreshing = true; currentTime = System.currentTimeMillis() / 1000; viewModel.fetchAiringSchedule(force = true) } },
+            onRefresh = requestRefresh,
             modifier = Modifier.fillMaxSize()
         ) {
             if (isLoading && airingList.isEmpty()) {
@@ -863,10 +883,10 @@ private fun TimelineAnimeItem(
                                 }
                             }
                             if (animeStatus != null) {
-                                val statusColor = StatusColors[animeStatus] ?: Color.Gray
+                                val listStatusColor = statusColor(animeStatus)
                                 val statusLabel = StatusLabels[animeStatus] ?: animeStatus
-                                Surface(shape = RoundedCornerShape(6.dp), color = statusColor.copy(alpha = 0.12f)) {
-                                    Text(statusLabel, style = MaterialTheme.typography.labelMedium, color = statusColor, fontWeight = FontWeight.SemiBold,
+                                Surface(shape = RoundedCornerShape(6.dp), color = listStatusColor.copy(alpha = 0.12f)) {
+                                    Text(statusLabel, style = MaterialTheme.typography.labelMedium, color = listStatusColor, fontWeight = FontWeight.SemiBold,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                                 }
                             }
@@ -915,34 +935,86 @@ private fun TimelineAnimeItem(
 
 @Composable
 private fun ScheduleLoadingSkeleton() {
-    val skeletonColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    val secondaryColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .shimmer(),
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
     ) {
         items(6) {
-            Box(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 24.dp, bottom = 6.dp).width(60.dp).height(20.dp).background(skeletonColor, RoundedCornerShape(6.dp)))
+            Box(
+                modifier = Modifier
+                    .padding(start = 16.dp, top = 24.dp, bottom = 6.dp)
+                    .width(60.dp)
+                    .height(20.dp)
+            ) {
+                SkeletonBlock(Modifier.fillMaxSize())
+            }
 
-            Box(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 4.dp).width(40.dp).height(16.dp).background(secondaryColor, RoundedCornerShape(4.dp)))
+            Box(
+                modifier = Modifier
+                    .padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
+                    .width(40.dp)
+                    .height(16.dp)
+            ) {
+                SkeletonBlock(Modifier.fillMaxSize())
+            }
 
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.Top) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.Top
+            ) {
                 Box(Modifier.width(34.dp), contentAlignment = Alignment.TopCenter) {
-                    Box(Modifier.width(2.dp).fillMaxHeight().background(secondaryColor))
+                    SkeletonBlock(
+                        Modifier
+                            .width(2.dp)
+                            .fillMaxHeight()
+                    )
                 }
-                Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp), color = skeletonColor) {
-                    Row(modifier = Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.width(68.dp).height(92.dp).background(secondaryColor, RoundedCornerShape(10.dp)))
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SkeletonBlock(
+                            Modifier
+                                .width(68.dp)
+                                .height(92.dp),
+                            cornerRadius = Radius.poster
+                        )
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Box(Modifier.fillMaxWidth(0.8f).height(12.dp).background(secondaryColor, RoundedCornerShape(4.dp)))
+                            SkeletonBlock(
+                                Modifier
+                                    .fillMaxWidth(0.8f)
+                                    .height(12.dp)
+                            )
                             Spacer(Modifier.height(10.dp))
-                            Box(Modifier.fillMaxWidth(0.45f).height(12.dp).background(secondaryColor, RoundedCornerShape(4.dp)))
+                            SkeletonBlock(
+                                Modifier
+                                    .fillMaxWidth(0.45f)
+                                    .height(12.dp)
+                            )
                             Spacer(Modifier.height(10.dp))
-                            Box(Modifier.width(50.dp).height(18.dp).background(secondaryColor, RoundedCornerShape(6.dp)))
+                            SkeletonBlock(
+                                Modifier
+                                    .width(50.dp)
+                                    .height(18.dp)
+                            )
                             Spacer(Modifier.height(10.dp))
-                            Box(Modifier.width(40.dp).height(14.dp).background(secondaryColor, RoundedCornerShape(4.dp)))
+                            SkeletonBlock(
+                                Modifier
+                                    .width(40.dp)
+                                    .height(14.dp)
+                            )
                         }
                     }
                 }

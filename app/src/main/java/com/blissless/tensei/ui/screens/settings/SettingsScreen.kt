@@ -55,6 +55,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.InvertColors
 import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -99,6 +101,7 @@ import coil.request.ImageRequest
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.R
 import com.blissless.tensei.ui.components.appIconDrawable
+import com.blissless.tensei.ui.theme.ColorMode
 import com.blissless.tensei.ui.theme.ThemeMode
 import com.blissless.tensei.api.myanimelist.LoginProvider
 import com.blissless.tensei.extensions.ExtensionsScreen
@@ -109,7 +112,7 @@ import androidx.core.net.toUri
 // Extension functions on MainViewModel (defined in com.blissless.tensei.viewmodel)
 import com.blissless.tensei.viewmodel.setThemeMode
 import com.blissless.tensei.viewmodel.setAppIcon
-import com.blissless.tensei.viewmodel.setDisableMaterialColors
+import com.blissless.tensei.viewmodel.setColorMode
 import com.blissless.tensei.viewmodel.setShowStatusColors
 import com.blissless.tensei.viewmodel.setShowAnimeCardButtons
 import com.blissless.tensei.viewmodel.setShowMangaCardButtons
@@ -166,7 +169,6 @@ fun SettingsScreen(
     autoSkipOpening: Boolean = false,
     autoSkipEnding: Boolean = false,
     autoPlayNextEpisode: Boolean = true,
-    disableMaterialColors: Boolean = false,
     preferredCategory: String = "sub",
     initialGroup: String? = null,
     onBack: () -> Unit = {}
@@ -222,7 +224,7 @@ fun SettingsScreen(
         } else {
             BackHandler { selectedGroup = null }
             when (targetGroup) {
-                "appearance" -> AppearanceSettingsPage(viewModel = viewModel, disableMaterialColors = disableMaterialColors, onBack = { selectedGroup = null })
+                "appearance" -> AppearanceSettingsPage(viewModel = viewModel, onBack = { selectedGroup = null })
                 "account" -> AccountSettingsPage(viewModel = viewModel, onBack = { selectedGroup = null })
                 "general" -> GeneralSettingsPage(viewModel = viewModel, onBack = { selectedGroup = null })
                 "stream" -> StreamSettingsPage(viewModel = viewModel,
@@ -493,7 +495,6 @@ private fun MalLoginButton(viewModel: MainViewModel) {
 @Composable
 private fun AppearanceSettingsPage(
     viewModel: MainViewModel,
-    disableMaterialColors: Boolean,
     onBack: () -> Unit
 ) {
     val showStatusColorsState by viewModel.showStatusColors.collectAsState(initial = true)
@@ -503,6 +504,8 @@ private fun AppearanceSettingsPage(
 
     SettingsPageScaffold(title = "Appearance", onBack = onBack) {
         val currentThemeMode by viewModel.themeMode.collectAsState()
+        val colorModeValue by viewModel.colorMode.collectAsState()
+        val currentColorMode = remember(colorModeValue) { ColorMode.fromValue(colorModeValue) }
 
         SectionHeader("THEME MODE")
         SettingsCard {
@@ -551,13 +554,38 @@ private fun AppearanceSettingsPage(
             )
         }
 
-        SectionHeader("COLORS")
+        SectionHeader("COLOR MODE")
         SettingsCard {
-            SettingsToggle(
-                title = "Monochrome Theme",
-                description = "Disable Material You colors for neutral appearance",
-                checked = disableMaterialColors,
-                onCheckedChange = { viewModel.setDisableMaterialColors(it) }
+            SettingsRadioItem(
+                selected = currentColorMode == ColorMode.MATERIAL,
+                onClick = { viewModel.setColorMode(ColorMode.MATERIAL.value) },
+                icon = Icons.Default.Palette,
+                title = "Material 3",
+                description = "Full Material You colors across the app"
+            )
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 54.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                thickness = 0.5.dp
+            )
+            SettingsRadioItem(
+                selected = currentColorMode == ColorMode.SEMI_MONOCHROME,
+                onClick = { viewModel.setColorMode(ColorMode.SEMI_MONOCHROME.value) },
+                icon = Icons.Default.Contrast,
+                title = "Semi Monochrome",
+                description = "Mostly white with some accents"
+            )
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 54.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                thickness = 0.5.dp
+            )
+            SettingsRadioItem(
+                selected = currentColorMode == ColorMode.MONOCHROME,
+                onClick = { viewModel.setColorMode(ColorMode.MONOCHROME.value) },
+                icon = Icons.Default.InvertColors,
+                title = "Monochrome",
+                description = "Grey and white appearance"
             )
         }
 
