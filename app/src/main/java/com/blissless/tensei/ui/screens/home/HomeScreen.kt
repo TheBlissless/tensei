@@ -107,6 +107,7 @@ import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.LoadingSkeleton
 import com.blissless.tensei.ui.components.SectionHeader
 import com.blissless.tensei.ui.theme.PillShape
+import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
 import com.blissless.tensei.ui.theme.tenseiColors
 import com.blissless.tensei.ui.components.ContinueWatchingEpisodeRow
@@ -431,6 +432,9 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(homeScrollState)
+                        // Same clearance the airing schedule reserves for the bottom
+                        // navigation bar, otherwise the last rail slides underneath it.
+                        .padding(bottom = Sizes.listBottomNavClearance)
                 ) {
                     if (showWelcomeCard) {
                         Box(

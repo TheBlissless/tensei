@@ -342,7 +342,7 @@ fun MangaScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .padding(bottom = 80.dp)
+                        .padding(bottom = Sizes.listBottomNavClearance)
                 ) {
                     Spacer(modifier = Modifier.height(24.dp))
                     LoadingSkeleton()
@@ -353,7 +353,7 @@ fun MangaScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(bottom = 80.dp)
+                    .padding(bottom = Sizes.listBottomNavClearance)
             ) {
             if (apiError != null || isOffline) {
                 TenseiErrorBanner(
@@ -1040,6 +1040,7 @@ private fun MangaFeaturedCarousel(
                                 .width(Sizes.heroActionButtonWidth)
                                 .height(50.dp),
                             shape = RoundedCornerShape(16.dp),
+                            contentPadding = PaddingValues(horizontal = Spacing.md),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color.White.copy(alpha = 0.15f),
                                 contentColor = Color.White
@@ -1051,7 +1052,12 @@ private fun MangaFeaturedCarousel(
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Read Now", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Read Now",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
                         }
 
                         IconButton(

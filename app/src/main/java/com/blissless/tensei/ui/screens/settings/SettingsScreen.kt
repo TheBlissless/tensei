@@ -1474,7 +1474,7 @@ private fun ExtensionsSettingsPage(
         scrollable = false,
         navigationIcon = if (selectedRepoUrl != null) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowBack,
         actions = {
-            IconButton(onClick = { extViewModel.loadExtensions(true) }) {
+            IconButton(onClick = { extViewModel.checkForUpdatesNow() }) {
                 Icon(Icons.Default.Refresh, contentDescription = "Refresh")
             }
         }

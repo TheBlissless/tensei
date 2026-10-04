@@ -123,6 +123,7 @@ import androidx.compose.ui.text.style.TextAlign
 import com.blissless.tensei.util.ErrorHandler
 import kotlinx.coroutines.Job
 import com.blissless.tensei.ui.components.TenseiErrorBanner
+import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -641,7 +642,7 @@ fun AnimeScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .padding(bottom = 80.dp)
+                        .padding(bottom = Sizes.listBottomNavClearance)
                         .statusBarsPadding()
                 ) {
 Spacer(modifier = Modifier.height(24.dp))
@@ -653,7 +654,7 @@ Spacer(modifier = Modifier.height(24.dp))
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(bottom = 80.dp)
+                    .padding(bottom = Sizes.listBottomNavClearance)
             ) {
             if (apiError != null || isOffline) {
                 TenseiErrorBanner(

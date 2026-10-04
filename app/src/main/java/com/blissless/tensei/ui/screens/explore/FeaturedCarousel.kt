@@ -12,6 +12,7 @@ import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -386,6 +387,7 @@ fun FeaturedCarousel(
                                 .width(Sizes.heroActionButtonWidth)
                                 .height(50.dp),
                             shape = RoundedCornerShape(16.dp),
+                            contentPadding = PaddingValues(horizontal = Spacing.md),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color.White.copy(alpha = 0.15f),
                                 contentColor = Color.White
@@ -397,7 +399,12 @@ fun FeaturedCarousel(
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Watch Now", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Watch Now",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
                         }
                         
                         IconButton(

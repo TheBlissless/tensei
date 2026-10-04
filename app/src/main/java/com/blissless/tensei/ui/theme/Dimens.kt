@@ -113,11 +113,27 @@ val railTitleBlock: Dp = 48.dp
      *
      * The button cannot wrap its content: "Watch Now" is wider than "Read Now",
      * so the Anime hero row used to be visibly wider than the Manga one.
+     *
+     * The width is set by the wider of the two labels plus the play icon, so
+     * tightening it requires trimming the content padding rather than letting
+     * the label wrap onto a second line.
      */
-    val heroActionButtonWidth: Dp = 160.dp
+    val heroActionButtonWidth: Dp = 144.dp
 
     /** Height of the bottom navigation bar surface. */
     val navBarHeight: Dp = 56.dp
+
+    /**
+     * Bottom clearance a scrolling screen must reserve so its last row is not
+     * half-hidden behind the bottom navigation bar.
+     *
+     * Taken from the airing schedule, which was the only screen reserving space
+     * for the bar (a trailing 80dp spacer in each of its lists). The two Explore
+     * screens used the same 80dp as scroll padding; Home had none, so its last
+     * rail ran straight under the bar and visually merged with it. Keep all
+     * scrolling screens on this one value.
+     */
+    val listBottomNavClearance: Dp = 80.dp
 
     /** Top-bar content height, excluding window insets. */
     val topBarHeight: Dp = 56.dp

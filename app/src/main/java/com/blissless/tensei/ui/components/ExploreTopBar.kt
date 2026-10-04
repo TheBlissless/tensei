@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -70,9 +73,23 @@ fun ExploreTopBarRow(
     }
 }
 
-/** Shared gap above the header so every tab's bar starts at the same offset. */
+/**
+ * Shared distance between the bottom of the status bar and the header row.
+ *
+ * The four tab headers used to sit a hardcoded 32dp from the *window* top and
+ * consumed no status-bar inset at all (`setDecorFitsSystemWindows(false)` plus
+ * a Scaffold with zero content insets), so the app icon and search circle were
+ * 8dp below the status bar on a 24dp-bar device and underneath the clock on a
+ * 40dp+ one. This resolves the real inset and adds one token on top, so the
+ * row clears the status bar by the same amount everywhere.
+ *
+ * The token matches the gap between the header row and the schedule's day chips
+ * on purpose: the space above the app icon / search circle mirrors the space
+ * below them.
+ */
 @Composable
-fun exploreTopBarTopPadding(): Dp = Spacing.xxxl
+fun exploreTopBarTopPadding(): Dp =
+    WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + Spacing.xs
 
 /** Circular app icon matching the carousel header: 40dp circle, 32dp image. */
 @Composable
@@ -137,18 +154,33 @@ fun CarouselPageDots(
 ) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(CAROUSEL_DOT_GAP),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(count) { index ->
             Box(
                 modifier = Modifier
-                    .size(if (index == currentIndex) 16.dp else 5.dp, 5.dp)
+                    .size(
+                        width = if (index == currentIndex) CAROUSEL_DOT_ACTIVE_WIDTH else CAROUSEL_DOT_WIDTH,
+                        height = CAROUSEL_DOT_HEIGHT,
+                    )
                     .background(
                         if (index == currentIndex) activeColor else inactiveColor,
-                        RoundedCornerShape(3.dp),
+                        RoundedCornerShape(CAROUSEL_DOT_HEIGHT / 2),
                     )
             )
         }
     }
 }
+
+/**
+ * Page-dot geometry.
+ *
+ * The dots were 16x5dp active / 5x5dp inactive at 5dp spacing, which read as
+ * specks under the app icon and search circle rather than as a position
+ * indicator. Sized up a little without turning them into pills.
+ */
+private val CAROUSEL_DOT_ACTIVE_WIDTH = 20.dp
+private val CAROUSEL_DOT_WIDTH = 6.dp
+private val CAROUSEL_DOT_HEIGHT = 6.dp
+private val CAROUSEL_DOT_GAP = 6.dp

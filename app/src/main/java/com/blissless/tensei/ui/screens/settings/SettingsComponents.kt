@@ -52,6 +52,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -86,60 +87,65 @@ internal fun SettingsLandingPage(
     onGroupClick: (String) -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val scheme = MaterialTheme.colorScheme
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars)
             .verticalScroll(scrollState)
-            .padding(horizontal = Spacing.gutter)
-            .padding(top = 36.dp, bottom = 100.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            modifier = Modifier.padding(bottom = 20.dp)
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack, "Back",
-                    tint = MaterialTheme.colorScheme.onSurface
+        SettingsHeaderBar(
+            navigationIcon = Icons.AutoMirrored.Filled.ArrowBack,
+            onBack = onBack,
+            leading = {
+                AsyncImage(
+                    model = appIconDrawable(appIcon),
+                    contentDescription = "App",
+                    modifier = Modifier.size(40.dp).clip(CircleShape)
                 )
+            },
+            title = {
+                Column {
+                    Text(
+                        "Settings",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = scheme.onBackground
+                    )
+                    Text(
+                        "Customize your experience",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = scheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-            AsyncImage(
-                model = appIconDrawable(appIcon),
-                contentDescription = "App",
-                modifier = Modifier.size(40.dp).clip(CircleShape)
-            )
-            Column {
-                Text(
-                    "Settings",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    "Customize your experience",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-            }
-        }
+        )
 
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-            ),
-            shape = RoundedCornerShape(20.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.gutter)
+                .padding(top = Spacing.md, bottom = 100.dp)
         ) {
-            Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                groups.forEachIndexed { index, group ->
-                    SettingsListItem(group = group, onClick = { onGroupClick(group.id) })
-                    if (index < groups.lastIndex) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 72.dp, end = Spacing.gutter),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                            thickness = 0.5.dp
-                        )
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                ),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                    groups.forEachIndexed { index, group ->
+                        SettingsListItem(group = group, onClick = { onGroupClick(group.id) })
+                        if (index < groups.lastIndex) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 72.dp, end = Spacing.gutter),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                                thickness = 0.5.dp
+                            )
+                        }
                     }
                 }
             }
@@ -206,6 +212,67 @@ internal fun SettingsListItem(
 
 // ─── Scaffold ──────────────────────────────────────────────────────────────
 
+/**
+ * The one header row used by every settings screen.
+ *
+ * The landing page used to render its own back button inside a column padded
+ * 36dp from the top of the window, while every pushed page rendered it in a row
+ * padded 12dp below the status-bar inset. Those two offsets never lined up, so
+ * the back arrow jumped the moment a settings page was opened. Both now render
+ * this bar inside the same inset, so the affordance is identical everywhere.
+ *
+ * [leading] and [title] sit on the same line as the back button rather than
+ * stacked under it, which keeps the row a single 48dp line on every page: the
+ * optional [leading] slot is capped at 40dp and the title column at 44dp, so
+ * neither can grow the row past the 48dp touch target and shift the arrow.
+ */
+@Composable
+internal fun SettingsHeaderBar(
+    navigationIcon: ImageVector,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    bottomDivider: Boolean = false,
+    leading: (@Composable () -> Unit)? = null,
+    title: (@Composable () -> Unit)? = null,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = Spacing.sm, top = Spacing.md, bottom = Spacing.xs)
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = navigationIcon,
+                    contentDescription = "Back",
+                    tint = scheme.onSurface
+                )
+            }
+            Spacer(modifier = Modifier.width(Spacing.xs))
+            if (leading != null) {
+                leading()
+                Spacer(modifier = Modifier.width(Spacing.md))
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                title?.invoke()
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                content = actions
+            )
+        }
+        if (bottomDivider) {
+            HorizontalDivider(
+                color = scheme.outlineVariant.copy(alpha = 0.35f),
+                thickness = 0.5.dp
+            )
+        }
+    }
+}
+
 @Composable
 internal fun SettingsPageScaffold(
     title: String,
@@ -220,28 +287,20 @@ internal fun SettingsPageScaffold(
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 8.dp, top = 12.dp, bottom = 4.dp)
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    imageVector = navigationIcon,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onSurface
+        SettingsHeaderBar(
+            navigationIcon = navigationIcon,
+            onBack = onBack,
+            title = {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-            }
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
-            actions()
-        }
+            },
+            actions = actions
+        )
 
         if (scrollable) {
             Column(

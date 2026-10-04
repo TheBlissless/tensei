@@ -43,7 +43,8 @@ data class ExtensionsUiState(
     val repos: List<RepoState> = emptyList(),
     val refreshMessage: String? = null,
     val updatablePackageNames: Set<String> = emptySet(),
-    val updatableNames: Set<String> = emptySet()
+    val updatableNames: Set<String> = emptySet(),
+    val isUpdatingAll: Boolean = false
 )
 
 data class RepoState(
@@ -457,6 +458,28 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
             .flatMap { it.extensions }
             .firstOrNull { it.packageName == packageName } ?: return
         installExtension(repoExt)
+    }
+
+    /**
+     * Install every pending extension update, one install prompt at a time.
+     *
+     * Reuses the sequential loop the automatic updater already runs, so the user
+     * is not hit with a burst of overlapping install intents when they tap
+     * "Update all".
+     */
+    fun updateAllExtensions() {
+        if (_uiState.value.isUpdatingAll) return
+        val pending = findUpdatableExtensions()
+        if (pending.isEmpty()) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isUpdatingAll = true)
+            try {
+                autoUpdateExtensions(pending)
+            } finally {
+                _uiState.value = _uiState.value.copy(isUpdatingAll = false)
+            }
+        }
     }
 
     private fun showUpdatesAvailableNotification(extensionNames: List<String>) {

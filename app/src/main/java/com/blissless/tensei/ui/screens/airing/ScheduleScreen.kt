@@ -107,6 +107,7 @@ import com.blissless.tensei.ui.components.SearchCircleAction
 import com.blissless.tensei.ui.components.TenseiErrorBanner
 import com.blissless.tensei.ui.components.SkeletonBlock
 import com.blissless.tensei.ui.components.shimmer
+import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.TenseiType
@@ -440,7 +441,7 @@ fun ScheduleScreen(
             }
         )
 
-        Spacer(Modifier.height(Spacing.xxl))
+        Spacer(Modifier.height(Spacing.sm))
 
         val orderedDaysForSelector = if (viewMode == 0) orderedDays else orderedDays
         val currentDayForSelector = if (viewMode == 0) visibleDayByScroll else selectedDay
@@ -722,7 +723,7 @@ private fun TimelineScheduleList(
                 }
             }
         }
-        item { Spacer(Modifier.height(80.dp)) }
+        item { Spacer(Modifier.height(Sizes.listBottomNavClearance)) }
     }
 }
 
@@ -1020,7 +1021,7 @@ private fun ScheduleLoadingSkeleton() {
                 }
             }
         }
-        item { Spacer(Modifier.height(80.dp)) }
+        item { Spacer(Modifier.height(Sizes.listBottomNavClearance)) }
     }
 }
 
