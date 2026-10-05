@@ -648,6 +648,14 @@ fun ContinueWatchingEpisodeCard(
 
     val progressColor = if (disableMaterialColors) Color.White else MaterialTheme.colorScheme.primary
 
+    // Same label slot as the Manga card: how far along the episode is, with a
+    // percent fallback for entries whose duration was never recorded.
+    val progressLabel = if (remainingMs > 0 && savedDuration > 0L) {
+        formatTimeRemaining(remainingMs)
+    } else {
+        "${(progressPercent * 100).toInt()}% watched"
+    }
+
     Card(
         shape = Radius.cardShape,
         modifier = Modifier
@@ -675,7 +683,12 @@ fun ContinueWatchingEpisodeCard(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(Spacing.cardPadding),
+                    .padding(
+                        start = Spacing.continueCardInset,
+                        end = Spacing.continueCardInset,
+                        top = Spacing.continueCardInset,
+                        bottom = Spacing.continueCardInsetBottom
+                    ),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
@@ -688,37 +701,17 @@ fun ContinueWatchingEpisodeCard(
                         icon = Icons.Default.Close,
                         contentDescription = "Remove from continue watching",
                         onClick = onDismissClick,
-                        size = 32.dp,
+                        size = Sizes.continueCardDismissSize,
+                        containerColor = Color.Black.copy(alpha = 0.5f),
+                        contentColor = Color.White.copy(alpha = 0.8f)
                     )
                 }
 
+                // Manga's layout: title, then the position label, then the bar on
+                // the bottom edge. The Anime card used to lead with a 4dp bar and
+                // push the title to the very bottom, so the two rails on Home read
+                // as different card families.
                 Column {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(Radius.chipShape)
-                            .background(Color.White.copy(alpha = 0.22f))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(progressPercent)
-                                .background(progressColor)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(Spacing.sm))
-
-                    if (remainingMs > 0 && savedDuration > 0L) {
-                        Text(
-                            text = formatTimeRemaining(remainingMs),
-                            style = TenseiType.cardMeta,
-                            color = Color.White.copy(alpha = 0.72f)
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                    }
-
                     Text(
                         text = displayTitle,
                         style = TenseiType.cardTitle,
@@ -726,6 +719,34 @@ fun ContinueWatchingEpisodeCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
+                    Spacer(modifier = Modifier.height(Spacing.xs))
+
+                    Text(
+                        text = progressLabel,
+                        style = TenseiType.cardMeta,
+                        color = Color.White.copy(alpha = 0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(Sizes.continueCardBarHeight)
+                            .clip(Radius.chipShape)
+                            .background(Color.White.copy(alpha = 0.15f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(progressPercent)
+                                .clip(Radius.chipShape)
+                                .background(progressColor)
+                        )
+                    }
                 }
             }
         }

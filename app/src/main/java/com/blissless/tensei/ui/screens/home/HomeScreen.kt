@@ -106,10 +106,14 @@ import com.blissless.tensei.ui.components.HomeAnimeHorizontalList
 import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.LoadingSkeleton
 import com.blissless.tensei.ui.components.SectionHeader
+import com.blissless.tensei.ui.components.TenseiCircleAction
+import com.blissless.tensei.ui.components.TenseiScrimChip
 import com.blissless.tensei.ui.theme.PillShape
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
+import com.blissless.tensei.ui.theme.TenseiType
+import com.blissless.tensei.ui.theme.artworkGradient
 import com.blissless.tensei.ui.theme.tenseiColors
 import com.blissless.tensei.ui.components.ContinueWatchingEpisodeRow
 import com.blissless.tensei.ui.components.appIconDrawable
@@ -1493,7 +1497,7 @@ private fun MangaContinueReadingRow(
     onDismissClick: (MangaMedia) -> Unit
 ) {
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.railItem),
         contentPadding = PaddingValues(horizontal = Spacing.railGutter)
     ) {
         itemsIndexed(mangaList, key = { _, manga -> "manga_continue_${manga.id}" }) { _, manga ->
@@ -1556,12 +1560,13 @@ private fun MangaContinueReadingCard(
     val displayMangaTitle = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title
 
     Card(
-        // 18dp was a bespoke value; the Anime continue-watching cards use the shared
-        // card radius, so the two rails looked like different card families.
+        // Same geometry and inner layout as the Anime continue-watching card;
+        // both rails used to be built from their own numbers and read as
+        // different card families.
         shape = Radius.cardShape,
         modifier = Modifier
-            .width(240.dp)
-            .height(140.dp)
+            .width(Sizes.continueCardWidth)
+            .height(Sizes.continueCardHeight)
             .clip(Radius.cardShape)
             .clickable { onResumeClick() }
     ) {
@@ -1578,20 +1583,18 @@ private fun MangaContinueReadingCard(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.25f),
-                                Color.Black.copy(alpha = 0.9f)
-                            )
-                        )
-                    )
+                    .background(artworkGradient(0.25f, 0.9f))
             )
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = 8.dp, end = 8.dp, bottom = 14.dp, top = 8.dp),
+                    .padding(
+                        start = Spacing.continueCardInset,
+                        end = Spacing.continueCardInset,
+                        top = Spacing.continueCardInset,
+                        bottom = Spacing.continueCardInsetBottom
+                    ),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
@@ -1599,39 +1602,21 @@ private fun MangaContinueReadingCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    Surface(
-                        shape = Radius.chipShape,
-                        color = Color.Black.copy(alpha = 0.65f)
-                    ) {
-                        Text(
-                            text = "Ch. $displayChapter",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                            .clickable { onDismissClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Remove from Continue Reading",
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    TenseiScrimChip(text = "Ch. $displayChapter")
+                    TenseiCircleAction(
+                        icon = Icons.Default.Close,
+                        contentDescription = "Remove from Continue Reading",
+                        onClick = onDismissClick,
+                        size = Sizes.continueCardDismissSize,
+                        containerColor = Color.Black.copy(alpha = 0.5f),
+                        contentColor = Color.White.copy(alpha = 0.8f)
+                    )
                 }
 
                 Column {
                     Text(
                         text = displayMangaTitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
+                        style = TenseiType.cardTitle,
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1641,8 +1626,10 @@ private fun MangaContinueReadingCard(
 
                     Text(
                         text = progressLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f)
+                        style = TenseiType.cardMeta,
+                        color = Color.White.copy(alpha = 0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -1650,15 +1637,15 @@ private fun MangaContinueReadingCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(2.dp)
-                            .clip(RoundedCornerShape(3.dp))
+                            .height(Sizes.continueCardBarHeight)
+                            .clip(Radius.chipShape)
                             .background(Color.White.copy(alpha = 0.15f))
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(barFraction)
-                                .clip(RoundedCornerShape(3.dp))
+                                .clip(Radius.chipShape)
                                 .background(progressColor)
                         )
                     }

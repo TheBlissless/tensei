@@ -48,6 +48,16 @@ object Spacing {
 
     /** Standard list content padding (gutter on the sides, none on the ends). */
     val listVertical: Dp = sm
+
+    /**
+     * Inset of the "continue watching" / "continue reading" card content.
+     *
+     * Wider at the bottom than the sides because the progress bar sits on the
+     * card's bottom edge: at a uniform 12dp the bar looked detached from the
+     * rounded corner it runs into.
+     */
+    val continueCardInset: Dp = sm
+    val continueCardInsetBottom: Dp = 14.dp
 }
 
 /**
@@ -95,9 +105,21 @@ object Sizes {
 /** Vertical space reserved under a rail poster for its two-line title. */
 val railTitleBlock: Dp = 48.dp
 
-    /** Width of the "continue watching" hero tile. */
-    val continueCardWidth: Dp = 236.dp
+    /**
+     * Size of the "continue watching" / "continue reading" card.
+     *
+     * Both rails use one size: the Manga card was 240dp and the Anime one 236dp,
+     * so the two rows could not align even though they hold the same content
+     * (artwork, episode/chapter chip, title, progress, bar).
+     */
+    val continueCardWidth: Dp = 240.dp
     val continueCardHeight: Dp = 140.dp
+
+    /** Dismiss button on the continue cards. */
+    val continueCardDismissSize: Dp = 34.dp
+
+    /** Progress bar height on the continue cards. */
+    val continueCardBarHeight: Dp = 2.dp
 
     /** Standard touch target for icon-only actions. */
     val iconButton: Dp = 40.dp
