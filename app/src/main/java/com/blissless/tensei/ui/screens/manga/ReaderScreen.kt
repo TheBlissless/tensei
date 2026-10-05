@@ -542,22 +542,28 @@ fun MangaReaderScreen(
             // Show chapter list when explicitly requested OR when chapters haven't loaded yet
             // (shows a loading state inside MangaChapterListWithGroups)
             showChapterList || chapters.isEmpty() -> {
+                // A COMPLETED series is fully read, so every row shows as read and the
+                // list stays at the top instead of jumping to a "next unread" chapter
+                // that cannot exist. Mirrors the anime episode list, which skips its
+                // scroll-to-current for a completed title, and the detail screen, which
+                // already reports the whole chapter count as read for COMPLETED.
+                val isSeriesCompleted = manga.listStatus == "COMPLETED" ||
+                    (manga.listStatus.isBlank() && manga.totalChapters > 0 && manga.progress >= manga.totalChapters)
+                val nextUnreadIndex = (0 until chapters.size).firstOrNull {
+                    it !in readIndices.value &&
+                        chapters[it].chapterNumber.let { n -> n > 0f && (n - n.toInt()) < 0.001f }
+                } ?: chapters.size
                 MangaChapterListWithGroups(
                     chapters = chapters,
                     isLoadingChapters = isLoadingChapters,
                     hasLoadedChapters = hasLoadedChapters,
-                    readIndices = readIndices.value,
-                    nextChapterToRead = (0 until chapters.size).firstOrNull {
-                        it !in readIndices.value &&
-                        chapters[it].chapterNumber.let { n -> n > 0f && (n - n.toInt()) < 0.001f }
-                    } ?: chapters.size,
+                    readIndices = if (isSeriesCompleted) chapters.indices.toSet() else readIndices.value,
+                    // chapters.size means "no unread chapter": nothing to scroll to,
+                    // nothing to auto-expand, and the header drops the continue button.
+                    nextChapterToRead = if (isSeriesCompleted) chapters.size else nextUnreadIndex,
                     onChapterClick = { selectChapter(it) },
                     onContinueReading = {
-                        val next = (0 until chapters.size).firstOrNull {
-                            it !in readIndices.value &&
-                            chapters[it].chapterNumber.let { n -> n > 0f && (n - n.toInt()) < 0.001f }
-                        } ?: chapters.size
-                        if (next in chapters.indices) selectChapter(next)
+                        if (nextUnreadIndex in chapters.indices) selectChapter(nextUnreadIndex)
                     },
                     onRetryLoadChapters = {
                         scope.launch {
@@ -1404,7 +1410,10 @@ fun MangaChapterListWithGroups(
         val listDensity = LocalDensity.current
 
         LaunchedEffect(chapters, nextChapterToRead) {
-            if (nextChapterToRead < 0) return@LaunchedEffect
+            // chapters.size is the "everything is read" marker, and -1 means the caller
+            // does not want an autoscroll: either way there is no row to jump to, so
+            // the list stays where it is (on top).
+            if (nextChapterToRead !in chapters.indices) return@LaunchedEffect
             val targetGroupIndex = filteredGroups.indexOfFirst { (_, groupList) ->
                 groupList.any { it.first == nextChapterToRead }
             }
