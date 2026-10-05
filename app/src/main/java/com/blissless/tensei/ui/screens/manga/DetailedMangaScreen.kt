@@ -77,8 +77,10 @@ import com.blissless.tensei.ui.components.DetailRailSkeleton
 import com.blissless.tensei.ui.components.DetailSpecGridSkeleton
 import com.blissless.tensei.ui.components.DetailStatStripSkeleton
 import com.blissless.tensei.ui.components.DetailTextCardSkeleton
+import com.blissless.tensei.ui.components.RelatedMediaCard
 import com.blissless.tensei.ui.components.SkeletonPill
 import com.blissless.tensei.ui.components.SkeletonTextLine
+import com.blissless.tensei.ui.components.asRelatedMedia
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -147,7 +149,6 @@ import com.blissless.tensei.ui.theme.StatusLabels
 import com.blissless.tensei.ui.theme.statusAccentFor
 import com.blissless.tensei.ui.theme.statusColor
 import com.blissless.tensei.ui.theme.tenseiColors
-import com.blissless.tensei.ui.theme.ratingColorOnArtwork
 import com.blissless.tensei.ui.theme.MangaStatusLabels
 import com.blissless.tensei.dialogs.userScoreToDisplay
 import com.blissless.tensei.viewmodel.clearMangaDetail
@@ -1026,44 +1027,12 @@ fun DetailedMangaScreen(
                                                 .clickable { onRelationClick(relation) }
                                                 .padding(4.dp)
                                         ) {
-                                            Box(modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
-                                                Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxSize(),
-                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A))
-                                                ) {
-                                                    AsyncImage(model = relation.cover, contentDescription = relation.title,
-                                                        contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                                }
-                                                Surface(modifier = Modifier.padding(6.dp).align(Alignment.TopStart),
-                                                    shape = RoundedCornerShape(6.dp), color = Color.Black.copy(alpha = 0.8f)
-                                                ) {
-                                                    Text(relation.relationType.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
-                                                        style = MaterialTheme.typography.labelSmall, color = Color.White,
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-                                                }
-                                                val chapterText = when {
-                                                    relation.chapters != null && relation.chapters > 0 -> "${relation.chapters} ch."
-                                                    else -> null
-                                                }
-                                                chapterText?.let {
-                                                    Surface(modifier = Modifier.padding(6.dp).align(Alignment.BottomStart),
-                                                        shape = RoundedCornerShape(6.dp), color = Color.Black.copy(alpha = 0.8f)
-                                                    ) {
-                                                        Text(it, style = MaterialTheme.typography.labelSmall, color = Color.White,
-                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                                                    }
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(relation.title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
-                                                maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onBackground,
-                                                modifier = Modifier.height(32.dp))
-                                            relation.format?.let { format ->
-                                                val fmtDisplay = when (format) {
-                                                    "MANGA" -> "Manga"; "NOVEL" -> "Novel"; "ONE_SHOT" -> "One Shot"
-                                                    "MANHWA" -> "Manhwa"; "MANHUA" -> "Manhua"; else -> format
-                                                }
-                                                Text(fmtDisplay, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
-                                            }
+                                            RelatedMediaCard(
+                                                media = relation.asRelatedMedia(),
+                                                preferEnglishTitle = preferEnglishTitles,
+                                                titleHeight = 32.dp,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
                                         }
                                     }
                                 }
@@ -1129,8 +1098,6 @@ fun DetailedMangaScreen(
                                         items = recommendations.take(20),
                                         key = { _, rec -> rec.id }
                                     ) { index, rec ->
-                                        val title = if (preferEnglishTitles && !rec.titleEnglish.isNullOrBlank()) rec.titleEnglish else rec.title
-
                                         val recLayoutInfo by remember { derivedStateOf { recListState.layoutInfo } }
                                         val recVisibleItems = recLayoutInfo.visibleItemsInfo
                                         val recItemInfo = recVisibleItems.find { it.index == index }
@@ -1185,42 +1152,12 @@ fun DetailedMangaScreen(
                                                 }
                                                 .padding(4.dp)
                                         ) {
-                                            Box(modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)) {
-                                                Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxSize(),
-                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A))
-                                                ) {
-                                                    AsyncImage(model = rec.cover, contentDescription = title,
-                                                        contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                                                }
-                                                rec.averageScore?.let { score ->
-                                                    Surface(
-                                                        modifier = Modifier.padding(6.dp).align(Alignment.TopEnd),
-                                                        shape = RoundedCornerShape(6.dp),
-                                                        color = Color.Black.copy(alpha = 0.8f)
-                                                    ) {
-                                                        Text("${(score / 10.0).toString().take(3)}",
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            color = ratingColorOnArtwork(),
-                                                            fontWeight = FontWeight.Bold,
-                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
-                                                    }
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
-                                                maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onBackground,
-                                                modifier = Modifier.height(32.dp))
-                                            Box(modifier = Modifier.fillMaxWidth().height(16.dp), contentAlignment = Alignment.CenterStart) {
-                                                rec.format?.let { format ->
-                                                    val fmtDisplay = when (format) {
-                                                        "MANGA" -> "Manga"; "NOVEL" -> "Novel"; "ONE_SHOT" -> "One Shot"
-                                                        "MANHWA" -> "Manhwa"; "MANHUA" -> "Manhua"
-                                                        "TV" -> "TV"; "MOVIE" -> "Movie"
-                                                        else -> format
-                                                    }
-                                                    Text(fmtDisplay, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f))
-                                                }
-                                            }
+                                            RelatedMediaCard(
+                                                media = rec.asRelatedMedia(),
+                                                preferEnglishTitle = preferEnglishTitles,
+                                                titleHeight = 32.dp,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
                                         }
                                     }
                                 }

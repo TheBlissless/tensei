@@ -1178,7 +1178,7 @@ data class AllStaffData(val Media: AllStaffMedia?)
 @Serializable
 data class AllStaffMedia(val staff: AllStaffConnection?)
 @Serializable
-data class AllStaffConnection(val nodes: List<StaffData> = emptyList())
+data class AllStaffConnection(val edges: List<DetailedAnimeStaffEdge> = emptyList())
 
 @Serializable
 data class MediaTagCollectionResponse(val data: MediaTagCollectionData)

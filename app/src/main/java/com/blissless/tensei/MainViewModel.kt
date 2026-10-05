@@ -23,6 +23,7 @@ import com.blissless.tensei.data.models.AnimeRelation
 import com.blissless.tensei.data.models.CharacterData
 import com.blissless.tensei.data.models.DetailedAnimeData
 import com.blissless.tensei.data.models.ExploreAnime
+import com.blissless.tensei.data.models.DetailedAnimeStaffEdge
 import com.blissless.tensei.data.models.StaffData
 import com.blissless.tensei.data.models.ExploreCacheData
 import com.blissless.tensei.data.models.ExploreMedia
@@ -1969,7 +1970,7 @@ private suspend fun loadHomeDataWithCache() {
         return data
     }
 
-    suspend fun fetchAllStaff(animeId: Int): List<StaffData>? {
+    suspend fun fetchAllStaff(animeId: Int): List<DetailedAnimeStaffEdge>? {
         cacheManager.getCachedAllStaff(animeId)?.let { return it }
         val data = repository.fetchAllStaff(animeId)
         if (data != null) cacheManager.cacheAllStaff(animeId, data)

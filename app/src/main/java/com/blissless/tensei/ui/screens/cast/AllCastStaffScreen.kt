@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -51,7 +53,9 @@ import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.CharacterData
-import com.blissless.tensei.data.models.StaffData
+import com.blissless.tensei.data.models.DetailedAnimeStaffEdge
+import com.blissless.tensei.ui.components.StaffEdgeJobText
+import com.blissless.tensei.ui.components.StaffJobLinesUnlimited
 
 @Composable
 fun AllCastScreen(
@@ -206,7 +210,7 @@ fun AllStaffScreen(
     onNavigateBack: () -> Unit = onDismiss,
     onStaffClick: (Int) -> Unit
 ) {
-    var staff by remember { mutableStateOf<List<StaffData>>(emptyList()) }
+var staff by remember { mutableStateOf<List<DetailedAnimeStaffEdge>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
     val statusBarsPadding = WindowInsets.statusBars.asPaddingValues()
@@ -216,6 +220,8 @@ fun AllStaffScreen(
     LaunchedEffect(animeId) {
         isLoading = true
         staff = try {
+            // One edge per job, so a person credited several times on this anime appears
+            // once per job, the same way the detail rail lists them.
             viewModel.fetchAllStaff(animeId) ?: emptyList()
         } catch (_: Exception) {
             emptyList()
@@ -296,12 +302,13 @@ fun AllStaffScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(staff) { staffMember ->
+itemsIndexed(staff) { index, edge ->
+                            val member = edge.node ?: return@itemsIndexed
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onStaffClick(staffMember.id) },
+                                    .clickable { onStaffClick(member.id) },
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Card(
@@ -312,30 +319,31 @@ fun AllStaffScreen(
                                     )
                                 ) {
                                     AsyncImage(
-                                        model = staffMember.image?.large,
-                                        contentDescription = staffMember.name?.full,
+                                        model = member.image?.large,
+                                        contentDescription = member.name?.full,
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = staffMember.name?.full ?: "Unknown",
+                                    text = member.name?.full ?: "Unknown",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
+                                    // Names were clipped to a single line, which cut most
+                                    // full names off at the third column's width.
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onBackground
+                                    color = MaterialTheme.colorScheme.onBackground,
+                                    textAlign = TextAlign.Center
                                 )
-                                staffMember.primaryOccupations?.firstOrNull()?.let { role ->
-                                    Text(
-                                        text = role,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                                StaffEdgeJobText(
+                                    role = edge.role,
+                                    textAlign = TextAlign.Center,
+                                    // The grid row sizes itself to the tallest cell, so
+                                    // every job fits; two lines was still cutting roles.
+                                    maxLines = StaffJobLinesUnlimited
+                                )
                             }
                         }
                     }

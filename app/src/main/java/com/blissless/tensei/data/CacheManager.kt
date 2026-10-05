@@ -15,6 +15,7 @@ import androidx.media3.datasource.cache.SimpleCache
 import com.blissless.tensei.data.models.AiringCacheData
 import com.blissless.tensei.data.models.AiringScheduleAnime
 import com.blissless.tensei.data.models.CharacterData
+import com.blissless.tensei.data.models.DetailedAnimeStaffEdge
 import com.blissless.tensei.data.models.StaffData
 import com.blissless.tensei.data.models.AniwatchStreamResult
 import com.blissless.tensei.data.models.CachedEpisodeInfo
@@ -187,8 +188,8 @@ class CacheManager(private val sharedPreferences: SharedPreferences) {
     private val _allCharactersCache = MutableStateFlow<Map<Int, List<CharacterData>>>(emptyMap())
     val allCharactersCache: StateFlow<Map<Int, List<CharacterData>>> = _allCharactersCache.asStateFlow()
 
-    private val _allStaffCache = MutableStateFlow<Map<Int, List<StaffData>>>(emptyMap())
-    val allStaffCache: StateFlow<Map<Int, List<StaffData>>> = _allStaffCache.asStateFlow()
+    private val _allStaffCache = MutableStateFlow<Map<Int, List<DetailedAnimeStaffEdge>>>(emptyMap())
+    val allStaffCache: StateFlow<Map<Int, List<DetailedAnimeStaffEdge>>> = _allStaffCache.asStateFlow()
 
     private val _playbackPositions = MutableStateFlow<Map<String, Long>>(emptyMap())
     val playbackPositions: StateFlow<Map<String, Long>> = _playbackPositions.asStateFlow()
@@ -826,13 +827,13 @@ class CacheManager(private val sharedPreferences: SharedPreferences) {
     private val ALL_STAFF_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L
     private val MAX_ALL_STAFF_CACHE_SIZE = 50
 
-    fun cacheAllStaff(animeId: Int, data: List<StaffData>) {
+    fun cacheAllStaff(animeId: Int, data: List<DetailedAnimeStaffEdge>) {
         _allStaffCache.value += (animeId to data)
         _allStaffCacheTimestamps[animeId] = System.currentTimeMillis()
         trimAllStaffCacheToLimit()
     }
 
-    fun getCachedAllStaff(animeId: Int): List<StaffData>? {
+    fun getCachedAllStaff(animeId: Int): List<DetailedAnimeStaffEdge>? {
         val timestamp = _allStaffCacheTimestamps[animeId] ?: return null
         if (System.currentTimeMillis() - timestamp > ALL_STAFF_CACHE_MAX_AGE_MS) {
             _allStaffCacheTimestamps.remove(animeId)

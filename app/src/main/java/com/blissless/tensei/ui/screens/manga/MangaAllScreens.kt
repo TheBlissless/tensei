@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,7 +31,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,6 +44,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import com.blissless.tensei.ui.components.StaffEdgeJobText
+import com.blissless.tensei.ui.components.StaffJobLinesUnlimited
+import com.blissless.tensei.ui.components.RelatedMediaCard
+import com.blissless.tensei.ui.components.asRelatedMedia
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,7 +68,6 @@ import com.blissless.tensei.viewmodel.fetchMangaAllRecommendations
 import com.blissless.tensei.viewmodel.fetchMangaAllStaff
 import com.blissless.tensei.viewmodel.fetchMangaAllRelations
 import com.blissless.tensei.viewmodel.mangaDetailSource
-import com.blissless.tensei.ui.theme.ratingColorOnArtwork
 import kotlinx.coroutines.delay
 
 @Composable
@@ -230,6 +233,7 @@ fun MangaAllStaffScreen(
     LaunchedEffect(mangaId) {
         isLoading = true
         staff = try {
+            // One edge per job, so a person credited several times appears once per job.
             viewModel.fetchMangaAllStaff(mangaId)
         } catch (_: Exception) {
             emptyList()
@@ -310,8 +314,8 @@ fun MangaAllStaffScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        items(staff) { edge ->
-                            val member = edge.node ?: return@items
+                        itemsIndexed(staff) { index, edge ->
+                            val member = edge.node ?: return@itemsIndexed
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -338,21 +342,20 @@ fun MangaAllStaffScreen(
                                     text = member.name?.full ?: "Unknown",
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
+                                    // Was clipped to one line, which cut most full names off
+                                    // at the third column's width.
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
                                     color = MaterialTheme.colorScheme.onBackground,
                                     textAlign = TextAlign.Center
                                 )
-                                edge.role?.let { role ->
-                                    Text(
-                                        text = role,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
+StaffEdgeJobText(
+                                    role = edge.role,
+                                    textAlign = TextAlign.Center,
+                                    // The grid row sizes itself to the tallest cell, so
+                                    // every job fits; two lines was still cutting roles.
+                                    maxLines = StaffJobLinesUnlimited
+                                )
                             }
                         }
                     }
@@ -486,83 +489,14 @@ fun MangaAllRelationsScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(relations) { relation ->
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onRelationClick(relation) },
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Card(
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.fillMaxWidth().aspectRatio(0.75f),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                    )
-                                ) {
-                                    Box(modifier = Modifier.fillMaxSize()) {
-                                        AsyncImage(
-                                            model = relation.cover,
-                                            contentDescription = relation.title,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                        Surface(
-                                            modifier = Modifier.padding(6.dp).align(Alignment.TopStart),
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = Color.Black.copy(alpha = 0.7f)
-                                        ) {
-                                            Text(
-                                                relation.relationType.replace("_", " ").lowercase()
-                                                    .replaceFirstChar { it.uppercase() },
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                        relation.chapters?.takeIf { it > 0 }?.let { ch ->
-                                            Surface(
-                                                modifier = Modifier.padding(6.dp).align(Alignment.BottomStart),
-                                                shape = RoundedCornerShape(6.dp),
-                                                color = Color.Black.copy(alpha = 0.7f)
-                                            ) {
-                                                Text(
-                                                    "${ch} ${if (ch == 1) "ch" else "chs"}",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = Color.White,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                val relationDisplayTitle =
-                                    if (preferEnglishTitles) relation.title else relation.titleRomaji ?: relation.title
-                                Text(
-                                    text = relationDisplayTitle,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    textAlign = TextAlign.Center
-                                )
-                                relation.format?.let { format ->
-                                    val formatDisplay = when (format) {
-                                        "MANGA" -> "Manga"; "NOVEL" -> "Novel"
-                                        "ONE_SHOT" -> "One Shot"; "DOUJIN" -> "Doujin"
-                                        "MANHWA" -> "Manhwa"; "MANHUA" -> "Manhua"
-                                        "TV" -> "TV"; "MOVIE" -> "Movie"
-                                        else -> format
-                                    }
-                                    Text(
-                                        text = formatDisplay,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                    )
-                                }
-                            }
+                            RelatedMediaCard(
+                                media = relation.asRelatedMedia(),
+                                preferEnglishTitle = preferEnglishTitles,
+                                titleAlign = TextAlign.Center,
+                                placeholderColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                onClick = { onRelationClick(relation) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
@@ -693,71 +627,14 @@ fun MangaAllRecommendationsScreen(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         items(recommendations) { rec ->
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onRecommendationClick(rec) },
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Card(
-                                    shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.fillMaxWidth().aspectRatio(0.75f),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                    )
-                                ) {
-                                    Box(modifier = Modifier.fillMaxSize()) {
-                                        AsyncImage(
-                                            model = rec.cover,
-                                            contentDescription = rec.title,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-                                        rec.averageScore?.let { score ->
-                                            Surface(
-                                                modifier = Modifier.padding(6.dp).align(Alignment.TopEnd),
-                                                shape = RoundedCornerShape(6.dp),
-                                                color = Color.Black.copy(alpha = 0.8f)
-                                            ) {
-                                                Text(
-                                                    "${(score / 10.0).toString().take(3)}",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = ratingColorOnArtwork(),
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(6.dp))
-                                val recDisplayTitle =
-                                    if (preferEnglishTitles) rec.titleEnglish ?: rec.title else rec.title
-                                Text(
-                                    text = recDisplayTitle,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    textAlign = TextAlign.Center
-                                )
-                                rec.format?.let { format ->
-                                    val formatDisplay = when (format) {
-                                        "MANGA" -> "Manga"; "NOVEL" -> "Novel"
-                                        "ONE_SHOT" -> "One Shot"; "DOUJIN" -> "Doujin"
-                                        "MANHWA" -> "Manhwa"; "MANHUA" -> "Manhua"
-                                        "TV" -> "TV"; "MOVIE" -> "Movie"
-                                        else -> format
-                                    }
-                                    Text(
-                                        text = formatDisplay,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                    )
-                                }
-                            }
+                            RelatedMediaCard(
+                                media = rec.asRelatedMedia(),
+                                preferEnglishTitle = preferEnglishTitles,
+                                titleAlign = TextAlign.Center,
+                                placeholderColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                onClick = { onRecommendationClick(rec) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }

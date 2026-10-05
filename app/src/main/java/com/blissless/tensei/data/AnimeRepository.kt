@@ -17,6 +17,7 @@ import com.blissless.tensei.data.models.CharacterResponse
 import com.blissless.tensei.data.models.DetailedAnimeData
 import com.blissless.tensei.data.models.DetailedAnimeMedia
 import com.blissless.tensei.data.models.DetailedAnimeResponse
+import com.blissless.tensei.data.models.DetailedAnimeStaffEdge
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.ExploreMedia
 import com.blissless.tensei.data.models.ExploreResponse
@@ -1460,16 +1461,27 @@ class AnimeRepository(
         }
     }
 
-    suspend fun fetchAllStaff(animeId: Int): List<StaffData>? {
+    /**
+     * Full staff list for one anime, one entry per person per job.
+     *
+     * This asks for `edges { role }` rather than `nodes { primaryOccupations }`:
+     * `primaryOccupations` is a person's global occupation ("Story & Art"), not
+     * their job on this anime, so the "All staff" grid could only ever show the
+     * same generic job. Edges carry the per-title role, and the UI groups the
+     * repeated nodes back into one card per person.
+     */
+    suspend fun fetchAllStaff(animeId: Int): List<DetailedAnimeStaffEdge>? {
         val query = $$"""
             query ($id: Int!) {
                 Media(id: $id, type: ANIME) {
                     staff(perPage: 50) {
-                        nodes {
-                            id
-                            name { full native }
-                            image { large }
-                            primaryOccupations
+                        edges {
+                            node {
+                                id
+                                name { full native }
+                                image { large }
+                            }
+                            role
                         }
                     }
                 }
@@ -1480,7 +1492,7 @@ class AnimeRepository(
         return response?.let { resp ->
             try {
                 val data = json.decodeFromString<AllStaffResponse>(resp)
-                val staff = data.data.Media?.staff?.nodes
+                val staff = data.data.Media?.staff?.edges
                 staff
             } catch (_: Exception) {
                 null
