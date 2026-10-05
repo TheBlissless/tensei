@@ -437,9 +437,6 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(homeScrollState)
-                        // Same clearance the airing schedule reserves for the bottom
-                        // navigation bar, otherwise the last rail slides underneath it.
-                        .padding(bottom = Sizes.listBottomNavClearance)
                 ) {
                     if (showWelcomeCard) {
                         Box(
@@ -897,7 +894,10 @@ fun HomeScreen(
                                     }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(80.dp))
+                            // Bottom clearance for the navigation bar, the same way the
+                            // airing schedule reserves it: one trailing spacer, not
+                            // container padding plus a spacer (which added up to 160dp).
+                            Spacer(modifier = Modifier.height(Sizes.listBottomNavClearance))
                     }
                 }
             }

@@ -341,7 +341,6 @@ fun MangaScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
-                        .padding(bottom = Sizes.listBottomNavClearance)
                         .statusBarsPadding()
                 ) {
                     ExploreScreenSkeleton()
@@ -352,7 +351,6 @@ fun MangaScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(bottom = Sizes.listBottomNavClearance)
             ) {
             if (apiError != null || isOffline) {
                 TenseiErrorBanner(
@@ -509,7 +507,10 @@ fun MangaScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            // Bottom clearance for the navigation bar, reserved the same way the
+            // airing schedule does it: one trailing spacer, not container padding
+            // plus a spacer (which added up to 160dp).
+            Spacer(modifier = Modifier.height(Sizes.listBottomNavClearance))
             }
         }
         }
