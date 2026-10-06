@@ -1480,10 +1480,9 @@ fun MainViewModel.onMangaScrollProgress(
             android.util.Log.d("MangaSyncDebug", "THRESHOLD CROSSED mangaId=$mangaId scrollPercent=$scrollPercent chapterNumber=${chapter.chapterNumber}")
             // Mark chapter as read (creates track if needed, updates local progress)
             markMangaChapterRead(mangaId, chapter, mangaTitle, mangaCover)
-            // The chapter is now consumed by the auto-sync (progress pushed to AniList). Rule:
-            // it must NOT leave a Continue Reading card behind — and any pre-threshold scroll
-            // saved for it is dropped here so no stale card lingers.
-            mangaTrackManager?.updateScrollProgress(mangaId, 0f)
+            // The chapter's stop position is deliberately KEPT here: crossing the threshold
+            // marks the chapter read, but the Continue Reading card still follows the reader
+            // into it, so a finished (or re-read) chapter can still be resumed mid-way.
             // A released (FINISHED) manga that reaches its final chapter is completed
             // automatically; on-going manga never is — new chapters may still arrive.
             reconcileCompletion(mangaId, chapter.chapterNumber, reading = true)
@@ -1554,25 +1553,15 @@ fun MainViewModel.updateMangaScrollProgress(mangaId: Int, scrollProgress: Float,
     val safe = if (scrollProgress.isNaN() || scrollProgress.isInfinite()) 0f else scrollProgress
     // In-chapter resume card: created lazily on the FIRST real scroll (past page 1), so closing
     // the reader mid-chapter BEFORE the sync threshold leaves a "continue at this spot" card.
-    // Opening a chapter alone (scroll stays 0) still never tracks. Once a chapter is consumed by
-    // the auto-sync — the sync threshold crossed this session, or progress already covers it from
-    // an earlier session — it must NOT produce a card again, even if the user scrolls back below
-    // the threshold; only the status/progress update applies from then on.
-    var suppressCard = false
-    val chapterKey = if (chapter != null) "$mangaId:${chapter.chapterId}" else null
-    if (chapterKey != null && chapterKey in mangaReadSyncedChapters) {
-        suppressCard = true
-    } else if (safe > 0f && chapter != null && mangaId !in mangaTrackEnsured) {
-        // First real scroll for this manga this session: decide once (with a single track
-        // decode) whether this chapter can card. Progress-covered chapters are treated like
-        // already-synced ones; otherwise create the track so the stop position can be saved.
-        val track = mangaTrackManager?.ensureTrack(mangaId, mangaTitle, mangaCover)
-        if (track != null && chapter.chapterNumber > 0f && chapter.chapterNumber <= track.progress) {
-            mangaReadSyncedChapters.add(chapterKey!!)
-            suppressCard = true
-        } else {
-            mangaTrackEnsured.add(mangaId)
-        }
+    // Opening a chapter alone (scroll stays 0) still never tracks. A chapter that is ALREADY read
+    // — progress covers it, or the sync threshold was crossed this session — saves its stop
+    // position all the same: re-reading a chapter the user has already finished still gets a
+    // Continue Reading card, exactly like an unread one. Progress/status updates are unaffected.
+    if (safe > 0f && chapter != null && mangaId !in mangaTrackEnsured) {
+        // First real scroll for this manga this session: create the track so the stop position
+        // has somewhere to live.
+        mangaTrackManager?.ensureTrack(mangaId, mangaTitle, mangaCover)
+        mangaTrackEnsured.add(mangaId)
     }
     // Persist scroll progress — throttled, because writing SharedPreferences (full JSON encode of
     // all tracks) on every scroll frame is the jank source once the reader is at/over the sync
@@ -1582,7 +1571,7 @@ fun MainViewModel.updateMangaScrollProgress(mangaId: Int, scrollProgress: Float,
     // stored alongside the fraction so Continue Reading stays attached to the chapter the scroll
     // was made in.
     val now = SystemClock.elapsedRealtime()
-    if (!suppressCard && (safe <= 0f || now - lastMangaScrollPersistTime >= MANGA_SCROLL_PERSIST_INTERVAL_MS)) {
+    if (safe <= 0f || now - lastMangaScrollPersistTime >= MANGA_SCROLL_PERSIST_INTERVAL_MS) {
         mangaTrackManager?.updateScrollProgress(mangaId, safe, chapter)
         lastMangaScrollPersistTime = now
     }

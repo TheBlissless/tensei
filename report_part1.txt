@@ -1,0 +1,1 @@
+1. PLAYER SCREEN - MAIN COMPOSABLE\nFile: app/src/main/java/com/blissless/tensei/ui/screens/player/PlayerScreen.kt\nLine 139: @Composable fun PlayerScreen(... )\n\nKey state vars: currentPosition(279), duration(280), bufferedPosition(281), maxBufferedPosition(282), isDragging(301), sliderValue(300), isManuallySeeking(218)\n

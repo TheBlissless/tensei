@@ -47,6 +47,8 @@ class CacheManager(private val sharedPreferences: SharedPreferences) {
     companion object {
         private const val CACHE_DURATION_MS = 7 * 24 * 60 * 60 * 1000L
         private const val STREAM_CACHE_DURATION_MS = 24 * 60 * 60 * 1000L // 24 hours
+        // Playback within this tail of the media counts as finished: no Continue Watching card.
+        private const val PLAYBACK_FINISHED_TAIL_MS = 10_000L
 
         private const val CACHE_EXPLORE_TIME = "cache_explore_time"
         private const val CACHE_HOME_TIME = "cache_home_time"
@@ -518,6 +520,13 @@ class CacheManager(private val sharedPreferences: SharedPreferences) {
 
     fun savePlaybackPosition(animeId: Int, episode: Int, position: Long, duration: Long = 0L, isOffline: Boolean = false) {
         val key = "${animeId}_$episode${if (isOffline) "_offline" else ""}"
+        // Playback that reached the last few seconds is finished, not something to come back to:
+        // never create a Continue Watching entry for it, and drop an existing one when the user
+        // scrubs or watches to the end. Unknown duration (0) can't be judged, so it saves as usual.
+        if (duration > 0L && position > 0L && duration - position <= PLAYBACK_FINISHED_TAIL_MS) {
+            clearPlaybackPosition(animeId, episode, isOffline)
+            return
+        }
         _playbackPositions.value += (key to position)
         if (duration > 0L) {
             _playbackDurations.value += (key to duration)

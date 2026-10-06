@@ -11,6 +11,7 @@ import android.view.WindowManager
 import androidx.annotation.OptIn
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,6 +23,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,6 +82,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -112,6 +116,7 @@ import com.blissless.tensei.data.models.EpisodeTimestamps
 import com.blissless.tensei.data.models.ServerInfo
 import com.blissless.tensei.data.models.SubtitleProfileData
 import com.blissless.tensei.data.models.SubtitleSettings
+import com.blissless.tensei.ui.theme.AppIconBlue
 import com.blissless.tensei.data.models.Timestamp
 import com.blissless.tensei.util.longToast
 import com.blissless.tensei.util.toast
@@ -274,6 +279,9 @@ fun PlayerScreen(
     var showControls by remember { mutableStateOf(true) }
     var isPlaying by remember { mutableStateOf(true) }
     var isBuffering by remember { mutableStateOf(false) }
+    // Raw "should be buffering" intent; isBuffering below is only set from this after a
+    // debounce so the spinner never blinks off/on around a seek.
+    var bufferIntent by remember { mutableStateOf(false) }
     var isOffline by remember { mutableStateOf(false) }
     var controlsVisible by remember { mutableStateOf(false) }
     var currentPosition by remember { mutableLongStateOf(0L) }
@@ -300,11 +308,28 @@ fun PlayerScreen(
     var sliderValue by remember { mutableFloatStateOf(0f) }
     var isDragging by remember { mutableStateOf(false) }
     var wasPlayingBeforeScrub by remember { mutableStateOf(false) }
+    // YouTube-style timestamp: the left indicator flips between elapsed/total and time left.
+    var showTimeLeft by rememberSaveable { mutableStateOf(false) }
 
     var showSkipIndicator by remember { mutableStateOf(false) }
     var skipIndicatorText by remember { mutableStateOf("") }
     var skipIsForward by remember { mutableStateOf(true) }
     var skipResetJob by remember { mutableStateOf<Job?>(null) }
+    // After a seek (double tap or scrub release) the controls should go away quickly
+    // instead of waiting out the full auto-hide delay.
+    var fastHideUntil by remember { mutableLongStateOf(0L) }
+
+    // Debounced buffering indicator: only surface the spinner when buffering outlasts a
+    // short window, and keep it up briefly so a quick READY flip can't make it flicker.
+    LaunchedEffect(bufferIntent) {
+        if (bufferIntent) {
+            delay(350.milliseconds)
+            isBuffering = true
+        } else {
+            delay(400.milliseconds)
+            isBuffering = false
+        }
+    }
 
     var playerVolume by remember { mutableFloatStateOf(1f) }
     var currentBrightness by remember { mutableFloatStateOf(0.5f) }
@@ -427,7 +452,7 @@ fun PlayerScreen(
 
                 if (!isNetworkAvailable()) {
                     isOffline = true
-                    isBuffering = true
+                    bufferIntent = true
                     hasError = false
                     playbackError = null
                     return
@@ -437,7 +462,7 @@ fun PlayerScreen(
                     seekRetryCount++
                     hasError = false
                     playbackError = null
-                    isBuffering = true
+                    bufferIntent = true
                     val seekPos = currentPosition
                     Log.w("PlayerScreen", "onError: retry #$seekRetryCount seekPos=$seekPos isTorrentStream=$isTorrentStream error=$error")
                     if (isTorrentStream && seekPos > 0) {
@@ -463,7 +488,7 @@ fun PlayerScreen(
                     seekRetryCount = 1
                     hasError = false
                     playbackError = null
-                    isBuffering = true
+                    bufferIntent = true
                     onTorrentSeek?.invoke(currentPosition, engine.duration)
                     engine.prepare()
                     return
@@ -514,12 +539,12 @@ fun PlayerScreen(
             override fun onPlaybackStateChanged(state: Int) {
                 val stateName = when (state) { PlayerEngine.STATE_IDLE -> "IDLE"; PlayerEngine.STATE_BUFFERING -> "BUFFERING"; PlayerEngine.STATE_READY -> "READY"; PlayerEngine.STATE_ENDED -> "ENDED"; else -> "$state" }
                 Log.d("serverChange", "onPlaybackStateChanged: $stateName isManuallySeeking=$isManuallySeeking seekRetryCount=$seekRetryCount isChangingServer=$isChangingServer")
-                isBuffering = state == PlayerEngine.STATE_BUFFERING
+                bufferIntent = state == PlayerEngine.STATE_BUFFERING
                 if (state == PlayerEngine.STATE_READY) {
                     hasError = false
                     playbackError = null
                     isChangingServer = false
-                    isBuffering = false
+                    bufferIntent = false
                     hasPlaybackStarted = true
                     isInitialLoading = false
                     autoRetryServers.clear()
@@ -735,8 +760,11 @@ fun PlayerScreen(
         Log.d("PlayerScreen", "seekToPosition: pos=$position bufferedPos=$bufferedPosition maxBufferedPos=$maxBufferedPosition duration=${engine.duration} isManuallySeeking=$isManuallySeeking isTorrentStream=$isTorrentStream")
         hasError = false
         playbackError = null
-        isBuffering = true
-        maxBufferedPosition = position
+        bufferIntent = true
+        // Keep the last known buffered extent instead of collapsing it to the seek target:
+        // the scrub bar's buffer segment would otherwise vanish here and only reappear once
+        // the 500ms poll resumes, which reads as a flicker on every scrub/double tap.
+        maxBufferedPosition = maxOf(maxBufferedPosition, position)
         bufferedPosition = position
         if (isTorrentStream) {
             Log.d("PlayerScreen", "seekToPosition: torrent stream — calling onTorrentSeek then seekTo($position), TorrentStreamServer handles Range requests")
@@ -753,6 +781,7 @@ fun PlayerScreen(
         Log.d("PlayerScreen", "seekBy: ms=$milliseconds currentPos=$currentPosition bufferedPos=$bufferedPosition duration=$duration")
         isManuallySeeking = true
         seekRetryCount = 0
+        fastHideUntil = System.currentTimeMillis() + 2500
 
         // Show skip indicator (separate from player UI)
         skipIndicatorText = if (milliseconds > 0) "+${abs(milliseconds / 1000)}s" else "-${abs(milliseconds / 1000)}s"
@@ -799,6 +828,7 @@ fun PlayerScreen(
         Log.d("PlayerScreen", "performManualSeek: pos=$position bufferedPos=$bufferedPosition duration=$duration")
         isManuallySeeking = true
         seekRetryCount = 0
+        fastHideUntil = System.currentTimeMillis() + 3500
         seekToPosition(position)
         currentPosition = position
         sliderValue = position.toFloat()
@@ -817,6 +847,11 @@ fun PlayerScreen(
                 duration = engine.duration
                 bufferedPosition = engine.bufferedPosition
                 maxBufferedPosition = bufferedPosition
+                // Self-heal: a seek sets the buffering intent optimistically, and in-buffer
+                // seeks may never emit a state change, so resync it from the engine here.
+                if (!isOffline) {
+                    bufferIntent = engine.playbackState == PlayerEngine.STATE_BUFFERING
+                }
                 if (duration > 0) {
                     sliderValue = currentPosition.toFloat()
                     if (actualEpisodeLength == null && duration > 60000 && engine.playbackState == PlayerEngine.STATE_READY) {
@@ -953,9 +988,11 @@ fun PlayerScreen(
             }
         }
     }
-    LaunchedEffect(showControls, isPlaying, isDragging, hasError, showServerMenu, showQualityMenu, showSpeedMenu, showSubtitleMenu, showPlayerSettings, isManuallySeeking) {
+    LaunchedEffect(showControls, isPlaying, isDragging, hasError, showServerMenu, showQualityMenu, showSpeedMenu, showSubtitleMenu, showPlayerSettings, isManuallySeeking, fastHideUntil) {
         if (showControls && isPlaying && !isDragging && !hasError && !showServerMenu && !showQualityMenu && !showSpeedMenu && !showSubtitleMenu && !showPlayerSettings && !isManuallySeeking) {
-            delay(2000.milliseconds)
+            // Right after a seek the user is done interacting: hide much sooner than usual.
+            val fastHide = System.currentTimeMillis() < fastHideUntil
+            delay((if (fastHide) 700 else 2000).milliseconds)
             if (showControls && !isDragging && !hasError && isPlaying && !showServerMenu && !showSpeedMenu && !showSubtitleMenu && !showPlayerSettings && !isManuallySeeking) {
                 showControls = false
             }
@@ -1224,7 +1261,10 @@ fun PlayerScreen(
                             if (!hasError) {
                                 val now = System.currentTimeMillis()
                                 if (now - lastLeftTapTime < 300) {
-                                    // Double tap - seek
+                                    // Double tap - seek. Undo the first tap's control toggle so the
+                                    // gesture leaves showControls exactly as it was before it started
+                                    // (stays up when paused+visible, stays hidden when paused+hidden).
+                                    showControls = !showControls
                                     seekBy(-(backwardSkipSeconds * 1000L))
                                 } else {
                                     // Single tap - toggle controls
@@ -1295,7 +1335,8 @@ fun PlayerScreen(
                             if (!hasError) {
                                 val now = System.currentTimeMillis()
                                 if (now - lastRightTapTime < 300) {
-                                    // Double tap - seek
+                                    // Double tap - seek; undo the first tap's control toggle (see left zone).
+                                    showControls = !showControls
                                     seekBy(forwardSkipSeconds * 1000L)
                                 } else {
                                     // Single tap - toggle controls
@@ -1859,17 +1900,53 @@ fun PlayerScreen(
                             .padding(horizontal = if (isCompact) 10.dp else 16.dp)
                             .padding(bottom = if (isCompact) 2.dp else 12.dp, top = if (isCompact) 12.dp else 12.dp)
                     ) {
-                        // Timer above progress bar
+                        // YouTube-style timestamp, all on the LEFT: elapsed / total by default, and
+                        // pressing it swaps the elapsed part to the time left (time left / total).
+                        // Nothing on the right.
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.Start,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(formatTime(currentPosition), color = Color.White, style = if (isCompact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium)
-                            Text(if (duration > 0) formatTime(duration) else "--:--", color = Color.White, style = if (isCompact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium)
+                            val timestampText = if (duration > 0) {
+                                val firstPart = if (showTimeLeft) {
+                                    "-${formatTime((duration - currentPosition).coerceAtLeast(0L))}"
+                                } else {
+                                    formatTime(currentPosition)
+                                }
+                                "$firstPart / ${formatTime(duration)}"
+                            } else {
+                                formatTime(currentPosition)
+                            }
+                            Text(
+                                text = timestampText,
+                                color = Color.White,
+                                style = if (isCompact) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { showTimeLeft = !showTimeLeft }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(if (isCompact) 2.dp else 4.dp))
 
+                        // YouTube-style scrub bar: a thin line whose thickness and dot grow
+                        // while scrubbing and shrink the moment the finger lifts.
+                        val isScrubbing = isDragging
+                        val scrubTrackHeight by animateDpAsState(
+                            targetValue = if (isScrubbing) (if (isCompact) 4.dp else 6.dp) else (if (isCompact) 2.dp else 3.dp),
+                            animationSpec = tween(150),
+                            label = "scrubTrackHeight"
+                        )
+                        val scrubThumbRadius by animateDpAsState(
+                            targetValue = if (isScrubbing) (if (isCompact) 6.dp else 8.dp) else (if (isCompact) 3.dp else 4.dp),
+                            animationSpec = tween(150),
+                            label = "scrubThumbRadius"
+                        )
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1897,6 +1974,7 @@ fun PlayerScreen(
                                         },
                                         onDragEnd = {
                                             isDragging = false
+                                            fastHideUntil = System.currentTimeMillis() + 3500
                                             val seekPos = sliderValue.toLong()
                                             Log.d("PlayerScreen", "onDragEnd: seekPos=$seekPos bufferedPos=$bufferedPosition duration=$duration")
                                             seekToPosition(seekPos)
@@ -1917,10 +1995,10 @@ fun PlayerScreen(
                         ) {
                             Canvas(modifier = Modifier.fillMaxSize()) {
                                 val sliderWidth = size.width
-                                val trackHeight = if (isCompact) 3.dp.toPx() else 5.dp.toPx()
+                                val trackHeight = scrubTrackHeight.toPx()
                                 val trackTop = (size.height - trackHeight) / 2f
-                                val cornerRadius = if (isCompact) 1.5.dp.toPx() else 2.5.dp.toPx()
-                                val thumbRadiusPx = if (isCompact) 5.dp.toPx() else 7.dp.toPx()
+                                val cornerRadius = trackHeight / 2f
+                                val thumbRadiusPx = scrubThumbRadius.toPx()
 
                                 if (duration > 0) {
                                     val progressRatio = currentPosition.toFloat() / duration
@@ -1943,91 +2021,52 @@ fun PlayerScreen(
                                             color = Color.White.copy(alpha = 0.5f),
                                             topLeft = Offset(bufferStartX, trackTop),
                                             size = Size(bufferEndX - bufferStartX, trackHeight),
-                                            cornerRadius = CornerRadius(2.dp.toPx())
+                                            cornerRadius = CornerRadius(cornerRadius)
                                         )
                                     }
 
-                                    // Draw active track (played portion)
+                                    // Draw active track (played portion) in the app icon blue
                                     val progressX = progressRatio * sliderWidth
                                     drawRoundRect(
-                                        color = Color.White,
+                                        color = AppIconBlue,
                                         topLeft = Offset(0f, trackTop),
                                         size = Size(progressX.coerceAtLeast(thumbRadiusPx), trackHeight),
                                         cornerRadius = CornerRadius(cornerRadius)
                                     )
 
-                                    // Draw intro/credits markers with manual color blending
-                                    // Colors calculated to match BlendMode.Multiply result:
-                                    // - Watched portion: solid orange (multiply with white)
-                                    // - Unwatched portion: darker orange (multiply with gray background)
-                                    val watchedOrange = Color(0xFFFF9800)
-                                    val unwatchedOrange = Color(0xFFA67C00)
-
+                                    // Intro/credits markers, drawn only over the part the playhead
+                                    // has not reached — the blue fill already covers the watched part,
+                                    // so a second "watched" shade would only muddy it.
+                                    val markerColor = Color(0xFFFF9800)
                                     if (introStartRatio != null && introEndRatio != null) {
-                                        val introStartX = introStartRatio * sliderWidth
-                                        val introEndX = introEndRatio * sliderWidth
-                                        val introWidth = introEndX - introStartX
-                                        if (introWidth > 0) {
-                                            val leftRadius = if (introStartX < 10f) cornerRadius else 2.dp.toPx()
-                                            val rightRadius = if (introEndX > sliderWidth - 10f) cornerRadius else 2.dp.toPx()
-
-                                            // Draw watched part (before progress) with bright orange
-                                            if (introStartX < progressX && introEndX <= progressX) {
-                                                drawRoundRect(
-                                                    color = watchedOrange,
-                                                    topLeft = Offset(introStartX, trackTop),
-                                                    size = Size(introWidth, trackHeight),
-                                                    cornerRadius = CornerRadius(cornerRadius, cornerRadius)
-                                                )
-                                            }
-                                            // Draw unwatched part (after progress) with dark orange
-                                            else if (introStartX >= progressX) {
-                                                drawRoundRect(
-                                                    color = unwatchedOrange,
-                                                    topLeft = Offset(introStartX.coerceAtLeast(0f), trackTop),
-                                                    size = Size(
-                                                        introWidth.coerceAtMost(sliderWidth - introStartX.coerceAtLeast(0f)),
-                                                        trackHeight
-                                                    ),
-                                                    cornerRadius = CornerRadius(leftRadius, rightRadius)
-                                                )
-                                            }
-                                            // Draw both parts (spans across progress)
-                                            else if (introStartX < progressX && introEndX > progressX) {
-                                                val watchedWidth = progressX - introStartX
-                                                val unwatchedWidth = introEndX - progressX
-                                                drawRoundRect(
-                                                    color = watchedOrange,
-                                                    topLeft = Offset(introStartX, trackTop),
-                                                    size = Size(watchedWidth, trackHeight),
-                                                    cornerRadius = CornerRadius(cornerRadius, cornerRadius)
-                                                )
-                                                drawRoundRect(
-                                                    color = unwatchedOrange,
-                                                    topLeft = Offset(progressX, trackTop),
-                                                    size = Size(unwatchedWidth, trackHeight),
-                                                    cornerRadius = CornerRadius(cornerRadius, cornerRadius)
-                                                )
-                                            }
+                                        val markerEndX = (introEndRatio * sliderWidth).coerceAtMost(sliderWidth)
+                                        val visibleStartX = (introStartRatio * sliderWidth).coerceAtLeast(progressX)
+                                        if (markerEndX - visibleStartX > 0f) {
+                                            drawRoundRect(
+                                                color = markerColor.copy(alpha = 0.85f),
+                                                topLeft = Offset(visibleStartX, trackTop),
+                                                size = Size(markerEndX - visibleStartX, trackHeight),
+                                                cornerRadius = CornerRadius(cornerRadius)
+                                            )
                                         }
                                     }
 
                                     if (creditsStartRatio != null) {
                                         val creditsStartX = creditsStartRatio * sliderWidth
-                                        if (creditsStartX < sliderWidth && creditsStartX > 0) {
-                                            val creditsColor = if (creditsStartX < progressX) watchedOrange else unwatchedOrange
+                                        if (creditsStartX > 0f && creditsStartX < sliderWidth) {
+                                            val visibleStartX = creditsStartX.coerceAtLeast(progressX)
                                             drawRoundRect(
-                                                color = creditsColor,
-                                                topLeft = Offset(creditsStartX, trackTop),
-                                                size = Size((sliderWidth - creditsStartX).coerceAtLeast(0f), trackHeight),
-                                                cornerRadius = CornerRadius(cornerRadius, cornerRadius)
+                                                color = markerColor.copy(alpha = 0.85f),
+                                                topLeft = Offset(visibleStartX, trackTop),
+                                                size = Size((sliderWidth - visibleStartX).coerceAtLeast(0f), trackHeight),
+                                                cornerRadius = CornerRadius(cornerRadius)
                                             )
                                         }
                                     }
 
                                     // Draw the thumb as a circle
                                     drawCircle(
-                                        color = Color.White,
+                                        color = AppIconBlue,
                                         radius = thumbRadiusPx,
                                         center = Offset(progressX, size.height / 2)
                                     )
@@ -2035,19 +2074,8 @@ fun PlayerScreen(
                             }
                         }
 
-                        // Remaining time
-                        if (duration > 0 && !isCompact) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
-                                Text(
-                                    text = "-${formatTime((duration - currentPosition).coerceAtLeast(0L))}",
-                                    color = Color.White.copy(alpha = 0.7f),
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                        }
+                        // Remaining time lives in the tappable left indicator above the bar (YouTube-style),
+                        // so no second "-mm:ss" line here.
 
                         // Bottom row with speed selector on left and time on right
                         var currentSpeed by rememberSaveable { mutableFloatStateOf(1f) }

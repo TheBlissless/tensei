@@ -107,6 +107,9 @@ fun statusLabel(status: String?, isManga: Boolean = false): String {
 
 val SurfaceWhite = Color(0xFFF8F8F8)
 
+/** The jigsaw piece blue of the app icon — brand accent for on-dark surfaces. */
+val AppIconBlue = Color(0xFF1B6BA4)
+
 val GlassWhite = Color(0x1AFFFFFF)
 val GlassBlack = Color(0x1A000000)
 

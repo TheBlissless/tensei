@@ -564,8 +564,9 @@ fun RichEpisodeScreen(
                     LinearProgressIndicator(
                         progress = { heroProgress },
                         modifier = Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomCenter),
-                        color = MaterialTheme.colorScheme.tertiary,
-                        trackColor = Color.Transparent
+                        color = Color.White,
+                        trackColor = Color.Transparent,
+                        gapSize = 0.dp
                     )
                 }
             }
@@ -930,12 +931,6 @@ internal fun SimpleRichEpisodeCard(
     val savedPos = playbackPositions[epPlaybackKey] ?: 0L
     val epDuration = playbackDurations[epPlaybackKey] ?: 0L
     val progressRatio = if (savedPos > 0 && epDuration > 0) (savedPos.toFloat() / epDuration).coerceIn(0f, 1f) else 0f
-    val remainingText = if (savedPos in 1..<epDuration) {
-        val remaining = epDuration - savedPos
-        val mins = (remaining / 60000).toInt()
-        val secs = ((remaining % 60000) / 1000).toInt()
-        "${mins}:${"%02d".format(secs)} left"
-    } else null
     val hasProgress = savedPos > 5000L
 
     AnimatedVisibility(visible = true, enter = fadeIn(tween(200)) + scaleIn(tween(200), initialScale = 0.95f), exit = fadeOut(tween(200))) {
@@ -984,33 +979,15 @@ internal fun SimpleRichEpisodeCard(
                         }
                     }
                 }
-                // Progress bar and remaining time
+                // Progress bar only
                 if (hasProgress) {
-                    Column(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
-                        LinearProgressIndicator(
-                            progress = { progressRatio },
-                            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = if (isOled) Color(0xFF333333) else MaterialTheme.colorScheme.surfaceVariant,
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = formatTimeFromMs(savedPos),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isOled) Color.White.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (remainingText != null) {
-                                Text(
-                                    text = remainingText,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
+                    LinearProgressIndicator(
+                        progress = { progressRatio },
+                        modifier = Modifier.fillMaxWidth().height(3.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = if (isOled) Color(0xFF333333) else MaterialTheme.colorScheme.surfaceVariant,
+                        gapSize = 0.dp
+                    )
                 }
             }
         }
@@ -1062,12 +1039,6 @@ private fun RichTmdbEpisodeCard(
     val savedPos = playbackPositions[epPlaybackKey] ?: 0L
     val epDuration = playbackDurations[epPlaybackKey] ?: 0L
     val progressRatio = if (savedPos > 0 && epDuration > 0) (savedPos.toFloat() / epDuration).coerceIn(0f, 1f) else 0f
-    val remainingText = if (savedPos in 1..<epDuration) {
-        val remaining = epDuration - savedPos
-        val mins = (remaining / 60000).toInt()
-        val secs = ((remaining % 60000) / 1000).toInt()
-        "${mins}:${"%02d".format(secs)} left"
-    } else null
     val hasProgress = savedPos > 5000L
 
     AnimatedVisibility(visible = true, enter = fadeIn(tween(200)) + scaleIn(tween(200), initialScale = 0.95f), exit = fadeOut(tween(200))) {
@@ -1089,7 +1060,8 @@ private fun RichTmdbEpisodeCard(
                 modifier = Modifier.fillMaxWidth().alpha(contentAlpha).padding(6.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                // Netflix-mobile-style horizontal thumbnail (left)
+                // Netflix-mobile-style horizontal thumbnail (left) with the continue-watching
+                // indicator integrated into the bottom of the cover
                 Box(
                     modifier = Modifier
                         .width(148.dp)
@@ -1097,51 +1069,55 @@ private fun RichTmdbEpisodeCard(
                         .clip(RoundedCornerShape(10.dp))
                         .alpha(if (isWatched) 0.45f else 1f)
                 ) {
-                    if (!image.isNullOrEmpty()) {
-                        AsyncImage(model = image, contentDescription = "Episode $episodeNumber", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                    } else {
-                        // Gradient placeholder with a faint episode number watermark
-                        Box(
-                            modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color(0xFF2B2B2B), Color(0xFF141414))))
-                        )
-                        Text(
-                            text = "$episodeNumber",
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Black,
-                            color = Color.White.copy(alpha = 0.08f),
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
-                    // Bottom scrim
-                    Box(
-                        modifier = Modifier.fillMaxWidth().height(30.dp).align(Alignment.BottomCenter).background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))))
-                    )
-                    if (hasAired) {
-                        FilledTonalIconButton(
-                            onClick = onPlay,
-                            modifier = Modifier.align(Alignment.Center).size(36.dp),
-                            shape = CircleShape,
-                            colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.6f),
-                                contentColor = Color.White
+                        if (!image.isNullOrEmpty()) {
+                            AsyncImage(model = image, contentDescription = "Episode $episodeNumber", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        } else {
+                            // Gradient placeholder with a faint episode number watermark
+                            Box(
+                                modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color(0xFF2B2B2B), Color(0xFF141414))))
                             )
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(22.dp))
+                            Text(
+                                text = "$episodeNumber",
+                                style = MaterialTheme.typography.displayMedium,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White.copy(alpha = 0.08f),
+                                modifier = Modifier.align(Alignment.Center)
+                            )
+                        }
+                        // Bottom scrim
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(30.dp).align(Alignment.BottomCenter).background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))))
+                        )
+if (hasAired) {
+                            FilledTonalIconButton(
+                                onClick = onPlay,
+                                modifier = Modifier.align(Alignment.Center).size(36.dp),
+                                shape = CircleShape,
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color.Black.copy(alpha = 0.6f),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(22.dp))
+                            }
+                        }
+                        // Continue watching bar, flush with the bottom of the cover
+                        // (the cover's clip rounds its ends)
+                        if (hasProgress) {
+                            LinearProgressIndicator(
+                                progress = { progressRatio },
+                                modifier = Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomCenter),
+                                color = Color.White,
+                                trackColor = Color.White.copy(alpha = 0.3f),
+                                gapSize = 0.dp
+                            )
                         }
                     }
-                    // YouTube-style thin progress bar along the bottom edge of the thumbnail
-                    if (hasProgress) {
-                        LinearProgressIndicator(
-                            progress = { progressRatio },
-                            modifier = Modifier.fillMaxWidth().height(3.dp).align(Alignment.BottomCenter),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = Color.Transparent
-                        )
-                    }
-                }
                 // Right side: title, status dot, progress, description
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f).padding(top = 2.dp).alpha(if (isWatched) 0.55f else 1f)) {
+                Column(
+                    modifier = Modifier.weight(1f).padding(top = 2.dp).alpha(if (isWatched) 0.55f else 1f)
+                ) {
                     if (hideDescription) {
                         Text(
                             text = "Episode $episodeNumber",
@@ -1161,32 +1137,6 @@ private fun RichTmdbEpisodeCard(
                         overflow = TextOverflow.Ellipsis,
                         color = if (isOled) Color.White else MaterialTheme.colorScheme.onSurface
                     )
-                    if (hasProgress) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        LinearProgressIndicator(
-                            progress = { progressRatio },
-                            modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = if (isOled) Color(0xFF333333) else MaterialTheme.colorScheme.surfaceVariant,
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 1.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = formatTimeFromMs(savedPos),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isOled) Color.White.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            if (remainingText != null) {
-                                Text(
-                                    text = remainingText,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
                     if (!hideDescription && !description.isNullOrEmpty()) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -1229,14 +1179,6 @@ private fun RichTmdbEpisodeCard(
             }
         }
     }
-}
-
-private fun formatTimeFromMs(ms: Long): String {
-    val seconds = (ms / 1000) % 60
-    val minutes = (ms / (1000 * 60)) % 60
-    val hours = ms / (1000 * 60 * 60)
-    return if (hours > 0) String.format(java.util.Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds)
-    else String.format(java.util.Locale.ROOT, "%d:%02d", minutes, seconds)
 }
 
 
