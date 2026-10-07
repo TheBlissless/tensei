@@ -274,7 +274,6 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
             // counterpart on AniList, REMOVED from MAL.
             toMal++
             toMalAnime++
-            android.util.Log.d(tag, "diff-counts anime: MAL vs AniList differ (malId=${e.node.id} onAniList=${t != null} title=${e.node.title})")
         }
     }
     // Entries only on AniList affect BOTH directions: they would be added to MAL, and (being
@@ -285,7 +284,6 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
             toMalAnime++
             toAniList++
             toAniAnime++
-            android.util.Log.d(tag, "diff-counts anime: on AniList but not MAL — malId=$malId")
         }
     }
 
@@ -303,7 +301,6 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
             // Same as anime: updated on MAL, or REMOVED from MAL when absent on AniList.
             toMal++
             toMalManga++
-            android.util.Log.d(tag, "diff-counts manga: MAL vs AniList differ (malId=${e.node.id} onAniList=${t != null} title=${e.node.title})")
         }
     }
     // Entries only on AniList affect BOTH directions (add to MAL / remove from AniList).
@@ -313,11 +310,9 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
             toMalManga++
             toAniList++
             toAniManga++
-            android.util.Log.d(tag, "diff-counts manga: on AniList but not MAL — malId=$malId")
         }
     }
 
-    android.util.Log.d(tag, "diff-counts: aniToMal=$toMal (anime=$toMalAnime manga=$toMalManga) malToAniList=$toAniList (anime=$toAniAnime manga=$toAniManga)")
     return CrossProviderDiffCounts(
         aniToMal = toMal,
         malToAniList = toAniList,
@@ -339,8 +334,6 @@ fun MainViewModel.applyCrossProviderCopy(toMal: Boolean) {
     // Persist the main list provider; it drives which list populates the home screen.
     userPreferences.setMalAsMainProvider(!toMal)
     viewModelScope.launch(Dispatchers.IO) {
-        android.util.Log.d("CrossSync", "applyCrossProviderCopy: direction=${if (toMal) "AniList->MAL" else "MAL->AniList"} " +
-            "aniListActive=$isAniListActive malActive=$isMalActive")
         val startMessage = if (toMal) "Syncing AniList → MAL…" else "Syncing MAL → AniList…"
         _crossProviderCopyProgress.value = CrossProviderCopyProgress(
             isRunning = true,
@@ -379,11 +372,9 @@ fun MainViewModel.applyCrossProviderCopy(toMal: Boolean) {
             val doneMessage = if (toMal) "Synced $pushed changes from AniList to MAL" else "Synced $pushed changes from MAL to AniList"
             showSyncCompleteNotification(context, doneMessage)
             withContext(Dispatchers.Main.immediate) {
-                android.util.Log.d("CrossSync", "cross-provider copy complete (toMal=$toMal)")
                 viewModelScope.launch { _toastMessage.emit(doneMessage) }
             }
         } else {
-            android.util.Log.d("CrossSync", "cross-provider copy finished: nothing changed (pushed=$pushed skipped=$skipped), no notification shown")
         }
     }
 }
@@ -397,8 +388,6 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
         _completed.value + _onHold.value + _dropped.value
     val allManga = fetchAllAniListManga()
     val total = allAnime.size + allManga.size
-    android.util.Log.d(tag, "copyAniListToMal: anime entries=${allAnime.size}, " +
-        "animeListsLoaded=${_currentlyWatching.value.size + _planningToWatch.value.size + _completed.value.size + _onHold.value.size + _dropped.value.size} manga=${allManga.size}")
     var processed = 0
     var pushed = 0
     var skipped = 0
@@ -441,13 +430,9 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
             (mal?.list_status?.score ?: 0) != (score ?: 0) ||
             (mal?.list_status?.num_episodes_watched ?: 0) != anime.progress
         if (!differs) {
-            android.util.Log.d(tag, "copyAniListToMal anime UNCHANGED (skip): malId=$malId title=${anime.title}")
             skipped++
             continue
         }
-        android.util.Log.d(tag, "copyAniListToMal anime${if (isNew) " (new)" else ""}: title=${anime.title} malId=$malId " +
-            "AL[status=${anime.listStatus}->mal=$malStatus score=$score progress=${anime.progress}] " +
-            "MAL[status=${mal?.list_status?.status} score=${mal?.list_status?.score} progress=${mal?.list_status?.num_episodes_watched}] differs=$differs")
         try {
             val updated = malApiService.updateAnimeStatus(malId, malStatus, score, anime.progress)
             if (updated) {
@@ -462,11 +447,9 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
         }
         delay(1000)
     }
-    android.util.Log.d(tag, "copyAniListToMal: anime done pushed=$pushed skipped=$skipped")
 
     // Manga - use the AniList manga list directly (it carries the manga's idMal), because the
     // local-tracking flows lose `malId` when they are rebuilt from the tracking store.
-    android.util.Log.d(tag, "copyAniListToMal: manga entries=${allManga.size}")
     for (manga in allManga) {
         processed++
         updateProgress()
@@ -485,13 +468,9 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
             (mal?.list_status?.score ?: 0) != (malScore ?: 0) ||
             (mal?.list_status?.num_chapters_read ?: 0) != manga.progress
         if (!differs) {
-            android.util.Log.d(tag, "copyAniListToMal manga UNCHANGED (skip): malId=$malMangaId title=${manga.title}")
             skipped++
             continue
         }
-        android.util.Log.d(tag, "copyAniListToMal manga${if (isNew) " (new)" else ""}: title=${manga.title} malId=$malMangaId " +
-            "AL[status=${manga.listStatus}->mal=$malStatus score=$malScore progress=${manga.progress}] " +
-            "MAL[status=${mal?.list_status?.status} score=${mal?.list_status?.score} chapters=${mal?.list_status?.num_chapters_read}] differs=$differs")
         try {
             val updated = malApiService.updateMangaStatus(
                 malMangaId,
@@ -511,7 +490,6 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
         }
         delay(1000)
     }
-    android.util.Log.d(tag, "copyAniListToMal: manga done pushed=$pushed skipped=$skipped")
 
     // Remove entries that exist on MAL but not on AniList so the target mirrors the source
     // exactly. Only prune when the AniList source came back non-empty — an empty/failed fetch
@@ -521,7 +499,6 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
     if (animeLoaded) {
         for ((malId, mal) in malAnimeMap) {
             if (malId !in animeSourceMalIds) {
-                android.util.Log.d(tag, "copyAniListToMal anime DELETE (not on AniList): malId=$malId title=${mal.node.title}")
                 try {
                     if (malApiService.deleteAnimeFromList(malId)) pushed++ else skipped++
                 } catch (e: Exception) {
@@ -540,7 +517,6 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
     if (mangaLoaded) {
         for ((malId, mal) in malMangaMap) {
             if (malId !in mangaSourceMalIds) {
-                android.util.Log.d(tag, "copyAniListToMal manga DELETE (not on AniList): malId=$malId title=${mal.node.title}")
                 try {
                     if (malApiService.deleteMangaFromList(malId)) pushed++ else skipped++
                 } catch (e: Exception) {
@@ -554,7 +530,6 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
         android.util.Log.w(tag, "copyAniListToMal: AniList manga list empty — skipping manga parity cleanup to avoid wiping MAL")
     }
 
-    android.util.Log.d(tag, "copyAniListToMal: complete pushed=$pushed skipped=$skipped")
     return pushed to skipped
 }
 
@@ -573,8 +548,6 @@ private suspend fun MainViewModel.fetchAllAniListManga(): List<MangaMedia> {
     val completed = lists["COMPLETED"] ?: emptyList()
     val paused = lists["PAUSED"] ?: emptyList()
     val dropped = lists["DROPPED"] ?: emptyList()
-    android.util.Log.d("CrossSync", "fetchAllAniListManga: current=${current.size} planning=${planning.size} " +
-        "completed=${completed.size} paused=${paused.size} dropped=${dropped.size}")
     return current + planning + completed + paused + dropped
 }
 
@@ -620,8 +593,6 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
     val malAnimeIds = malAnime.map { it.node.id }.toSet()
     val malMangaIds = malManga.map { it.node.id }.toSet()
     val total = malAnime.size + malManga.size
-    android.util.Log.d(tag, "copyMalToAniList: anime entries=${malAnime.size} manga entries=${malManga.size} " +
-        "target anime=${aniAnimeMap.size} target manga=${aniMangaByMalId.size}")
     var processed = 0
     var pushed = 0
     var skipped = 0
@@ -646,7 +617,6 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
 
         val animeId = resolveAnimeIdForMal(malId)
         if (animeId == null) {
-            android.util.Log.d(tag, "copyMalToAniList: no AniList id resolved for malId=$malId, skipping")
             skipped++
             continue
         }
@@ -657,13 +627,9 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
             (target?.userScore ?: 0) != score ||
             (target?.progress ?: 0) != progress
         if (!differs) {
-            android.util.Log.d(tag, "copyMalToAniList anime UNCHANGED (skip): malId=$malId title=${entry.node.title}")
             skipped++
             continue
         }
-        android.util.Log.d(tag, "copyMalToAniList anime${if (isNew) " (new)" else ""}: title=${entry.node.title} malId=$malId " +
-            "MAL[status=$status score=$score progress=$progress] " +
-            "AL[status=${target?.listStatus} score=${target?.userScore} progress=${target?.progress}] differs=$differs")
         try {
             queueSync(animeId, "status", malId = malId, status = status, progress = progress, score = score)
             pushed++
@@ -673,7 +639,6 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
         }
         delay(1000)
     }
-    android.util.Log.d(tag, "copyMalToAniList: anime done pushed=$pushed skipped=$skipped")
 
     // Manga: load MAL entries into the local tracker so new entries can resolve their AniList key,
     // then push only entries that are new on AniList or whose status/score/progress differ.
@@ -702,19 +667,14 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
             (target?.progress ?: 0) != progress ||
             (target?.userScore ?: 0) != score
         if (!differs) {
-            android.util.Log.d(tag, "copyMalToAniList manga UNCHANGED (skip): malId=$malId title=${entry.node.title}")
             skipped++
             continue
         }
         val anilistId = target?.id ?: resolveMangaIdForMal(malId)
         if (anilistId == null) {
-            android.util.Log.d(tag, "copyMalToAniList manga: no AniList id resolved for malId=$malId, skipping")
             skipped++
             continue
         }
-        android.util.Log.d(tag, "copyMalToAniList manga${if (isNew) " (new)" else ""}: anilistId=$anilistId malId=$malId " +
-            "MAL[status=$anilistStatus score=$score progress=$progress] " +
-            "AL[status=${target?.listStatus} score=${target?.userScore} progress=${target?.progress}] differs=$differs")
         try {
             mangaRepository.updateMangaStatus(
                 anilistId, anilistStatus, token,
@@ -728,7 +688,6 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
         }
         delay(1000)
     }
-    android.util.Log.d(tag, "copyMalToAniList: manga done pushed=$pushed skipped=$skipped")
 
     // Remove entries that exist on AniList but not on MAL so the target mirrors the source
     // exactly. Only prune when the MAL source came back non-empty — an empty/failed fetch must
@@ -737,7 +696,6 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
         for (anime in aniAnimeMap.values) {
             val deleteMalId = anime.malId
             if (deleteMalId == null || deleteMalId in malAnimeIds) continue
-            android.util.Log.d(tag, "copyMalToAniList anime DELETE (not on MAL): id=${anime.id} malId=$deleteMalId title=${anime.title}")
             val entryId = anime.listEntryId
             if (entryId == null) {
                 android.util.Log.w(tag, "copyMalToAniList anime DELETE SKIP (no listEntryId): id=${anime.id} title=${anime.title}")
@@ -761,7 +719,6 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
         for (manga in aniMangaAll) {
             val deleteMalId = manga.malId
             if (deleteMalId == null || deleteMalId in malMangaIds) continue
-            android.util.Log.d(tag, "copyMalToAniList manga DELETE (not on MAL): malId=$deleteMalId title=${manga.title}")
             val entryId = manga.listEntryId
             if (entryId == null || mangaRepository == null) {
                 android.util.Log.w(tag, "copyMalToAniList manga DELETE SKIP (no listEntryId): malId=$deleteMalId title=${manga.title}")
@@ -780,7 +737,6 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
         android.util.Log.w(tag, "copyMalToAniList: MAL manga list empty — skipping manga parity cleanup to avoid wiping AniList")
     }
 
-    android.util.Log.d(tag, "copyMalToAniList: complete pushed=$pushed skipped=$skipped")
     return pushed to skipped
 }
 
@@ -790,8 +746,6 @@ private suspend fun MainViewModel.resolveAnimeIdForMal(malId: Int): Int? {
     val inLists = _currentlyWatching.value + _planningToWatch.value +
         _completed.value + _onHold.value + _dropped.value
     val found = inLists.firstOrNull { it.id == malId || it.malId == malId }
-    android.util.Log.d("CrossSync", "resolveAnimeIdForMal: malId=$malId cached=${cacheManager.detailedAnimeCache.value.size} " +
-        "inListCount=${inLists.size} -> ${found?.id} (id=${found?.id} malId=${found?.malId})")
     return found?.id
 }
 
@@ -804,16 +758,13 @@ private suspend fun MainViewModel.resolveAnimeIdForMal(malId: Int): Int? {
  * and retried on the next run.
  */
 internal suspend fun MainViewModel.runCrossProviderDiffSync() {
-    android.util.Log.d("CrossSync", "diff-sync: START (bothActive=$isBothActive, malAsMain=${userPreferences.malAsMainProvider.value})")
     if (!isBothActive) {
-        android.util.Log.d("CrossSync", "diff-sync: return (not both active)")
         return
     }
     // Diff-sync treats AniList as the source of truth. When MAL is the user's chosen main
     // provider, skip it so it doesn't overwrite the MAL-first lists — the directional startup
     // sync handles reconciliation instead.
     if (userPreferences.malAsMainProvider.value) {
-        android.util.Log.d("CrossSync", "diff-sync: return (MAL is main provider)")
         return
     }
 
@@ -848,9 +799,6 @@ internal suspend fun MainViewModel.runCrossProviderDiffSync() {
             mal.score != (anime.userScore ?: 0) ||
             mal.progress != anime.progress
         if (differs) {
-            android.util.Log.d("CrossSync",
-                "diff-sync anime${if (mal == null) " (new)" else ""}: malId=$malId title=${anime.title} " +
-                    "status=${mapToMalStatus(anime.listStatus)} score=${anime.userScore} progress=${anime.progress}")
             try {
                 malApiService.updateAnimeStatus(malId, mapToMalStatus(anime.listStatus), anime.userScore, anime.progress)
             } catch (e: Exception) {
@@ -865,8 +813,6 @@ internal suspend fun MainViewModel.runCrossProviderDiffSync() {
     if (animeListLoaded) {
         for ((malId, mal) in malByAnimeId) {
             if (malId !in malIdsOnAniListAnime) {
-                android.util.Log.d("CrossSync",
-                    "diff-sync anime DELETE (not on AniList): malId=$malId status=${mal.status}")
                 try {
                     malApiService.deleteAnimeFromList(malId)
                 } catch (e: Exception) {
@@ -893,7 +839,6 @@ internal suspend fun MainViewModel.runCrossProviderDiffSync() {
     } catch (e: Exception) {
         android.util.Log.w("CrossSync", "diff-sync manga: failed to fetch MAL manga list — ${e.message}", e)
     }
-    android.util.Log.d("CrossSync", "diff-sync manga: MAL entries=${malMangaByMalId.size}")
     val allManga = fetchAllAniListManga()
     // Safety guard: if AniList returned nothing, treat it as a fetch failure rather than an empty
     // list — otherwise the parity cleanup below would wipe every MAL entry. Never prune on empty.
@@ -904,8 +849,6 @@ internal suspend fun MainViewModel.runCrossProviderDiffSync() {
     for (manga in allManga) {
         val malId = manga.malId
         if (malId == null) {
-            android.util.Log.d("CrossSync",
-                "diff-sync manga SKIP (no idMal): title=${manga.title}")
             continue
         }
         malIdsOnAniList += malId
@@ -917,8 +860,6 @@ internal suspend fun MainViewModel.runCrossProviderDiffSync() {
             mal.score != anilistScore ||
             mal.progress != manga.progress
         if (differs) {
-            android.util.Log.d("CrossSync",
-                "diff-sync manga${if (mal == null) " (new)" else ""}: malId=$malId title=${manga.title}")
             try {
                 malApiService.updateMangaStatus(
                     malId,
@@ -937,13 +878,9 @@ internal suspend fun MainViewModel.runCrossProviderDiffSync() {
     // Remove MAL manga entries that have no counterpart on AniList (was deleted/removed
     // from AniList, or only ever created on MAL). This keeps the lists in exact parity.
     // Skips the cleanup entirely if AniList failed to load, to avoid wiping MAL on a hiccup.
-    android.util.Log.d("CrossSync",
-        "diff-sync manga: mangaListLoaded=$mangaListLoaded anilistMalIds=${malIdsOnAniList.size} malIds=${malMangaByMalId.size} maj=122663 in anilist=${122663 in malIdsOnAniList} in mal=${122663 in malMangaByMalId}")
     if (mangaListLoaded) {
         for ((malId, mal) in malMangaByMalId) {
             if (malId !in malIdsOnAniList) {
-                android.util.Log.d("CrossSync",
-                    "diff-sync manga DELETE (not on AniList): malId=$malId status=${mal.status}")
                 try {
                     malApiService.deleteMangaFromList(malId)
                 } catch (e: Exception) {
@@ -956,7 +893,6 @@ internal suspend fun MainViewModel.runCrossProviderDiffSync() {
     } else {
         android.util.Log.w("CrossSync", "diff-sync manga: AniList returned empty list — skipping parity cleanup to avoid wiping MAL")
     }
-    android.util.Log.d("CrossSync", "cross-provider diff-sync complete")
 }
 
 /** Bridge so the (otherwise private) manga queue is reachable from MainActivity's scope when needed. */

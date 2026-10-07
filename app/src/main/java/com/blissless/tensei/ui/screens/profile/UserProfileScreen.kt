@@ -92,6 +92,7 @@ import com.blissless.tensei.ui.components.SectionHeaderSkeleton
 import com.blissless.tensei.ui.components.SkeletonBlock
 import com.blissless.tensei.ui.components.TenseiDisclosureHeader
 import com.blissless.tensei.ui.components.TenseiTopBar
+import com.blissless.tensei.ui.components.anilistAnnotated
 import com.blissless.tensei.ui.components.shimmer
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Spacing
@@ -811,9 +812,8 @@ private fun AboutMeContent(
                 if (bio.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        bio,
+                        anilistAnnotated(bio, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.primary),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 5,
                         textAlign = TextAlign.Center,
                         overflow = TextOverflow.Ellipsis

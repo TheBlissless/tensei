@@ -80,6 +80,7 @@ import com.blissless.tensei.ui.components.DetailTextCardSkeleton
 import com.blissless.tensei.ui.components.RelatedMediaCard
 import com.blissless.tensei.ui.components.SkeletonPill
 import com.blissless.tensei.ui.components.SkeletonTextLine
+import com.blissless.tensei.ui.components.anilistAnnotated
 import com.blissless.tensei.ui.components.asRelatedMedia
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Card
@@ -213,9 +214,7 @@ fun DetailedMangaScreen(
     var showFullDescription by remember { mutableStateOf(false) }
     var showAllTags by remember { mutableStateOf(false) }
     DisposableEffect(manga.id) {
-        android.util.Log.d("MangaDetail", "DETAIL COMPOSED (dialog) manga.id=${manga.id} autoShowChapters=$autoShowChapters")
         onDispose {
-            android.util.Log.d("MangaDetail", "DETAIL DISPOSED / LEAVING COMPOSITION manga.id=${manga.id}")
         }
     }
 
@@ -262,10 +261,8 @@ fun DetailedMangaScreen(
     var autoOpenedChapters by remember { mutableStateOf(false) }
     if (autoShowChapters) {
         LaunchedEffect(chapters, isLoadingChapters) {
-            android.util.Log.d("MangaDetail", "autoShowChapters effect: isLoadingChapters=$isLoadingChapters chapters=${chapters.size} autoOpenedChapters=$autoOpenedChapters")
             if (!isLoadingChapters && chapters.isNotEmpty() && !autoOpenedChapters) {
                 autoOpenedChapters = true
-                android.util.Log.d("MangaDetail", "autoShowChapters: calling onStartReader(-1)")
                 onStartReader(-1)
             }
         }
@@ -276,11 +273,8 @@ fun DetailedMangaScreen(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(manga.id, selectedExtension) {
-        android.util.Log.d("MangaDetail", "LaunchedEffect(manga.id=${manga.id}, ext=${selectedExtension != null}): fetching detail + chapters, title='${manga.title}'")
         viewModel.fetchMangaDetail(manga.id, manga.malId)
-        android.util.Log.d("MangaDetail", "fetchMangaDetail returned; loading chapters for ${manga.id}")
         viewModel.loadMangaChapters(manga.id, manga.title)
-        android.util.Log.d("MangaDetail", "loadMangaChapters done for ${manga.id}")
     }
 
     // NOTE: We intentionally do NOT call viewModel.clearMangaDetail() on dispose here.
@@ -347,14 +341,6 @@ fun DetailedMangaScreen(
         "${displayData.format}|${displayData.source}|${displayData.volumes}|${displayData.chapters}|${displayData.status}|$isLoading"
     if (lastDetailSig != detailSig) {
         lastDetailSig = detailSig
-        android.util.Log.d("MangaDetail", "Detail render: mangaId=${manga.id} detailLoaded=${detail != null} " +
-            "usingFallback=${detail == null} " +
-            "desc=${displayData.description != null} genres=${displayData.genres.size} tags=${displayData.tags.size} " +
-            "chars=${displayData.characters?.nodes?.size ?: 0} staff=${displayData.staff?.edges?.size ?: 0} " +
-            "relations=${displayData.relations.size} recs=${displayData.recommendations.size} " +
-            "popularity=${displayData.popularity} favourites=${displayData.favourites} year=${displayData.year} " +
-            "format=${displayData.format} source=${displayData.source} volumes=${displayData.volumes} " +
-            "chapters=${displayData.chapters} status=${displayData.status} isLoading=$isLoading")
     }
 
     val statusDisplay = when (displayData.status) {
@@ -729,7 +715,6 @@ fun DetailedMangaScreen(
                         Box(modifier = Modifier.padding(12.dp)) {
                             Button(
                                 onClick = {
-                                    android.util.Log.d("MangaDetail", "Read Now tapped: chapters.size=${chapters.size} isLoadingChapters=$isLoadingChapters")
                                     onStartReader(-1)
                                 },
                                 modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -1023,7 +1008,6 @@ fun DetailedMangaScreen(
                                         Column(
                                             modifier = Modifier
                                                 .width(110.dp)
-                                                .clip(RoundedCornerShape(12.dp))
                                                 .clickable { onRelationClick(relation) }
                                                 .padding(4.dp)
                                         ) {
@@ -1140,7 +1124,6 @@ fun DetailedMangaScreen(
                                         Column(
                                             modifier = Modifier
                                                 .width(110.dp)
-                                                .clip(RoundedCornerShape(12.dp))
                                                 .clickable { navigateToMangaDetail(rec.id) }
                                                 .graphicsLayer {
                                                     scaleX = recIntroScale * recScrollScale
@@ -1595,10 +1578,7 @@ fun DetailedMangaScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(16.dp))
                 val description = tag.description ?: "No description available."
-                val cleanDescription = description.replace("<br>", "\n").replace("<br/>", "\n")
-                    .replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
-                    .replace("&quot;", "\"").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-                Text(cleanDescription, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 24.sp)
+                Text(anilistAnnotated(description, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.primary), style = MaterialTheme.typography.bodyMedium, lineHeight = 24.sp)
             }
         }
     }
@@ -1623,7 +1603,6 @@ fun DetailedMangaScreen(
             totalChapters = totalCh,
             isOled = isOled,
             onUpdate = { status, progress ->
-                android.util.Log.d("MangaSyncDebug", "MangaStatusDialog onUpdate: mangaId=${manga.id} status='$status' progress=$progress")
                 onUpdateStatus(status, progress)
                 if (progress != null) {
                     onUpdateProgress(progress)
@@ -1632,7 +1611,6 @@ fun DetailedMangaScreen(
                 showStatusDialog = false
             },
             onRemove = {
-                android.util.Log.d("MangaSyncDebug", "MangaStatusDialog onRemove: mangaId=${manga.id}")
                 onRemove()
                 showStatusDialog = false
             },

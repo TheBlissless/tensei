@@ -92,7 +92,6 @@ object LocalProxyServer {
     fun start(client: OkHttpClient?, source: AnimeCatalogueSource?) {
         synchronized(this) {
             if (serverSocket != null && running) {
-                Log.d(TAG, "start: already running, ignoring")
                 return
             }
             extensionClient = client ?: try { eu.kanade.tachiyomi.network.NetworkHelper.getInstance().client } catch (e: Exception) { ErrorHandler.report("LocalProxyServer", "operation failed, returning null", e); null }
@@ -128,7 +127,6 @@ object LocalProxyServer {
                             if (running) Log.e(TAG, "Accept error", e)
                         }
                     }
-                    Log.d(TAG, "Accept loop thread exiting")
                 }.apply { isDaemon = true; name = "LocalProxyServer-accept" }
                 acceptThread!!.start()
             } catch (e: Exception) {
@@ -152,7 +150,6 @@ object LocalProxyServer {
             // fails ("keeps loading").
             val key = uri.path + (if (uri.query != null) "?${uri.query}" else "")
             pathToVideo[key] = video
-            Log.d(TAG, "Registered video key: $key -> ${video.videoUrl.take(60)}")
         } catch (e: Exception) { ErrorHandler.ignore("LocalProxyServer", "best-effort operation failed", e) }
     }
 
@@ -170,7 +167,6 @@ object LocalProxyServer {
     fun clearRegisteredVideos() {
         val count = pathToVideo.size
         pathToVideo.clear()
-        Log.d(TAG, "clearRegisteredVideos: cleared $count stale video(s)")
     }
 
     fun stop() {
@@ -197,7 +193,6 @@ object LocalProxyServer {
             // Mark for recreation on next start().
             clientExecutor = newBoundedExecutor()
             pathToVideo.clear()
-            Log.d(TAG, "Proxy server stopped")
         }
     }
 
@@ -241,8 +236,6 @@ object LocalProxyServer {
                 reader.skip(contentLength.toLong())
             }
 
-            Log.d(TAG, "Proxy $method $requestPath${if (query != null) "?$query" else ""}")
-
             // CRITICAL: look up by path + query (matches registerVideo's keying).
             // Keying by path alone would return the wrong video when multiple
             // videos share the same path (e.g. animex's /playlist.m3u8 with
@@ -250,7 +243,6 @@ object LocalProxyServer {
             val lookupKey = requestPath + (if (query != null) "?$query" else "")
             val video = pathToVideo[lookupKey]
             if (video != null) {
-                Log.d(TAG, "handleClient: found video for key=$lookupKey -> ${video.videoUrl.take(80)}")
             } else {
                 // No exact match — this is likely a SEGMENT request (.ts, .m3u8
                 // sub-playlist, .mp4, etc.) that was rewritten by rewriteM3u8
@@ -262,7 +254,6 @@ object LocalProxyServer {
                 // Without this fallback, segment requests get 404 → ExoPlayer
                 // gets the m3u8 playlist but never any segment data → playback
                 // stuck loading forever ("keeps loading").
-                Log.d(TAG, "handleClient: no exact match for key=$lookupKey — falling back to source HTTP server (first registered video's base)")
             }
             val videoHeaders = video?.headers
             val sourceHeaders = currentSource?.headers
@@ -333,7 +324,6 @@ object LocalProxyServer {
             }
             val bodyBytes = upstreamResponse.body?.bytes() ?: ByteArray(0)
             val contentType = upstreamResponse.header("Content-Type") ?: "application/octet-stream"
-            Log.d(TAG, "handleClient: upstream responded ${upstreamResponse.code} ${upstreamResponse.message} (${bodyBytes.size} bytes, type=$contentType)")
 
             val responseBytes = if (contentType.contains("m3u8", ignoreCase = true) ||
                 contentType.contains("vnd.apple.mpegurl", ignoreCase = true)) {
@@ -344,9 +334,7 @@ object LocalProxyServer {
 
             sendResponse(clientSocket, 200, contentType, responseBytes)
             if (bodyBytes.isNotEmpty()) {
-                Log.d(TAG, "Proxied $method ${requestPath.take(60)} -> ${bodyBytes.size} bytes")
             } else {
-                Log.d(TAG, "Proxied $method ${requestPath.take(60)} -> empty body")
             }
             upstreamResponse.close()
         } catch (e: Exception) {

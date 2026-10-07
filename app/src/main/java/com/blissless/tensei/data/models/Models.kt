@@ -1128,7 +1128,9 @@ data class CharacterAnimeNode(
     val id: Int,
     val title: MediaTitle? = null,
     val coverImage: MediaCoverImage? = null,
-    val format: String? = null
+    val format: String? = null,
+    val episodes: Int? = null,
+    val averageScore: Int? = null
 )
 
 @Serializable
@@ -1286,6 +1288,7 @@ data class MangaRelation(
     val titleRomaji: String? = null,
     val cover: String,
     val chapters: Int?,
+    val episodes: Int? = null,
     val averageScore: Int?,
     val format: String?,
     val relationType: String
@@ -1476,6 +1479,7 @@ data class MangaDetailRelationNode(
     val title: MangaTitle? = null,
     val coverImage: MediaCoverImage? = null,
     val chapters: Int? = null,
+    val episodes: Int? = null,
     val averageScore: Int? = null,
     val format: String? = null
 )

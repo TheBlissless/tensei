@@ -28,19 +28,15 @@ class TorrentStreamServer(private val saveDir: File) {
 
     fun setSafeBytesProvider(provider: () -> Long) {
         safeBytes = provider
-        Log.d(TAG, "setSafeBytesProvider: installed")
     }
     fun setPieceChecker(checker: (Int) -> Boolean) {
         pieceChecker = checker
-        Log.d(TAG, "setPieceChecker: installed")
     }
     fun setPieceSize(size: Long) {
         pieceSize = size
-        Log.d(TAG, "setPieceSize: $size bytes")
     }
     fun setTotalFileSize(size: Long) {
         totalFileSize = size
-        Log.d(TAG, "setTotalFileSize: $size bytes")
     }
 
     fun start(port: Int = 0): Int {
@@ -50,17 +46,14 @@ class TorrentStreamServer(private val saveDir: File) {
         val actualPort = serverSocket!!.localPort
         Log.i(TAG, "start: server listening on http://127.0.0.1:$actualPort")
         thread(name = "stream-server") {
-            Log.d(TAG, "accept-loop: started")
             while (running) {
                 try {
                     val client = serverSocket!!.accept()
-                    Log.d(TAG, "accept-loop: new client ${client.inetAddress}:${client.port}")
                     executor.execute { handleClient(client) }
                 } catch (e: java.io.IOException) {
                     if (running) Log.e(TAG, "accept-loop: accept error", e)
                 }
             }
-            Log.d(TAG, "accept-loop: exited")
         }
         return actualPort
     }
@@ -70,7 +63,6 @@ class TorrentStreamServer(private val saveDir: File) {
         running = false
         executor.shutdownNow()
         try { serverSocket?.close() } catch (e: Exception) { ErrorHandler.ignore("TorrentStreamServer", "best-effort operation failed", e) }
-        Log.d(TAG, "stop: server stopped")
     }
 
     private fun handleClient(client: Socket) {
@@ -82,7 +74,6 @@ class TorrentStreamServer(private val saveDir: File) {
                 Log.w(TAG, "handleClient: empty request from ${client.inetAddress}")
                 return
             }
-            Log.d(TAG, "handleClient: request='$requestLine'")
             val parts = requestLine.split(" ")
             if (parts.size < 2) {
                 Log.w(TAG, "handleClient: malformed request line")
@@ -103,10 +94,8 @@ class TorrentStreamServer(private val saveDir: File) {
 
             val relativePath = requestPath.trimStart('/')
             val file = File(saveDir, relativePath)
-            Log.d(TAG, "handleClient: method=$method path='$relativePath' file=${file.absolutePath} exists=${file.exists()}")
 
             if (!file.exists()) {
-                Log.d(TAG, "handleClient: file not yet on disk, waiting up to 60s for libtorrent to create it...")
                 val waitDeadline = System.nanoTime() + 60_000_000_000L
                 while (System.nanoTime() < waitDeadline && running) {
                     if (file.exists()) break
@@ -117,7 +106,6 @@ class TorrentStreamServer(private val saveDir: File) {
                     sendError(client, 404, "Not Found")
                     return
                 }
-                Log.d(TAG, "handleClient: file appeared on disk after waiting")
             }
 
             val fileLength = if (totalFileSize > 0) totalFileSize else file.length()
@@ -149,11 +137,7 @@ class TorrentStreamServer(private val saveDir: File) {
                 } else { isRange = false }
             } else { isRange = false }
 
-            Log.d(TAG, "handleClient: range='${rangeHeader ?: "none"}' -> start=$startOffset end=$endOffset" +
-                    " (fileLength=$fileLength, isRange=$isRange) safeBytes=${safeBytes()}")
-
             if (method == "HEAD") {
-                Log.d(TAG, "handleClient: responding to HEAD")
                 val resp = buildHeaders(if (isRange) 206 else 200, endOffset - startOffset + 1, file.name, isRange, startOffset, endOffset, fileLength)
                 client.getOutputStream().write(resp.toByteArray()); client.close(); return
             }
@@ -162,7 +146,6 @@ class TorrentStreamServer(private val saveDir: File) {
             if (startOffset >= safeNow) {
                 val startPiece = (startOffset / pieceSize).toInt()
                 val endPiece = (minOf(endOffset, fileLength - 1) / pieceSize).toInt()
-                Log.d(TAG, "handleClient: startOffset($startOffset) >= safeNow($safeNow), need pieces $startPiece-$endPiece — will wait in streaming loop")
             }
 
             val actualEnd = minOf(endOffset, fileLength - 1)
@@ -195,7 +178,6 @@ class TorrentStreamServer(private val saveDir: File) {
                         } else {
                             canRead = 0L
                             if (!stalled) {
-                                Log.d(TAG, "handleClient: piece $p not yet available (checker returned false)")
                             }
                         }
                     }
@@ -209,7 +191,6 @@ class TorrentStreamServer(private val saveDir: File) {
                         continue
                     }
                     if (stalled) {
-                        Log.d(TAG, "handleClient: RESUMED at byte=$pos, canRead=$canRead")
                         stalled = false
                     }
                     waitStart = System.nanoTime()
@@ -241,7 +222,6 @@ class TorrentStreamServer(private val saveDir: File) {
         sb.append("Connection: close\r\n")
         if (isRange) sb.append("Content-Range: bytes $start-$end/$fileLen\r\n")
         sb.append("\r\n")
-        Log.v(TAG, "buildHeaders: $status len=$contentLen type=${getMimeType(fileName)} range=$isRange")
         return sb.toString()
     }
 

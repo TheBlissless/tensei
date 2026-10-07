@@ -51,7 +51,6 @@ class TorrentEngine(private val context: Context) {
 
     fun start() {
         if (isRunning.getAndSet(true)) {
-            Log.d(TAG, "start: already running")
             return
         }
         Log.i(TAG, "start: initializing torrent engine (libtorrent4j)")
@@ -143,7 +142,6 @@ class TorrentEngine(private val context: Context) {
                 Log.e(TAG, "startDownload: no handle AND no pendingTi — cannot start")
             }
         } else {
-            Log.d(TAG, "startDownload: using existing handle from magnet, applying file priorities")
         }
 
         val h = handle ?: run {
@@ -163,7 +161,6 @@ class TorrentEngine(private val context: Context) {
             setupStreamingPriorities(h, fileIndex)
         } else {
             pendingStreamFileIndex = fileIndex
-            Log.d(TAG, "startDownload: metadata not yet available, deferred (will setup on metadata)")
         }
 
         startPolling()
@@ -267,7 +264,6 @@ class TorrentEngine(private val context: Context) {
         streamingWindowEnd = minOf(globalPieceOfSeek + seekWindowSize, filePieceRange.second + 1)
         lastAdvancedPiece = globalPieceOfSeek - 1
 
-        Log.d(TAG, "prioritizeForSeek: posMs=$positionMs globalPiece=$globalPieceOfSeek range=$filePieceRange")
     }
 
     fun advanceStreamingWindow() {
@@ -414,7 +410,6 @@ class TorrentEngine(private val context: Context) {
     fun removeListener(l: EngineListener) = listeners.remove(l)
 
     fun removeCurrentTorrent() {
-        Log.d(TAG, "removeCurrentTorrent: cleaning up")
         pollThread?.interrupt(); pollThread = null
         rawHandle?.let {
             try { sessionManager.swig().remove_torrent(it) } catch (_: Exception) {}
@@ -424,7 +419,6 @@ class TorrentEngine(private val context: Context) {
     }
 
     fun clearCache() {
-        Log.d(TAG, "clearCache: deleting ${saveDir.absolutePath}")
         try { saveDir.listFiles()?.forEach { it.deleteRecursively() } } catch (_: Exception) {}
     }
 
@@ -446,7 +440,6 @@ class TorrentEngine(private val context: Context) {
     }
 
     private fun applyFilePriorities(h: TorrentHandle, selectedIndex: Int) {
-        Log.d(TAG, "applyFilePriorities: selectedIndex=$selectedIndex")
         try {
             val ti = h.torrentFile()
             if (ti != null) {
@@ -455,7 +448,6 @@ class TorrentEngine(private val context: Context) {
                     val newP = if (i == selectedIndex) Priority.DEFAULT else Priority.IGNORE
                     val oldP = try { h.filePriority(i).toString() } catch (_: Exception) { "?" }
                     h.filePriority(i, newP)
-                    Log.d(TAG, "applyFilePriorities: file[$i] '${ti.files().fileName(i)}' $oldP -> $newP")
                 }
                 return
             }
@@ -478,7 +470,6 @@ class TorrentEngine(private val context: Context) {
 
     private fun startPolling() {
         if (pollThread?.isAlive == true) {
-            Log.d(TAG, "startPolling: already running")
             return
         }
         pollThread?.interrupt()
@@ -527,10 +518,9 @@ class TorrentEngine(private val context: Context) {
                             lastAdvanceTime = now
                         }
                     }
-                } catch (e: InterruptedException) { Log.d(TAG, "poll: interrupted, exiting"); break }
+                } catch (e: InterruptedException) {  break }
                 catch (e: Exception) { Log.e(TAG, "poll error", e) }
             }
-            Log.d(TAG, "poll: thread exiting")
         }.apply { isDaemon = true; name = "torrent-poll"; start() }
     }
 

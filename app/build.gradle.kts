@@ -23,7 +23,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 32
-        versionName = "1.3.2"
+        versionName = "1.3.3"
 
         externalNativeBuild {
             cmake {
@@ -99,13 +99,6 @@ android {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
             version = "3.22.1"
-        }
-    }
-
-    testOptions {
-        unitTests {
-            isReturnDefaultValues = true
-            isIncludeAndroidResources = true
         }
     }
 }
@@ -197,9 +190,4 @@ dependencies {
     implementation(libs.libtorrent4j.android.arm64)
     implementation(libs.libtorrent4j.android.arm)
     implementation(libs.nanohttpd)
-    testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.truth)
-    testImplementation(libs.mockito.core)
-    testImplementation(libs.mockito.kotlin)
 }

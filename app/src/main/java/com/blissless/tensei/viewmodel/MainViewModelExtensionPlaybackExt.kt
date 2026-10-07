@@ -89,7 +89,6 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 return@withContext null
             }
 
-            Log.d(epTag, "playEpisodeWithExtension: loading sources")
             sm.loadSources()
             val allSources = sm.getSources()
             var sourceWithExt = allSources.find { it.extension.packageName == defaultPackage }
@@ -115,7 +114,6 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 Log.w(epTag, "  AnimeHttpSource.client was null, falling back to NetworkHelper.getInstance().client")
                 try { NetworkHelper.getInstance().client } catch (e: Exception) { ErrorHandler.report(MainViewModel.TAG, "operation failed, returning null", e); null }
             }
-            Log.d(epTag, "  extensionClient=${extensionClient != null} (source is AnimeHttpSource=${sourceHttp != null} directClient=${directClient != null})")
 
             var matchedSAnime: SAnime? = null
             var sEpisodes: List<SEpisode> = emptyList()
@@ -129,12 +127,10 @@ suspend fun MainViewModel.playEpisodeWithExtension(
 
             if (matchedSAnime == null) {
                 val searchTerms = listOfNotNull(anime.titleEnglish, anime.title).distinct()
-                Log.d(epTag, "playEpisodeWithExtension: searching for anime with terms: $searchTerms")
                 for (query in searchTerms) {
                     try {
                         val page = source.getSearchAnime(1, query, AnimeFilterList())
                         val results = page.animes
-                        Log.d(epTag, "${sw.source.name}: got ${results.size} results for \"$query\"")
                         if (results.isEmpty()) continue
                         val normalizedQuery = query.lowercase()
                             .replace(Regex("[-–—_:;]"), " ")
@@ -164,7 +160,6 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                                     wordScore + (matchingWords * 10)
                                 }
                             }
-                            Log.d(epTag, "  \"${a.title}\" -> score=$score")
                             a to score
                         }
                         val best = scored.maxByOrNull { it.second }
@@ -183,17 +178,14 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 Log.i(epTag, "playEpisodeWithExtension: matched anime '${matchedSAnime.title}' (url=${matchedSAnime.url}) for ep $episodeNumber")
 
                 sEpisodes = sm.getEpisodes(source, matchedSAnime)
-                Log.d(epTag, "playEpisodeWithExtension: got ${sEpisodes.size} episodes from source")
 
                 if (sEpisodes.isEmpty()) {
-                    Log.d(epTag, "playEpisodeWithExtension: no episodes, fetching anime details")
                     try {
                         matchedSAnime = sm.getAnimeDetails(source, matchedSAnime)
                     } catch (e: Exception) {
                         Log.w(epTag, "playEpisodeWithExtension: getAnimeDetails failed", e)
                     }
                     sEpisodes = sm.getEpisodes(source, matchedSAnime)
-                    Log.d(epTag, "playEpisodeWithExtension: after details, got ${sEpisodes.size} episodes")
                 }
             }
 
@@ -267,9 +259,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 _lastExtensionPlaybackError.value = "No video sources found"
                 return@withContext null
             }
-            Log.d(epTag, "playEpisodeWithExtension: found ${allVideos.size} videos for ep $episodeNumber")
             allVideos.forEach { v ->
-                Log.d(epTag, "  video: ${v.video.videoTitle} (${v.video.resolution}p) url=${v.video.videoUrl.take(100)} hoster=${v.hosterName} internalData=${v.video.internalData.take(60)}")
             }
 
             val dubVideos = allVideos.filter {
@@ -300,29 +290,23 @@ suspend fun MainViewModel.playEpisodeWithExtension(
             var effectiveVideoUrl = bestVideo.videoUrl
             // Try to resolve the video URL via getVideoUrl or resolveVideo
             if (isOurProxy) {
-                Log.d(epTag, "  our proxy URL detected, trying getVideoUrl...")
                 try {
                     if (source is AnimeHttpSource) {
                         val result = source.getVideoUrl(bestVideo)
-                        Log.d(epTag, "  getVideoUrl returned: ${result.take(120)}")
                         if (!result.contains("127.0.0.1") && !result.contains("localhost") && result.isNotBlank()) {
                             effectiveVideoUrl = result
                         }
                     }
                 } catch (e: Exception) {
-                    Log.d(epTag, "  getVideoUrl failed: ${e.message}")
                     try {
                         if (source is AnimeHttpSource) {
-                            Log.d(epTag, "  trying resolveVideo...")
                             val resolved = source.resolveVideo(bestVideo)
                             val rUrl = resolved?.videoUrl
-                            Log.d(epTag, "  resolveVideo returned: ${rUrl?.take(120)}")
                             if (rUrl != null && !rUrl.contains("127.0.0.1") && !rUrl.contains("localhost")) {
                                 effectiveVideoUrl = rUrl
                             }
                         }
                     } catch (e2: Exception) {
-                        Log.d(epTag, "  resolveVideo also failed: ${e2.message}")
                     }
                 }
             }
@@ -332,9 +316,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 effectiveVideoUrl = effectiveVideoUrl
                     .replace(Regex("127\\.0\\.0\\.1:\\d+"), "127.0.0.1:${LocalProxyServer.PROXY_PORT}")
                     .replace(Regex("localhost:\\d+"), "127.0.0.1:${LocalProxyServer.PROXY_PORT}")
-                Log.d(epTag, "  rewrote to our proxy: ${effectiveVideoUrl.take(120)}")
             }
-            Log.d(epTag, "  effectiveVideoUrl=${effectiveVideoUrl.take(120)} (isOurProxy=${isOurProxy})")
 
             val videoHeadersRaw = bestVideo.headers
             val sourceHeadersRaw = (source as? AnimeHttpSource)?.headers
@@ -352,8 +334,6 @@ suspend fun MainViewModel.playEpisodeWithExtension(
             } else {
                 emptyMap()
             }
-            Log.d(epTag, "  referer=${referer.take(60)} videoHeaders=${videoHeaders} hasVideoHeaders=${videoHeadersRaw != null}")
-            Log.d(epTag, "  subtitle tracks: ${bestVideo.subtitleTracks.size}, audio tracks: ${bestVideo.audioTracks.size}")
 
             val bestVideoHost = allVideos.find { it.video.videoUrl == bestVideo.videoUrl }
             val derivedHosters = if (resolvedHosters != null) {
@@ -463,7 +443,6 @@ suspend fun MainViewModel.fetchExtensionHosterVideos(
                 ?: try { NetworkHelper.getInstance().client } catch (e: Exception) { ErrorHandler.report(MainViewModel.TAG, "operation failed, returning null", e); null }
             LocalProxyServer.start(proxyClient, source)
             LocalProxyServer.clearRegisteredVideos()
-            Log.d(epTag, "fetchExtensionHosterVideos: ensured LocalProxyServer is running (proxyClient=${proxyClient != null})")
 
             val rawVideos = withContext(Dispatchers.IO) {
                 val result = if (hoster.lazy) {
@@ -508,7 +487,6 @@ suspend fun MainViewModel.fetchExtensionHosterVideos(
                 }
             }.ifEmpty { rawVideos }  // fallback: if filter doesn't match anything, use all videos
 
-            Log.d(epTag, "fetchExtensionHosterVideos: hoster='${hoster.hosterName}' rawVideos=${rawVideos.size} filteredVideos=${videos.size}")
             videos.forEach { LocalProxyServer.registerVideo(it) }
 
             val bestVideo = videos.maxByOrNull {
@@ -519,28 +497,23 @@ suspend fun MainViewModel.fetchExtensionHosterVideos(
 
             var effectiveVideoUrl = bestVideo.videoUrl
             if (effectiveVideoUrl.contains("127.0.0.1") || effectiveVideoUrl.contains("localhost")) {
-                Log.d(epTag, "fetchExtensionHosterVideos: proxy URL detected, trying getVideoUrl...")
                 try {
                     if (source is AnimeHttpSource) {
                         val result = source.getVideoUrl(bestVideo)
-                        Log.d(epTag, "  getVideoUrl returned: ${result.take(120)}")
                         if (!result.contains("127.0.0.1") && !result.contains("localhost") && result.isNotBlank()) {
                             effectiveVideoUrl = result
                         }
                     }
                 } catch (e: Exception) {
-                    Log.d(epTag, "  getVideoUrl failed: ${e.message}")
                     try {
                         if (source is AnimeHttpSource) {
                             val resolved = source.resolveVideo(bestVideo)
                             val rUrl = resolved?.videoUrl
-                            Log.d(epTag, "  resolveVideo returned: ${rUrl?.take(120)}")
                             if (rUrl != null && !rUrl.contains("127.0.0.1") && !rUrl.contains("localhost")) {
                                 effectiveVideoUrl = rUrl
                             }
                         }
                     } catch (e2: Exception) {
-                        Log.d(epTag, "  resolveVideo also failed: ${e2.message}")
                     }
                 }
             }
@@ -551,7 +524,6 @@ suspend fun MainViewModel.fetchExtensionHosterVideos(
                 effectiveVideoUrl = effectiveVideoUrl
                     .replace(Regex("127\\.0\\.0\\.1:\\d+"), "127.0.0.1:${LocalProxyServer.PROXY_PORT}")
                     .replace(Regex("localhost:\\d+"), "127.0.0.1:${LocalProxyServer.PROXY_PORT}")
-                Log.d(epTag, "fetchExtensionHosterVideos: rewrote to our proxy: ${effectiveVideoUrl.take(120)}")
             }
 
             val videoHeadersRaw = bestVideo.headers

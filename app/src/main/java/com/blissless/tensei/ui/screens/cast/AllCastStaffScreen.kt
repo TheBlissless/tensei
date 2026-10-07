@@ -40,11 +40,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -162,9 +160,7 @@ fun AllCastScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onCharacterClick(character.id) },
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                    .clickable { onCharacterClick(character.id) }
                             ) {
                                 Card(
                                     shape = RoundedCornerShape(12.dp),
@@ -187,8 +183,7 @@ fun AllCastScreen(
                                     fontWeight = FontWeight.Medium,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                             }
                         }
@@ -307,9 +302,7 @@ itemsIndexed(staff) { index, edge ->
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onStaffClick(member.id) },
-                                horizontalAlignment = Alignment.CenterHorizontally
+                                    .clickable { onStaffClick(member.id) }
                             ) {
                                 Card(
                                     shape = RoundedCornerShape(12.dp),
@@ -334,12 +327,10 @@ itemsIndexed(staff) { index, edge ->
                                     // full names off at the third column's width.
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    textAlign = TextAlign.Center
+                                    color = MaterialTheme.colorScheme.onBackground
                                 )
                                 StaffEdgeJobText(
                                     role = edge.role,
-                                    textAlign = TextAlign.Center,
                                     // The grid row sizes itself to the tallest cell, so
                                     // every job fits; two lines was still cutting roles.
                                     maxLines = StaffJobLinesUnlimited

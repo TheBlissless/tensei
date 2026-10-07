@@ -89,7 +89,6 @@ suspend fun AnimeRepository.fetchTmdbEpisodes(
             
             // Continue with TV show logic
             val tvDetails = fetchTvDetails(bestMatch.id) ?: return@withContext emptyList()
-            Log.d("TmdbDebug", "TV details: id=${bestMatch.id} name=${tvDetails.name} seasons=${tvDetails.seasons.map { it.season_number }} totalEps=${tvDetails.number_of_episodes}")
             
             // Check if this looks like anime vs live action for Chinese titles
             val isChineseTitle = animeTitle.toCharArray().any { it.code in 0x4E00..0x9FFF || it.code in 0x3400..0x4DBF }
@@ -121,19 +120,15 @@ suspend fun AnimeRepository.fetchTmdbEpisodes(
 
             // Fetch all seasons in parallel to speed up and prevent timeouts
             val sortedSeasons = tvDetails.seasons.filter { it.season_number > 0 }.sortedBy { it.season_number }
-            Log.d("TmdbDebug", "Fetching seasons: ${sortedSeasons.map { it.season_number }} for tmdbId=${tvDetails.id}")
             val allSeasonDetails = coroutineScope {
                 sortedSeasons.map { season ->
                     async { fetchSeason(tvDetails.id, season.season_number) }
                 }.awaitAll().filterNotNull()
             }
-            Log.d("TmdbDebug", "Fetched ${allSeasonDetails.size} seasons, episodes per season: ${allSeasonDetails.map { "${it.season_number}:${it.episodes.size}" }}")
 
             val (episodeOffset, maxEpisodes) = calculateEpisodeOffset(tvDetails, allSeasonDetails, animeTitle, animeId, bestMatch.name, searchResults.size)
-            Log.d("TmdbDebug", "Offset=$episodeOffset maxEpisodes=$maxEpisodes animeTitle=$animeTitle")
 
             val result = buildEpisodesFromPool(allSeasonDetails, episodeOffset, latestAiredEpisode, maxEpisodes)
-            Log.d("TmdbDebug", "Final episode count=${result.size}, first=${result.firstOrNull()?.episode}, last=${result.lastOrNull()?.episode}")
             result
         } catch (e: Exception) {
             Log.e("TmdbDebug", "fetchTmdbEpisodes failed for animeId=$animeId title=$animeTitle", e)
@@ -263,7 +258,6 @@ internal suspend fun AnimeRepository.fetchSeason(tvId: Int, seasonNumber: Int): 
             if (responseCode == 200) {
                 val response = connection.inputStream.bufferedReader().readText()
                 val details = json.decodeFromString<TmdbSeasonDetails>(response)
-                Log.d("TmdbDebug", "Season $seasonNumber: ${details.episodes.size} episodes")
                 details
             } else {
                 Log.w("TmdbDebug", "Season $seasonNumber: HTTP $responseCode for $urlStr")
@@ -285,12 +279,10 @@ internal fun AnimeRepository.buildEpisodesFromPool(
         var absoluteIndex = 1
 
         // First, collect all episodes from TMDB
-        Log.d("TmdbDebug", "buildEpisodesFromPool: offset=$episodeOffset maxEp=$maxEpisodes latest=$latestAiredEpisode seasons=${allSeasonDetails.size}")
         data class EpisodeData(val relativeNum: Int, val title: String?, val description: String?, val image: String?)
         val tmdbEpisodes = mutableListOf<EpisodeData>()
         
         for (season in allSeasonDetails) {
-            Log.d("TmdbDebug", "  Season ${season.season_number}: ${season.episodes.size} episodes, starting absoluteIndex=$absoluteIndex")
             for (episode in season.episodes) {
                 val isTarget = if (maxEpisodes > 0) {
                     absoluteIndex > episodeOffset && absoluteIndex <= (episodeOffset + maxEpisodes)

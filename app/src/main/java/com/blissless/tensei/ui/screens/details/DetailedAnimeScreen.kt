@@ -134,6 +134,7 @@ import com.blissless.tensei.ui.components.RelatedMediaCard
 import com.blissless.tensei.ui.components.SkeletonPill
 import com.blissless.tensei.ui.components.SkeletonTextLine
 import com.blissless.tensei.ui.components.StaffEdgeJobText
+import com.blissless.tensei.ui.components.anilistAnnotated
 import com.blissless.tensei.ui.components.asRelatedMedia
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
 import com.blissless.tensei.ui.theme.StatusLabels
@@ -1291,7 +1292,6 @@ fun DetailedAnimeScreen(
                                         Column(
                                             modifier = Modifier
                                                 .width(110.dp)
-                                                .clip(RoundedCornerShape(12.dp))
                                                 .graphicsLayer {
                                                     scaleX = introScale * scrollScale
                                                     scaleY = introScale * scrollScale
@@ -1418,7 +1418,6 @@ fun DetailedAnimeScreen(
                                         Column(
                                             modifier = Modifier
                                                 .width(110.dp)
-                                                .clip(RoundedCornerShape(12.dp))
                                                 .graphicsLayer {
                                                     scaleX = recIntroScale * recScrollScale
                                                     scaleY = recIntroScale * recScrollScale
@@ -1492,7 +1491,7 @@ fun DetailedAnimeScreen(
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            "Characters & voice actors",
+                                            "Characters",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                             letterSpacing = 0.5.sp
@@ -1846,13 +1845,9 @@ fun DetailedAnimeScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(16.dp))
                 val description = tag.description ?: "No description available."
-                val cleanDescription = description.replace("<br>", "\n").replace("<br/>", "\n")
-                    .replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
-                    .replace("&quot;", "\"").replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
                 Text(
-                    cleanDescription,
+                    anilistAnnotated(description, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.primary),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 24.sp
                 )
             }

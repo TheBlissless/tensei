@@ -108,8 +108,10 @@ fun ExploreAnimeHorizontalList(
     }
     
     val cinematicProgress = rememberCinematicAnimation("explore", isVisible, true)
-    val staggerDelay = listIndex * 50f
-    val effectiveProgress = ((cinematicProgress * 1000f - staggerDelay) / 1000f).coerceIn(0f, 1f)
+    // Normalised stagger (see MangaScreen): progress still reaches 1 at the end,
+    // so later sections don't sit permanently at 1 - delay/1000.
+    val staggerMs = minOf(listIndex, 18) * 50f / 1000f
+    val effectiveProgress = ((cinematicProgress - staggerMs) / (1f - staggerMs)).coerceIn(0f, 1f)
     val easedProgress = easeOutCubic(effectiveProgress)
     
     LazyRow(

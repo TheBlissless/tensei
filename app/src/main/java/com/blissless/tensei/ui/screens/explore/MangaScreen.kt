@@ -565,14 +565,19 @@ private fun MangaExploreHorizontalRow(
     }
 
     val cinematicProgress = rememberCinematicAnimation("mangaExplore", isVisible, true)
-    val staggerDelay = listIndex * 50f
-    val effectiveProgress = ((cinematicProgress * 1000f - staggerDelay) / 1000f).coerceIn(0f, 1f)
+    // Normalised stagger, same as the grid screens: the delay shifts a section's
+    // start but progress must still reach 1 when the shared animation ends.
+    // The old `(progress * 1000 - delay) / 1000` capped out at 1 - delay/1000,
+    // so late sections (Sci-Fi, Seinen) settled at ~0.55-0.6: cards stayed scaled
+    // down and read as extra padding around every cover.
+    val staggerMs = minOf(listIndex, 18) * 50f / 1000f
+    val effectiveProgress = ((cinematicProgress - staggerMs) / (1f - staggerMs)).coerceIn(0f, 1f)
     val easedProgress = easeOutCubic(effectiveProgress)
 
     LazyRow(
         state = listState,
         contentPadding = PaddingValues(horizontal = Spacing.railGutter),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.railItem),
         modifier = Modifier.fillMaxWidth()
     ) {
         itemsIndexed(

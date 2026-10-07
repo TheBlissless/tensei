@@ -111,13 +111,6 @@ import com.blissless.tensei.data.fetchAnimeRecommendationsList
 import com.blissless.tensei.util.ErrorHandler
 
 @UnstableApi
-/**
- * TESTING FLAG: force the anime & manga detail screens to use the MAL fallback
- * instead of AniList so the outage behavior can be tested on-device.
- * TODO: flip back to false when testing is complete.
- */
-internal const val FORCE_MAL_DETAIL_FOR_TESTING = false
-
 class MainViewModel : ViewModel() {
 
     companion object {
@@ -193,7 +186,6 @@ class MainViewModel : ViewModel() {
             }
 
             try {
-                Log.d(tag, "calling sm.loadSources()…")
                 sm.loadSources()
             } catch (e: Exception) {
                 Log.e(tag, "sm.loadSources() threw", e)
@@ -201,7 +193,6 @@ class MainViewModel : ViewModel() {
                 return@launch
             }
             val allSources = sm.getSources()
-            Log.d(tag, "sm.getSources() returned ${allSources.size} source(s): ${allSources.map { it.extension.packageName }}")
             val sw = allSources.find { it.extension.packageName == pkg }
             if (sw == null) {
                 Log.e(tag, "no source found matching pkg=$pkg among ${allSources.size} loaded source(s)")
@@ -212,14 +203,11 @@ class MainViewModel : ViewModel() {
             Log.i(tag, "matched source: ${source.name} (lang=${source.lang})")
 
             val searchTerms = listOfNotNull(anime.titleEnglish, anime.title).distinct()
-            Log.d(tag, "search terms: $searchTerms")
             var matchedSAnime: SAnime? = null
             for (query in searchTerms) {
                 try {
-                    Log.d(tag, "calling source.getSearchAnime(1, \"$query\", AnimeFilterList())…")
                     val page = source.getSearchAnime(1, query, AnimeFilterList())
-                    Log.d(tag, "  returned ${page.animes.size} results")
-                    page.animes.take(5).forEachIndexed { i, a -> Log.d(tag, "  result[$i]: \"${a.title}\" url=${a.url}") }
+                    page.animes.take(5).forEachIndexed { i, a ->  }
                     matchedSAnime = page.animes.firstOrNull { a ->
                         a.title.contains(anime.title, ignoreCase = true) ||
                         (anime.titleEnglish != null && a.title.contains(anime.titleEnglish, ignoreCase = true))
@@ -242,10 +230,9 @@ class MainViewModel : ViewModel() {
             }
 
             val sEpisodes = try {
-                Log.d(tag, "calling source.getEpisodeList(sAnime)…")
                 val eps = source.getEpisodeList(sAnime)
                 Log.i(tag, "  got ${eps.size} episodes")
-                eps.take(5).forEachIndexed { i, e -> Log.d(tag, "  ep[$i]: \"${e.name}\" num=${e.episode_number} url=${e.url}") }
+                eps.take(5).forEachIndexed { i, e ->  }
                 eps
             } catch (e: Exception) {
                 Log.e(tag, "getEpisodeList threw, retrying via getAnimeDetails + getEpisodeList", e)
@@ -1320,7 +1307,6 @@ private suspend fun loadHomeDataWithCache() {
         }
 
         if (airingScheduleFetchInProgress) {
-            Log.d("AiringDebug", "fetchAiringSchedule: fetch already in progress — skipping")
             return
         }
 
@@ -1328,10 +1314,8 @@ private suspend fun loadHomeDataWithCache() {
         viewModelScope.launch {
             _isLoadingSchedule.value = true
             try {
-                Log.d("AiringDebug", "fetchAiringSchedule: attempting AniList...")
                 val airingList = try {
                     val schedules = repository.fetchAiringSchedule()
-                    Log.d("AiringDebug", "AniList returned ${schedules.size} schedule entries, ${schedules.count { it.media != null }} with media")
                     schedules.filter { it.media != null }.map { schedule ->
                         val media = schedule.media!!
                         val title = media.title.romaji ?: media.title.english ?: "Unknown"
@@ -1368,7 +1352,6 @@ private suspend fun loadHomeDataWithCache() {
                 }
 
                 val deduped = airingList.distinctBy { it.id }
-                Log.d("AiringDebug", "Final airing list size=${deduped.size}")
                 if (deduped.isNotEmpty()) {
                     val scheduleByDay = deduped.groupBy { anime ->
                         val calendar = Calendar.getInstance().apply { timeInMillis = anime.airingAt * 1000L }
@@ -1396,10 +1379,8 @@ private suspend fun loadHomeDataWithCache() {
      */
     fun fetchAiringScheduleOnReopen() {
         if (lastScheduleUsedFallback) {
-            Log.d("AiringDebug", "fetchAiringScheduleOnReopen: last source was fallback — forcing refetch")
             fetchAiringSchedule(force = true)
         } else {
-            Log.d("AiringDebug", "fetchAiringScheduleOnReopen: last source was AniList — ${SCHEDULE_REOPEN_INTERVAL_MS / 60000} min cooldown")
             fetchAiringSchedule(force = false, minIntervalMs = SCHEDULE_REOPEN_INTERVAL_MS)
         }
     }
@@ -1409,7 +1390,6 @@ private suspend fun loadHomeDataWithCache() {
 
     private suspend fun fetchAnimeScheduleWithToast(): List<AiringScheduleAnime> = try {
         repository.fetchAiringScheduleAnimeScheduleFallback().also {
-            Log.d("AiringDebug", "AnimeSchedule fallback returned ${it.size} entries")
         }
     } catch (e: AnimeScheduleUnavailableException) {
         Log.e("AiringDebug", "AnimeSchedule fallback unavailable: ${e.message}", e)
@@ -1727,18 +1707,16 @@ private suspend fun loadHomeDataWithCache() {
      */
 
     suspend fun fetchDetailedAnimeData(animeId: Int, malId: Int? = null, title: String? = null): DetailedAnimeData? {
-        Log.d("AnimeDetailDebug", "fetchDetailedAnimeData START id=$animeId malId=$malId")
         // Relations/recommendations from a MAL fallback carry their MAL id as their own
         // id, so animeId doubles as the MAL id only when no title is known (those items
         // never pass a title). Schedule-fallback items carry a fabricated route.hashCode()
         // id — when a title IS provided, never reuse that id as a MAL id.
         val effectiveMalId = malId?.takeIf { it > 0 }
             ?: animeId.takeIf { title.isNullOrBlank() }
-        var media = if (FORCE_MAL_DETAIL_FOR_TESTING) null else repository.fetchDetailedAnime(animeId)
+        var media = repository.fetchDetailedAnime(animeId)
         
         // If not found and have MAL ID, try finding by MAL ID
-        if (media == null && malId != null && malId > 0 && !FORCE_MAL_DETAIL_FOR_TESTING) {
-            Log.d("AnimeDetailDebug", "fetchDetailedAnimeData primary fetch returned null, retrying by MAL id=$malId")
+        if (media == null && malId != null && malId > 0) {
             val foundMedia = repository.findAnimeByMalId(malId)
             if (foundMedia != null) {
                 media = repository.fetchDetailedAnime(foundMedia.id)
@@ -1752,7 +1730,6 @@ private suspend fun loadHomeDataWithCache() {
                 Log.w("AnimeDetailDebug", "fetchDetailedAnimeData AniList failed — trying MAL detail fallback for malId=$effectiveMalId")
                 val malData = repository.fetchDetailedAnimeFromMal(effectiveMalId)
                 if (malData != null) {
-                    Log.d("AnimeDetailDebug", "fetchDetailedAnimeData MAL fallback OK id=$animeId malId=$malId title=${malData.title}")
                     _animeDetailSource.value = "mal"
                     cacheManager.cacheDetailedAnime(animeId, malData)
                     return malData
@@ -1764,14 +1741,12 @@ private suspend fun loadHomeDataWithCache() {
                 Log.w("AnimeDetailDebug", "fetchDetailedAnimeData IDs failed — trying title search '$title'")
                 try {
                     val hits = repository.searchAnime(title)
-                    Log.d("AnimeDetailDebug", "fetchDetailedAnimeData AniList title search '$title' hits=${hits.size}")
                     var hitIndex = 0
                     while (media == null && hitIndex < hits.size) {
                         val hit = hits[hitIndex]
                         hitIndex++
                         media = repository.fetchDetailedAnime(hit.id)
                         if (media != null) {
-                            Log.d("AnimeDetailDebug", "fetchDetailedAnimeData title search OK hit=$hitIndex id=${hit.id}")
                             _animeDetailSource.value = "anilist"
                         }
                     }
@@ -1787,10 +1762,8 @@ private suspend fun loadHomeDataWithCache() {
                     try {
                         val malIdByTitle = malApiService.searchAnimeByTitle(title)
                         if (malIdByTitle != null && malIdByTitle > 0) {
-                            Log.d("AnimeDetailDebug", "fetchDetailedAnimeData MAL title search OK malId=$malIdByTitle")
                             val malData = repository.fetchDetailedAnimeFromMal(malIdByTitle)
                             if (malData != null) {
-                                Log.d("AnimeDetailDebug", "fetchDetailedAnimeData MAL fallback OK via MAL title id=$animeId malId=$malIdByTitle title=${malData.title}")
                                 _animeDetailSource.value = "mal"
                                 cacheManager.cacheDetailedAnime(animeId, malData)
                                 return malData
@@ -1876,13 +1849,6 @@ private suspend fun loadHomeDataWithCache() {
         )
         cacheManager.cacheDetailedAnime(animeId, detailedData)
         _animeDetailSource.value = "anilist"
-        Log.d(
-            "AnimeDetailDebug",
-            "fetchDetailedAnimeData RESULT=OK id=$animeId title=${detailedData.title} " +
-                "relations=${detailedData.relations.size} chars=${detailedData.characters?.nodes?.size ?: 0} " +
-                "staff=${detailedData.staff?.edges?.size ?: 0} studios=${detailedData.studios.size} " +
-                "descLen=${detailedData.description?.length ?: 0} recs=${detailedData.recommendations.size}"
-        )
         return detailedData
     }
 
@@ -2006,7 +1972,6 @@ private suspend fun loadHomeDataWithCache() {
     // AniList favorites & user activity — implementations live in viewmodel/MainViewModelAniListFavoritesExt.kt
     // (fun fetchUserActivity, fetchUserStats, fetchAniListFavorites,
     //  loadAniListFavoritesFromStorage, toggleAniListFavorite, refreshReleasingAnimeProgress)
-
 
     // Misc
     internal fun saveHomeDataToCache() = cacheManager.saveHomeDataToCache(HomeCacheData(
@@ -2136,7 +2101,6 @@ private suspend fun loadHomeDataWithCache() {
     // Extension playback — implementations live in viewmodel/MainViewModelExtensionPlaybackExt.kt
     // (suspend fun playEpisodeWithExtension, suspend fun fetchExtensionHosterVideos)
 
-
     override fun onCleared() {
         super.onCleared()
         connectivityCallback?.let { callback ->
@@ -2147,5 +2111,4 @@ private suspend fun loadHomeDataWithCache() {
         }
     }
 }
-
 

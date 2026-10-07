@@ -16,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -91,6 +90,7 @@ fun MangaRelation.asRelatedMedia(): RelatedMedia = RelatedMedia(
     format = format,
     relation = relationType,
     chapters = chapters,
+    episodes = episodes,
     score = averageScore
 )
 
@@ -189,7 +189,6 @@ fun RelatedMediaCard(
 
     Column(
         modifier = modifier
-            .clip(Radius.posterShape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -224,6 +223,9 @@ fun RelatedMediaCard(
 
         Spacer(modifier = Modifier.height(Spacing.sm))
 
+        // Left-bound by default: without fillMaxWidth the wrap-content title is centered
+        // by the Column's CenterHorizontally. The card no longer clips its own bounds,
+        // so a 12dp rounded clip can no longer cut the bottom corners off either text.
         Text(
             text = displayTitle,
             style = MaterialTheme.typography.labelMedium,
@@ -231,8 +233,8 @@ fun RelatedMediaCard(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onBackground,
-            textAlign = titleAlign,
-            modifier = titleHeight?.let { Modifier.height(it) } ?: Modifier
+            textAlign = titleAlign ?: TextAlign.Start,
+            modifier = (titleHeight?.let { Modifier.height(it) } ?: Modifier).fillMaxWidth()
         )
 
         // Free height on purpose: "TV, Adaptation" wraps on a 110dp rail card, and a
@@ -242,9 +244,10 @@ fun RelatedMediaCard(
                 text = meta,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                textAlign = titleAlign,
+                textAlign = titleAlign ?: TextAlign.Start,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

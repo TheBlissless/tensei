@@ -68,7 +68,6 @@ class MangaTrackManager(context: Context) {
     }
 
     fun markChapterComplete(mangaId: Int, chapter: MangaChapter) {
-        android.util.Log.d("MangaSyncDebug", "track.markChapterComplete mangaId=$mangaId chapterNumber=${chapter.chapterNumber}")
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         val newProgress = if (chapter.chapterNumber > 0f) chapter.chapterNumber else 1f
@@ -140,7 +139,6 @@ class MangaTrackManager(context: Context) {
     }
 
     fun updateChapterProgress(mangaId: Int, progress: Float) {
-        android.util.Log.d("MangaSyncDebug", "track.updateChapterProgress mangaId=$mangaId progress=$progress")
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         if (index >= 0) {
@@ -194,7 +192,6 @@ class MangaTrackManager(context: Context) {
     }
 
     fun updateTrackingStatus(mangaId: Int, status: String) {
-        android.util.Log.d("MangaSyncDebug", "track.updateTrackingStatus mangaId=$mangaId status='$status'")
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         if (index >= 0) {
@@ -206,7 +203,6 @@ class MangaTrackManager(context: Context) {
     }
 
     fun updateScore(mangaId: Int, score: Int) {
-        android.util.Log.d("MangaSyncDebug", "track.updateScore mangaId=$mangaId score=$score")
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         if (index >= 0) {

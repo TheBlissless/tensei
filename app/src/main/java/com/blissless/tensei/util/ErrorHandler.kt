@@ -68,9 +68,7 @@ object ErrorHandler {
      */
     fun ignore(tag: String, reason: String, throwable: Throwable? = null) {
         if (throwable != null) {
-            Log.d(tag, "$reason (ignored: ${throwable.message})")
         } else {
-            Log.d(tag, reason)
         }
     }
 

@@ -225,7 +225,6 @@ internal object AnimeExtensionLoader {
             Log.w(TAG, "loadExtension: ${pkgInfo.packageName} has no ApplicationInfo")
         }
         val pm = context.packageManager
-        Log.d(TAG, "loadExtension: pkg=${pkgInfo.packageName} versionName=${pkgInfo.versionName} versionCode=${pkgInfo.longVersionCode} isShared=${extensionInfo.isShared}")
 
         // ── 1. Read lib version from manifest meta-data ──────────────────────
         //   Aniyomi extensions put <meta-data android:name="aniyomix.extensionLib"
@@ -235,7 +234,6 @@ internal object AnimeExtensionLoader {
             ?.takeUnless { it == 0 }?.toString()?.toDoubleOrNull()
             ?: pkgInfo.versionName?.substringBeforeLast('.')?.toDoubleOrNull()
             ?: 1.0
-        Log.d(TAG, "loadExtension: ${pkgInfo.packageName} libVersion=$libVersion (supported=$SUPPORTED_LIB_VERSIONS)")
         if (libVersion !in SUPPORTED_LIB_VERSIONS) {
             Log.w(TAG, "loadExtension: ${pkgInfo.packageName} has unsupported libVersion=$libVersion — returning Error")
             return AnimeLoadResult.Error
@@ -250,7 +248,6 @@ internal object AnimeExtensionLoader {
         val signatureHash = hashSignatures(signatures)
         val trustExtension = TrustAnimeExtension.get(context)
         val isTrusted = trustExtension.isTrusted(pkgInfo, signatures)
-        Log.d(TAG, "loadExtension: ${pkgInfo.packageName} isTrusted=$isTrusted signatureHash=$signatureHash")
         if (!isTrusted) {
             // Don't load untrusted extension code — return Untrusted so the
             // UI can prompt the user to trust or uninstall.
@@ -309,12 +306,10 @@ internal object AnimeExtensionLoader {
             Log.w(TAG, "loadExtension: ${pkgInfo.packageName} has no source class metadata — returning Error")
             return AnimeLoadResult.Error
         }
-        Log.d(TAG, "loadExtension: ${pkgInfo.packageName} sourceClass=$sourceClass")
 
         val sources: List<AnimeSource> = try {
             sourceClass.split(";").map { it.trim() }.filter { it.isNotEmpty() }.flatMap {
                 val className = if (it.startsWith(".")) "${pkgInfo.packageName}$it" else it
-                Log.d(TAG, "loadExtension: loading class $className …")
                 val clazz = classLoader.loadClass(className)
                 when (val obj = clazz.getDeclaredConstructor().newInstance()) {
                     is AnimeSource -> listOf(obj)

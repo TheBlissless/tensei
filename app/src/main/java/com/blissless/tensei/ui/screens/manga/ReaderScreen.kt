@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.toSize
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.MangaChapter
 import com.blissless.tensei.data.models.MangaMedia
+import com.blissless.tensei.data.models.countDistinctChapters
 import com.blissless.tensei.viewmodel.clearMangaChapterImagesCache
 import com.blissless.tensei.viewmodel.fetchMangaDetail
 import com.blissless.tensei.viewmodel.flushMangaSync
@@ -81,6 +82,7 @@ import com.blissless.tensei.viewmodel.loadMangaChapters
 import com.blissless.tensei.viewmodel.mangaChapterImages
 import com.blissless.tensei.viewmodel.mangaChapterImagesError
 import com.blissless.tensei.viewmodel.mangaChapters
+import com.blissless.tensei.viewmodel.mangaTrackManager
 import com.blissless.tensei.viewmodel.onMangaScrollProgress
 import com.blissless.tensei.viewmodel.prefetchMangaChapterImages
 import com.blissless.tensei.viewmodel.refreshMangaTracking
@@ -108,7 +110,6 @@ fun MangaReaderScreen(
     onClose: () -> Unit,
     onOpenSettings: () -> Unit = {}
 ) {
-    android.util.Log.d("MangaReader", "MangaReaderScreen compose: manga.id=${manga.id} title='${manga.title}' initialChapterIndex=$initialChapterIndex")
     val context = LocalContext.current
     // The reader is hosted in a Dialog, so LocalContext is the dialog's context (a
     // ContextThemeWrapper), NOT an Activity. Walk the wrapper chain to find the real
@@ -119,9 +120,7 @@ fun MangaReaderScreen(
     // hiding the bars has no visible effect. See applyReaderFullscreen.
     val view = LocalView.current
     DisposableEffect(Unit) {
-        android.util.Log.d("MangaReader", "READER COMPOSED (disposable effect) manga.id=${manga.id}")
         onDispose {
-            android.util.Log.d("MangaReader", "READER DISPOSED / LEAVING COMPOSITION manga.id=${manga.id} — screen is being removed (navigation close OR crash recovery)")
             // Release any rotation lock applied by the reader so the rest of the app
             // goes back to following the system orientation setting.
             applyReaderRotationLock(activity, false)
@@ -181,10 +180,18 @@ fun MangaReaderScreen(
     var displayedImages by remember { mutableStateOf<List<String>?>(null) }
     var displayedImagesError by remember { mutableStateOf<String?>(null) }
     var displayedChapterIndex by remember { mutableIntStateOf(-1) }
-    val readIndices = remember(chapters, manga.progress) {
+    // Read marks come from the local track's FLOAT progress (314.1 after that subchapter
+    // was read) instead of the model's truncated Int: 314.1 must show as read while the
+    // 314.2 after it must not. Whichever source is further along wins, so a model that
+    // only knows whole chapters never hides what the track already recorded.
+    val readIndices = remember(chapters, manga.progress, manga.id) {
+        val readUpTo = maxOf(
+            viewModel.mangaTrackManager?.getTrack(manga.id)?.progress ?: 0f,
+            manga.progress.toFloat()
+        )
         mutableStateOf(
             chapters.mapIndexedNotNull { index, ch ->
-                if (ch.chapterNumber > 0f && ch.chapterNumber <= manga.progress) index else null
+                if (ch.chapterNumber > 0f && ch.chapterNumber <= readUpTo) index else null
             }.toSet()
         )
     }
@@ -209,7 +216,6 @@ fun MangaReaderScreen(
         if (entryRedirectDone || showChapterList || chapters.isEmpty()) return@LaunchedEffect
         entryRedirectDone = true
         if (scrollChapterIndex >= 0 && currentChapterIndex != scrollChapterIndex) {
-            android.util.Log.d("MangaReader", "Entry redirect: progress-index=$currentChapterIndex -> scroll-chapter-index=$scrollChapterIndex scrollProgress=${manga.scrollProgress}")
             currentChapterIndex = scrollChapterIndex
             currentPageIndex = 0
             scrollProgress = 0f
@@ -232,7 +238,6 @@ fun MangaReaderScreen(
     // Lock/unlock the screen rotation to the current orientation while reading.
     // Runs on entry (with the persisted setting) and every time the toggle changes.
     LaunchedEffect(lockRotation) {
-        android.util.Log.d("MangaReader", "ROTATION LOCK ${if (lockRotation) "ON" else "OFF"}")
         applyReaderRotationLock(activity, lockRotation)
     }
 
@@ -243,7 +248,6 @@ fun MangaReaderScreen(
     // screen keeps the system bars visible.
     LaunchedEffect(fullscreen, showChapterList) {
         val effectiveFullscreen = fullscreen && !showChapterList
-        android.util.Log.d("MangaReader", "FULLSCREEN ${if (effectiveFullscreen) "ON" else "OFF"} (showChapterList=$showChapterList)")
         applyReaderFullscreen(view, effectiveFullscreen)
         delay(250)
         applyReaderFullscreen(view, effectiveFullscreen)
@@ -270,13 +274,9 @@ fun MangaReaderScreen(
         }
     }
 
-    android.util.Log.d("MangaReader", "MangaReaderScreen state: chapters.size=${chapters.size} showChapterList=$showChapterList currentChapterIndex=$currentChapterIndex chapterImages=${chapterImages?.size ?: "null"}")
-
     LaunchedEffect(currentChapter, showChapterList, pendingChapterLoad) {
-        android.util.Log.d("MangaReader", "LaunchedEffect(currentChapter, showChapterList, pendingChapterLoad): showChapterList=$showChapterList pendingChapterLoad=$pendingChapterLoad currentChapter=${currentChapter != null}")
         if (!showChapterList || pendingChapterLoad) {
             currentChapter?.let { chapter ->
-                android.util.Log.d("MangaReader", "Loading chapter images for chapterId='${chapter.chapterId}' title='${chapter.title}'")
                 viewModel.loadChapterImages(
                     chapterId = chapter.chapterId,
                     useDataSaver = useDataSaver,
@@ -294,7 +294,6 @@ fun MangaReaderScreen(
     // chapter) stays visible behind the loading overlay instead of flashing a blank loading view.
     LaunchedEffect(chapterImages, chapterImagesError) {
         if (chapterImages != null || chapterImagesError != null) {
-            android.util.Log.d("MangaReader", "Chapter images settled (images=${chapterImages?.size ?: "null"} error=${chapterImagesError != null}) — swapping display")
             displayedImages = chapterImages
             displayedImagesError = chapterImagesError
             displayedChapterIndex = currentChapterIndex
@@ -302,7 +301,6 @@ fun MangaReaderScreen(
                 (currentChapterIndex == scrollChapterIndex || (scrollChapterIndex < 0 && currentChapterIndex == manga.progress))
             ) {
                 pendingResumeProgress = manga.scrollProgress
-                android.util.Log.d("MangaReader", "Initial entry resume: set pendingResumeProgress=${manga.scrollProgress}")
             }
             // Update Discord Rich Presence with current manga/chapter info
             val chapter = currentChapter
@@ -328,7 +326,6 @@ fun MangaReaderScreen(
             displayedChapterIndex == pendingChapterIndex &&
             (displayedImages != null || displayedImagesError != null)
         ) {
-            android.util.Log.d("MangaReader", "Pending chapter load settled (images=${displayedImages?.size ?: "null"} error=${displayedImagesError != null}) — clearing overlay")
             pendingChapterLoad = false
             pendingChapterIndex = -1
             showChapterList = false
@@ -343,9 +340,7 @@ fun MangaReaderScreen(
     // releasing manga.
     LaunchedEffect(manga.id, selectedExtension, showChapterList) {
         val shouldLoad = chapters.isEmpty() || showChapterList
-        android.util.Log.d("MangaReader", "LaunchedEffect(manga.id=${manga.id}, selectedExtension=${selectedExtension != null}, showChapterList=$showChapterList): chapters.isEmpty()=${chapters.isEmpty()} shouldLoad=$shouldLoad")
         if (shouldLoad && selectedExtension != null) {
-            android.util.Log.d("MangaReader", "Fetching manga detail + chapters for manga.id=${manga.id}")
             runCatching { viewModel.fetchMangaDetail(manga.id) }
             viewModel.loadMangaChapters(manga.id, manga.title)
         }
@@ -375,8 +370,6 @@ fun MangaReaderScreen(
     // Handle the system back button — if a chapter is open, go back to the chapter list
     // (which stays open in the background); back on the chapter list closes the reader.
     fun handleReaderBack() {
-        android.util.Log.d("MangaReader", "BACK pressed: showChapterList=$showChapterList chapters.size=${chapters.size} — " +
-            if (!showChapterList && chapters.isNotEmpty()) "closing to chapter list" else "closing reader via onClose()")
         if (!showChapterList && chapters.isNotEmpty()) {
             // Was reading — go back to chapter list
             showChapterList = true
@@ -418,12 +411,10 @@ fun MangaReaderScreen(
     }
 
     fun selectChapter(index: Int, startAtTop: Boolean = false) {
-        android.util.Log.d("MangaReader", "selectChapter(index=$index startAtTop=$startAtTop) chapters.size=${chapters.size}")
         val chapter = chapters.getOrNull(index) ?: run {
             android.util.Log.w("MangaReader", "selectChapter: index $index out of range, IGNORED")
             return
         }
-        android.util.Log.d("MangaReader", "selectChapter: opening chapterId='${chapter.chapterId}' title='${chapter.title}'")
         val resuming = !startAtTop && (
             currentChapterIndex >= 0 && scrollChapterIndex >= 0 && index == scrollChapterIndex ||
             scrollChapterIndex < 0 && index == manga.progress
@@ -435,7 +426,6 @@ fun MangaReaderScreen(
         showNextChapterButton = false
         if (resuming && manga.scrollProgress > 0f) {
             pendingResumeProgress = manga.scrollProgress
-            android.util.Log.d("MangaReader", "selectChapter: resuming with scrollProgress=${manga.scrollProgress}")
         } else {
             pendingResumeProgress = -1f
         }
@@ -480,7 +470,6 @@ fun MangaReaderScreen(
             showNextChapterButton = false
             return@LaunchedEffect
         }
-        android.util.Log.d("MangaReader", "NEXT-BUTTON: end of chapter $currentChapterIndex reached, showing next-chapter button")
         delay(700)
         // Re-check after the debounce: still at the end of the same chapter.
         val stillAtEnd = if (readerMode == ReaderMode.VERTICAL_SCROLL) {
@@ -535,8 +524,6 @@ fun MangaReaderScreen(
         val renderSig = "$branch|${chapters.size}|$currentChapterIndex|$readerMode|${chapterImages?.size ?: "null"}"
         if (lastRenderSig != renderSig) {
             lastRenderSig = renderSig
-            android.util.Log.d("MangaReader", "RENDER branch=$branch showChapterList=$showChapterList chapters=${chapters.size} " +
-                "currentChapterIndex=$currentChapterIndex readerMode=$readerMode chapterImages=${chapterImages?.size ?: "null"} error=${chapterImagesError != null}")
         }
         when {
             // Show chapter list when explicitly requested OR when chapters haven't loaded yet
@@ -549,9 +536,12 @@ fun MangaReaderScreen(
                 // already reports the whole chapter count as read for COMPLETED.
                 val isSeriesCompleted = manga.listStatus == "COMPLETED" ||
                     (manga.listStatus.isBlank() && manga.totalChapters > 0 && manga.progress >= manga.totalChapters)
+                // First unread row, subchapters included: 314.1 IS the next thing to read
+                // once 313 is done and 314 never shipped as a whole chapter. Filtering to
+                // integer chapters here used to jump the continue button past unread
+                // subchapters straight to 315.
                 val nextUnreadIndex = (0 until chapters.size).firstOrNull {
-                    it !in readIndices.value &&
-                        chapters[it].chapterNumber.let { n -> n > 0f && (n - n.toInt()) < 0.001f }
+                    it !in readIndices.value
                 } ?: chapters.size
                 MangaChapterListWithGroups(
                     chapters = chapters,
@@ -572,7 +562,6 @@ fun MangaReaderScreen(
                         }
                     },
                     onBack = {
-                        android.util.Log.d("MangaReader", "Chapter list back arrow tapped — handling like system back")
                         handleReaderBack()
                     }
                 )
@@ -764,7 +753,6 @@ fun MangaReaderScreen(
             } ?: ""
             Button(
                 onClick = {
-                    android.util.Log.d("MangaReader", "NEXT-BUTTON: tapped, opening chapter ${currentChapterIndex + 1}")
                     selectChapter(currentChapterIndex + 1, startAtTop = true)
                 },
                 shape = RoundedCornerShape(28.dp),
@@ -1324,8 +1312,6 @@ fun MangaChapterListWithGroups(
         val emptySig = "empty|$isLoadingChapters|$hasLoadedChapters"
         if (lastEmptySig != emptySig) {
             lastEmptySig = emptySig
-            android.util.Log.d("MangaChapterList", "RENDER empty-state: isLoadingChapters=$isLoadingChapters " +
-                "hasLoadedChapters=$hasLoadedChapters onRetryLoadChapters=${onRetryLoadChapters != null} onBack=${onBack != null}")
         }
         Box(
             modifier = modifier.fillMaxSize(),
@@ -1383,8 +1369,6 @@ fun MangaChapterListWithGroups(
         val listSig = "list|${chapters.size}|${groupedChapters.size}|${readIndices.size}|$nextChapterToRead"
         if (lastListSig != listSig) {
             lastListSig = listSig
-            android.util.Log.d("MangaChapterList", "RENDER list: chapters=${chapters.size} grouped=${groupedChapters.size} " +
-                "readIndices=${readIndices.size} nextChapterToRead=$nextChapterToRead")
         }
 
         val filteredGroups = remember(groupedChapters, searchQuery) {
@@ -1398,13 +1382,13 @@ fun MangaChapterListWithGroups(
         }
 
         val listState = rememberLazyListState()
-        val integerChapterCount = chapters.count { ch ->
-            ch.chapterNumber > 0f && (ch.chapterNumber - ch.chapterNumber.toInt()) < 0.001f
-        }
-        val readCount = readIndices.count { idx ->
-            idx in chapters.indices && chapters[idx].chapterNumber.let { n -> n > 0f && (n - n.toInt()) < 0.001f }
-        }
-        val totalCount = integerChapterCount
+        // Count per base number, not per whole number: 313, 314.1, 314.2, 315 is three
+        // chapters, because 314.1 opens chapter 314 and 314.2 rides along with it (a 313.2
+        // after 313 would not be a fourth). The old integer-only count reported 2.
+        val totalCount = countDistinctChapters(chapters.map { it.chapterNumber })
+        val readCount = countDistinctChapters(
+            readIndices.mapNotNull { idx -> chapters.getOrNull(idx)?.chapterNumber }
+        )
         val progress = if (totalCount > 0) readCount.toFloat() / totalCount else 0f
         val statusBarPadding = WindowInsets.statusBars.asPaddingValues()
         val listDensity = LocalDensity.current
@@ -1462,10 +1446,6 @@ fun MangaChapterListWithGroups(
             // to bring the row center UP to the viewport center we scroll forward by the
             // row's current distance below center.
             val delta = (groupItem.offset + rowCenterInGroup) - viewportHeight / 2f
-            android.util.Log.d("MangaChapterList", "AUTOSCROLL next=$nextChapterToRead ch=$targetChapterTitle " +
-                "group=$groupKey item=$targetItem row=$rowInGroup/${groupList.size} " +
-                "groupTop=${groupItem.offset} groupH=${groupItem.size} viewportH=$viewportHeight " +
-                "rowH=$rowHeightPx nonRow=${nonRowHeightPx.toInt()} delta=${delta.toInt()}")
             if (delta != 0f) listState.animateScrollBy(delta)
         }
 
@@ -1739,11 +1719,14 @@ private fun MangaChapterGroup(
         label = "rotation"
     )
 
-    val integerGroupChapters = groupChapters.filter { (_, ch) ->
-        ch.chapterNumber > 0f && (ch.chapterNumber - ch.chapterNumber.toInt()) < 0.001f
-    }
-    val readInGroup = integerGroupChapters.count { (index, _) -> index in readIndices }
-    val readRatio = if (integerGroupChapters.isNotEmpty()) readInGroup.toFloat() / integerGroupChapters.size else 0f
+    // Same base-number rule as the header: a group weighs one chapter per main chapter, so
+    // 314.1 and 314.2 count once together and a group that is only subchapters still fills
+    // its ring instead of dividing by a whole-chapter count it does not have.
+    val totalInGroup = countDistinctChapters(groupChapters.map { it.second.chapterNumber })
+    val readInGroup = countDistinctChapters(
+        groupChapters.filter { (index, _) -> index in readIndices }.map { it.second.chapterNumber }
+    )
+    val readRatio = if (totalInGroup > 0) readInGroup.toFloat() / totalInGroup else 0f
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1794,8 +1777,8 @@ private fun MangaChapterGroup(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (readInGroup > 0) "${integerGroupChapters.size} chapters \u00B7 $readInGroup read"
-                               else "${integerGroupChapters.size} chapters",
+                        text = if (readInGroup > 0) "$totalInGroup chapters \u00B7 $readInGroup read"
+                               else "$totalInGroup chapters",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (readInGroup > 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
                                else MaterialTheme.colorScheme.onSurfaceVariant

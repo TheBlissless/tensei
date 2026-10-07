@@ -221,7 +221,6 @@ class MainActivity : ComponentActivity() {
     private fun buildPiPParams(autoEnter: Boolean = false, source: String = "?"): PictureInPictureParams {
         val engine = com.blissless.tensei.stream.PlayerData.playerEngine
         val isPlaying = engine?.isPlaying == true
-        android.util.Log.d("serverChange", "buildPiPParams[src=$source] isPlaying=$isPlaying engine=${engine?.javaClass?.simpleName} engineId=${System.identityHashCode(engine)}")
         val icon = getPipPlayPauseIcon(isPlaying)
         val intent = Intent(ACTION_PIP_PLAY_PAUSE).setPackage(packageName)
         val requestCode = if (isPlaying) 0 else 1
@@ -276,10 +275,6 @@ class MainActivity : ComponentActivity() {
     fun enterPiPMode() {
         registerPiPReceiver()
         ensurePiPMediaSession()
-        android.util.Log.d(
-            "serverChange",
-            "enterPiPMode now engine.isPlaying=${com.blissless.tensei.stream.PlayerData.playerEngine?.isPlaying} engineId=${System.identityHashCode(com.blissless.tensei.stream.PlayerData.playerEngine)}"
-        )
         enterPictureInPictureMode(buildPiPParams(source = "enterPiPMode"))
     }
 
@@ -767,7 +762,6 @@ fun MainScreen(
         val pending = mangaOverlayRestoreStack.lastOrNull() ?: return
         val current = mangaDetailStack.lastOrNull()
         if (current != null && mangaOverlay == MangaOverlay.None && pending.mangaId == current.id) {
-            android.util.Log.d("MangaNav", "restoreMangaOverlay: restoring ${pending.javaClass.simpleName} for manga id=${pending.mangaId}")
             mangaOverlay = pending
             mangaOverlayRestoreStack = mangaOverlayRestoreStack.dropLast(1)
         }
@@ -783,7 +777,6 @@ fun MainScreen(
     }
 
     val openMangaDetail: (com.blissless.tensei.data.models.MangaMedia) -> Unit = { m ->
-        android.util.Log.d("MangaNav", "openMangaDetail PUSH: id=${m.id} title='${m.title}' stackDepth=${mangaDetailStack.size} -> ${mangaDetailStack.size + 1}")
         viewModel.clearMangaDetail()
         mangaDetailStack = mangaDetailStack + m
         showMangaDetailScreen = true
@@ -791,7 +784,6 @@ fun MainScreen(
     val popMangaDetail: () -> Unit = {
         val popped = mangaDetailStack.lastOrNull()
         val remaining = mangaDetailStack.dropLast(1)
-        android.util.Log.d("MangaNav", "popMangaDetail POP: id=${popped?.id} remaining=${remaining.size}")
         mangaDetailStack = remaining
         if (remaining.isEmpty()) {
             showMangaDetailScreen = false
@@ -802,7 +794,6 @@ fun MainScreen(
         viewModel.clearMangaDetail()
     }
     val closeAllManga: () -> Unit = {
-        android.util.Log.d("MangaNav", "closeAllManga: clearing stack depth=${mangaDetailStack.size}")
         mangaDetailStack = emptyList()
         showMangaDetailScreen = false
         showMangaReader = false
@@ -880,7 +871,6 @@ fun MainScreen(
         }
     }
 
-
     // Playback helper methods (state is inlined in this composable above)
     fun sanitizeEpisodeTitle(title: String?): String? = com.blissless.tensei.ui.screens.player.sanitizeEpisodeTitle(title)
     fun invalidateCurrentStreamCache() {
@@ -899,7 +889,6 @@ fun MainScreen(
     // async methods because syncFromPlayback() would run before the
     // coroutine completes.
     fun playExtensionVideo(result: MainViewModel.ExtensionStreamResult, index: Int) {
-        android.util.Log.d("Playback", "playExtensionVideo: url=${result.url.take(80)} client=${result.extensionClient != null} referer='${result.referer.take(60)}' headers=${result.videoHeaders} videos=${result.videos.size}")
         result.videos.forEachIndexed { _, _ -> }
         val video = result.videos.find { it.videoUrl == result.url }
             ?: result.videos.getOrNull(index)
@@ -907,7 +896,6 @@ fun MainScreen(
             android.util.Log.w("Playback", "playExtensionVideo: no matching video found, returning early")
             return
         }
-        android.util.Log.d("Playback", "playExtensionVideo: matched video ${video.videoUrl.take(80)}")
         streamError = null
         currentEpisodeTitle = sanitizeEpisodeTitle(result.episode?.name) ?: "Episode $currentEpisode"
         currentVideoUrl = result.url.ifEmpty { video.videoUrl }
@@ -936,13 +924,11 @@ fun MainScreen(
         //
         // Falls back to `buildServerList(result.hosters)` when `result.videos`
         // is empty — this produces one entry per hoster (the old behavior).
-        android.util.Log.d("ServerSwitch", "MainActivity:929 — result.videos=${result.videos.size} result.hosters=${result.hosters?.size ?: 0}")
         extensionServers = if (result.videos.isNotEmpty()) {
             com.blissless.tensei.ui.screens.player.buildServerListFromVideos(result.videos, result.videoHosterNames)
         } else {
             com.blissless.tensei.ui.screens.player.buildServerList(result.hosters)
         }
-        android.util.Log.d("ServerSwitch", "MainActivity:929 — extensionServers now: ${extensionServers.map { "${it.name}<-${it.url.take(50)}" }}")
         showPlayer = true
         if (currentCategory == "dub" && result.source != null && result.episode != null) {
             val src = result.source
@@ -1088,9 +1074,7 @@ fun MainScreen(
             yield()
             val cached = viewModel.getMagnetForEpisode(anime.id, episode)
             val magnetUri = withContext(Dispatchers.IO) { cached ?: viewModel.fetchMagnetForEpisode(anime, episode) }
-            android.util.Log.d("Playback", "loadAndPlayEpisodeTensei: magnetUri=${magnetUri?.take(60)} isEmpty=${magnetUri?.isEmpty()}")
             if (magnetUri != null && magnetUri.isNotEmpty()) {
-                android.util.Log.d("Playback", "loadAndPlayEpisodeTensei: calling playTorrent")
                 val episodeOffset = try {
                     withContext(Dispatchers.IO) {
                         viewModel.repository.calculateRecursiveOffset(anime.id)
@@ -1112,9 +1096,7 @@ fun MainScreen(
                 android.util.Log.i("Playback", "loadAndPlayEpisodeTensei: streamResult url=${streamResult?.url?.take(60)} subtitles=${streamResult?.subtitles?.size ?: 0}")
                 playTorrent(magnetUri, anime, episode, streamResult?.subtitles ?: emptyList(), episodeOffset)
             } else if (magnetUri != null) {
-                android.util.Log.d("Playback", "loadAndPlayEpisodeTensei: empty magnet, trying stream URL")
                 val streamResult = viewModel.fetchStreamUrlForEpisode(anime, episode, viewModel.preferredCategory.value)
-                android.util.Log.d("Playback", "loadAndPlayEpisodeTensei: streamResult=${streamResult != null} url=${streamResult?.url?.take(60)} headers=${streamResult?.headers} streams=${streamResult?.streams?.size}")
                 if (streamResult != null) {
                     // Use the preferred stream from the streams array if available
                     val preferredLang = viewModel.preferredCategory.value // "sub" or "dub"
@@ -1312,7 +1294,6 @@ fun MainScreen(
         // redirect to Settings to pick a default extension. Auto-resumes once the
         // user returns from Settings with a usable default configured.
         if (!isAutoRefresh && !hasUsableAnimeExtensionDefault()) {
-            android.util.Log.d("Playback", "loadAndPlayEpisode: no usable anime default extension (method=${viewModel.streamMethod.value}) — parking intent and redirecting to Settings")
             pendingAnimeAfterSettings = anime to episode
             isLoadingStream = false
             showNoExtDialog = true
@@ -1320,7 +1301,6 @@ fun MainScreen(
         }
         val streamMethod = viewModel.streamMethod.value
         val streamExtAuthority = viewModel.defaultStreamExtension.value
-        android.util.Log.d("Playback", "loadAndPlayEpisode: anime=${anime.id} ep=$episode method=$streamMethod streamExt=$streamExtAuthority autoRefresh=$isAutoRefresh")
         if (!isAutoRefresh) { isAutoRefreshing = false; pendingSeekPosition = null }
         currentAnime = anime
         currentEpisode = episode
@@ -1388,20 +1368,16 @@ fun MainScreen(
      * already in memory.
      */
     fun handleTenseiServerChange(hosterName: String) {
-        android.util.Log.d("ServerSwitch", "handleTenseiServerChange: hosterName=$hosterName")
         val serverInfo = extensionServers.find { it.name == hosterName }
-        android.util.Log.d("ServerSwitch", "  serverInfo=${serverInfo?.name} url=${serverInfo?.url?.take(80)}")
         if (serverInfo != null) {
             currentVideoUrl = serverInfo.url
             currentServerName = hosterName
             currentCategory = if (hosterName.contains("DUB", ignoreCase = true)) "dub" else "sub"
             val streamEntry = extensionStreamEntries.find { it.url == serverInfo.url }
-            android.util.Log.d("ServerSwitch", "  streamEntry found=${streamEntry != null} headers=${streamEntry?.headers}")
             if (streamEntry != null) {
                 extensionVideoHeaders = streamEntry.headers
                 currentReferer = streamEntry.headers["Referer"] ?: ""
             }
-            android.util.Log.d("ServerSwitch", "  setting currentVideoUrl=${serverInfo.url.take(80)} episodeTrigger++")
             episodeTrigger++
         } else {
             android.util.Log.w("ServerSwitch", "  serverInfo NOT found for name=$hosterName")
@@ -1453,10 +1429,6 @@ fun MainScreen(
      * be declared before use, hence the ordering above.)
      */
     fun handleExtensionServerChange(serverKey: String) {
-        android.util.Log.d("ServerSwitch", "handleExtensionServerChange: serverKey=$serverKey")
-        android.util.Log.d("ServerSwitch", "  extensionHosters=${extensionHosters?.map { "${it.hosterName}(url=${it.hosterUrl.take(50)},videos=${it.videoList?.size ?: 0})" }}")
-        android.util.Log.d("ServerSwitch", "  extensionServers=${extensionServers.map { "${it.name}<-${it.url.take(50)}" }}")
-        android.util.Log.d("ServerSwitch", "  source=${com.blissless.tensei.stream.PlayerData.extensionSource}")
 
         // ── NEW: Direct video-URL path ─────────────────────────────────
         //
@@ -1561,7 +1533,6 @@ fun MainScreen(
             loadAndPlayEpisode(currentAnime!!, currentEpisode + 1, isAutoRefresh = true)
         }
     }
-
 
     val exploreDialog = overlayState as? OverlayState.ExploreAnimeDialog
     if (exploreDialog != null) {
@@ -1988,7 +1959,6 @@ fun MainScreen(
     // ─── Manga Detail Screen ─────────────────────────────────────────
     if (currentManga != null && showMangaDetailScreen) {
         val manga = currentManga
-        android.util.Log.d("MangaNav", "DETAIL COMPOSE: id=${manga.id} title='${manga.title}' autoShowChapters=$mangaAutoShowChapters stackDepth=${mangaDetailStack.size}")
         DetailedMangaScreen(
             manga = manga,
             viewModel = viewModel,
@@ -2088,16 +2058,13 @@ fun MainScreen(
             },
             onDismiss = {
                 if (showMangaReader) {
-                    android.util.Log.d("MangaNav", "DETAIL onDismiss suppressed (id=${manga.id}) — reader is open, keeping manga detail")
                 } else {
-                    android.util.Log.d("MangaNav", "DETAIL onDismiss — popping detail (id=${manga.id})")
                     mangaAutoShowChapters = false
                     popMangaDetail()
                 }
             },
             onNavigateBack = {
                 if (showMangaReader) {
-                    android.util.Log.d("MangaNav", "DETAIL onNavigateBack suppressed (id=${manga.id}) — reader is open")
                 } else {
                     mangaAutoShowChapters = false
                     popMangaDetail()
@@ -2112,9 +2079,7 @@ fun MainScreen(
             },
             onSwipeToClose = {
                 if (showMangaReader) {
-                    android.util.Log.d("MangaNav", "DETAIL onSwipeToClose suppressed (id=${manga.id}) — reader is open, keeping manga detail")
                 } else {
-                    android.util.Log.d("MangaNav", "DETAIL onSwipeToClose — popping detail (id=${manga.id})")
                     mangaAutoShowChapters = false
                     popMangaDetail()
                 }
@@ -2131,8 +2096,6 @@ fun MainScreen(
                 popMangaDetail()
             },
             onStartReader = { chapterIndex ->
-                android.util.Log.d("MangaNav", "onStartReader called: chapterIndex=$chapterIndex manga.id=${manga.id} " +
-                    "mangaAutoShowChapters=$mangaAutoShowChapters showMangaDetailScreen=$showMangaDetailScreen showMangaReader=$showMangaReader")
                 mangaReaderChapterIndex = chapterIndex
                 showMangaReader = true
                 // NOTE: Do NOT hide the detail or clear manga detail here — the reader is a
@@ -2205,7 +2168,6 @@ fun MainScreen(
         // frame caused a flash — reader pops up then instantly closes). Surface the simple
         // no-extension dialog over whatever is behind instead.
         LaunchedEffect(showMangaReader, currentManga) {
-            android.util.Log.d("MangaNav", "READER SKIPPED (no manga extension) — showing no-extension dialog instead of reader")
             mangaAutoShowChapters = false
             showMangaReader = false
             // Park the reader intent so returning from Settings (after picking a
@@ -2220,8 +2182,6 @@ fun MainScreen(
         val readerManga = currentManga
         val closeReader: () -> Unit = {
             if (showMangaReader) {
-                android.util.Log.d("MangaNav", "READER onClose INVOKED — closing reader (manga.id=${readerManga.id}) " +
-                    "autoShowChapters=$mangaAutoShowChapters detailBehind=$showMangaDetailScreen stackDepth=${mangaDetailStack.size}")
                 mangaAutoShowChapters = false
                 showMangaReader = false
                 if (!showMangaDetailScreen) {
@@ -2234,11 +2194,8 @@ fun MainScreen(
                 }
             }
         }
-        android.util.Log.d("MangaNav", "READER COMPOSE: id=${readerManga.id} title='${readerManga.title}' " +
-            "initialChapterIndex=$mangaReaderChapterIndex autoShowChapters=$mangaAutoShowChapters")
         Dialog(
             onDismissRequest = {
-                android.util.Log.d("MangaNav", "READER dialog dismissed via system — calling closeReader (manga.id=${readerManga.id})")
                 closeReader()
             },
             properties = DialogProperties(
@@ -2258,7 +2215,6 @@ fun MainScreen(
                 isOled = isOled,
                 onClose = closeReader,
                 onOpenSettings = {
-                    android.util.Log.d("MangaNav", "READER onOpenSettings — closing reader and opening Settings → Reader")
                     pendingMangaAfterSettings = readerManga
                     pendingMangaResumeAfterSettings = false
                     closeReader()
@@ -3035,7 +2991,6 @@ fun MainScreen(
                             isVisible = true,
                             onSearchClick = { showSearchScreen = true },
                             onMangaClick = { manga ->
-                                android.util.Log.d("MangaNav", "MANGA TAB onMangaClick: id=${manga.id} title='${manga.title.romaji ?: manga.title.english}' -> DETAIL")
                                 openMangaDetail(
                                     com.blissless.tensei.data.models.MangaMedia(
                                         id = manga.id,
@@ -3049,7 +3004,6 @@ fun MainScreen(
                                 )
                             },
                             onMangaReadClick = { manga ->
-                                android.util.Log.d("MangaNav", "MANGA TAB onMangaReadClick: id=${manga.id} title='${manga.title.romaji ?: manga.title.english}' -> READER (chapter selection)")
                                 mangaAutoShowChapters = true
                                 mangaDetailStack = mangaDetailStack + com.blissless.tensei.data.models.MangaMedia(
                                     id = manga.id,
@@ -3133,10 +3087,7 @@ fun MainScreen(
                             onProfileClick = { showUserProfilePage = true },
                             playbackPositions = playbackPositions,
                             onMangaClick = { manga ->
-                                android.util.Log.d("MangaNav", "HOME onMangaClick: id=${manga.id} title='${manga.title}' " +
-                                    "progress=${manga.progress} scrollProgress=${manga.scrollProgress}")
                                 if (selectedMangaExtension == null) {
-                                    android.util.Log.d("MangaNav", "HOME onMangaClick: no manga extension selected — showing dialog")
                                     pendingMangaAfterSettings = manga
                                     pendingMangaResumeAfterSettings = false
                                     showMangaNoExtensionDialog = true
@@ -3148,15 +3099,11 @@ fun MainScreen(
                                 }
                             },
                             onMangaInfoClick = { manga ->
-                                android.util.Log.d("MangaNav", "HOME onMangaInfoClick: id=${manga.id} title='${manga.title}'")
                                 mangaAutoShowChapters = false
                                 openMangaDetail(manga)
                             },
                             onMangaContinueReadingClick = { manga ->
-                                android.util.Log.d("MangaNav", "HOME onMangaContinueReading: id=${manga.id} title='${manga.title}' " +
-                                    "progress=${manga.progress} scrollProgress=${manga.scrollProgress}")
                                 if (selectedMangaExtension == null) {
-                                    android.util.Log.d("MangaNav", "HOME onMangaContinueReading: no manga extension selected — showing dialog")
                                     pendingMangaAfterSettings = manga
                                     pendingMangaResumeAfterSettings = true
                                     showMangaNoExtensionDialog = true
@@ -3168,7 +3115,6 @@ fun MainScreen(
                                 }
                             },
                             onMangaDismissClick = { manga ->
-                                android.util.Log.d("MangaNav", "HOME onMangaDismiss: clearing continue-reading state for id=${manga.id} title='${manga.title}'")
                                 viewModel.dismissMangaContinueReading(manga.id)
                             },
                             onAnimeDetailMangaClick = openMangaDetail,
@@ -3220,7 +3166,6 @@ fun MainScreen(
                             },
                             settingsReturnVersion = settingsReturnVersion,
                             onMangaClick = { manga ->
-                                android.util.Log.d("MangaNav", "SEARCH onMangaClick: id=${manga.id} title='${manga.title.romaji ?: manga.title.english}' -> DETAIL")
                                 openMangaDetail(
                                     com.blissless.tensei.data.models.MangaMedia(
                                         id = manga.id,
@@ -3384,5 +3329,4 @@ fun MainScreen(
         }
     }
 }
-
 

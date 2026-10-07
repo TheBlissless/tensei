@@ -105,11 +105,9 @@ class CacheManager(private val sharedPreferences: SharedPreferences) {
             OkHttpDataSource.Factory(extensionClient)
                 .setDefaultRequestProperties(mapOf("Referer" to referer))
         } else if (extensionHeaders.isNotEmpty()) {
-            android.util.Log.d("CacheManager", "Using trustAllClient (HTTP/1.1) with headers: $extensionHeaders")
             OkHttpDataSource.Factory(trustClient!!)
                 .setDefaultRequestProperties(extensionHeaders)
         } else {
-            android.util.Log.d("CacheManager", "Using trustAllClient (HTTP/1.1) with Referer: $referer")
             OkHttpDataSource.Factory(trustClient!!)
                 .setDefaultRequestProperties(mapOf("Referer" to referer))
         }
@@ -982,5 +980,4 @@ class CacheManager(private val sharedPreferences: SharedPreferences) {
         sharedPreferences.edit { remove(CACHE_STREAM_DATA) }
     }
 }
-
 

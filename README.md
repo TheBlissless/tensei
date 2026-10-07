@@ -47,7 +47,7 @@ Download the APK from [Releases](https://github.com/TheBlissless/tensei/releases
 - **Persistence**: DataStore Preferences, WorkManager
 - **APIs**: AniList GraphQL, MyAnimeList (MAL OAuth), TMDB, Jikan, MangaDex, AnimeThemes, AnimeSkip
 - **Integration**: Discord Partner SDK
-- **Other**: AndroidX Core KTX, Lifecycle (runtime/compose/viewmodel), SplashScreen, Preferences KTX, JUnit/Mockito/Truth for testing
+- **Other**: AndroidX Core KTX, Lifecycle (runtime/compose/viewmodel), SplashScreen, Preferences KTX
 
 ## Forking the repository
 

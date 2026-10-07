@@ -824,29 +824,6 @@ private fun StreamSettingsPage(
             )
         }
 
-        SectionHeader("AUDIO")
-        SettingsCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                SettingsChoiceChip(label = "SUB", isSelected = preferredCategory == "sub", onClick = { viewModel.setPreferredCategory("sub") })
-                SettingsChoiceChip(label = "DUB", isSelected = preferredCategory == "dub", onClick = { viewModel.setPreferredCategory("dub") })
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                "Preferred Audio Category",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                "Try servers from this category first when playing",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
-        }
-
         SectionHeader("EXTENSIONS")
         SettingsCard {
             ClickableSettingsRow(
@@ -883,6 +860,29 @@ private fun StreamSettingsPage(
                 icon = Icons.Default.Subtitles,
                 title = "Default Subtitle Language",
                 subtitle = defaultSubtitleLang
+            )
+        }
+
+        SectionHeader("AUDIO")
+        SettingsCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SettingsChoiceChip(label = "SUB", isSelected = preferredCategory == "sub", onClick = { viewModel.setPreferredCategory("sub") })
+                SettingsChoiceChip(label = "DUB", isSelected = preferredCategory == "dub", onClick = { viewModel.setPreferredCategory("dub") })
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Preferred Audio Category",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                "Try servers from this category first when playing",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
 

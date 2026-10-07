@@ -686,7 +686,6 @@ class MalApiService(context: Context) {
                 if (responseCode != HttpURLConnection.HTTP_OK && responseCode != 201) {
                     android.util.Log.w("MalApi", "updateAnimeStatus FAILED animeId=$animeId code=$responseCode")
                 } else {
-                    android.util.Log.d("MalApi", "updateAnimeStatus OK animeId=$animeId code=$responseCode")
                 }
 
                 responseCode == HttpURLConnection.HTTP_OK || responseCode == 201
@@ -748,7 +747,6 @@ class MalApiService(context: Context) {
             if (responseCode != HttpURLConnection.HTTP_OK && responseCode != 201) {
                 android.util.Log.w("MalApi", "updateMangaStatus FAILED mangaId=$malMangaId code=$responseCode")
             } else {
-                android.util.Log.d("MalApi", "updateMangaStatus OK mangaId=$malMangaId code=$responseCode")
             }
 
             responseCode == HttpURLConnection.HTTP_OK || responseCode == 201

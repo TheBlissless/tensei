@@ -158,7 +158,6 @@ class SourceManager(private val context: Context) {
         sourceFilter: SourceWithExt? = null,
         onProgress: (SourceWithExt, List<SAnime>) -> Unit,
     ) {
-        Log.d(TAG, "search() query=\"$query\" sourceFilter=${sourceFilter?.source?.name}")
         withContext(Dispatchers.IO) {
             val targets = if (sourceFilter != null) listOf(sourceFilter) else _sources.value
             for (sw in targets) {
@@ -190,22 +189,17 @@ class SourceManager(private val context: Context) {
         anime: SAnime? = null,
     ): List<Hoster>? {
         return withContext(Dispatchers.IO) {
-            Log.d(TAG, "getHosters: source=${source.name} ep=${episode.url.take(80)}")
             if (anime != null && source is AnimeHttpSource) {
                 source.prepareNewEpisode(episode, anime)
             }
             try {
                 val hosters = source.getHosterList(episode)
-                Log.d(TAG, "  got ${hosters.size} hosters: ${hosters.map { "${it.hosterName}: ${it.hosterUrl.take(80)} (lazy=${it.lazy})" }}")
                 hosters
             } catch (e: Throwable) {
-                Log.d(TAG, "  getHosterList failed: ${e.message}", e)
                 try {
                     val videos = source.getVideoList(episode)
-                    Log.d(TAG, "  got ${videos.size} videos from fallback getVideoList")
                     if (videos.isNotEmpty()) {
                         videos.forEach { v ->
-                            Log.d(TAG, "    video: \"${v.videoTitle}\" res=${v.resolution}p url=${v.videoUrl.take(100)} headers=${v.headers?.let { h -> (0 until h.size).associate { h.name(it) to h.value(it) } }}")
                         }
                         val derivedHosters = videos.map { video ->
                             Hoster(
@@ -218,7 +212,6 @@ class SourceManager(private val context: Context) {
                         return@withContext derivedHosters.distinctBy { it.hosterName }
                     }
                 } catch (e2: Throwable) {
-                    Log.d(TAG, "  fallback getVideoList also failed: ${e2.message}")
                 }
                 null
             }
@@ -227,15 +220,12 @@ class SourceManager(private val context: Context) {
 
     suspend fun getVideosFromHoster(source: AnimeCatalogueSource, hoster: Hoster): List<Video> {
         return withContext(Dispatchers.IO) {
-            Log.d(TAG, "getVideosFromHoster: source=${source.name} hoster=${hoster.hosterName} url=${hoster.hosterUrl.take(80)} lazy=${hoster.lazy}")
             val videos = if (hoster.lazy) {
                 source.getVideoList(hoster)
             } else {
                 hoster.videoList ?: source.getVideoList(hoster)
             }
-            Log.d(TAG, "  returned ${videos.size} videos")
             videos.forEach { v ->
-                Log.d(TAG, "    video: \"${v.videoTitle}\" res=${v.resolution}p url=${v.videoUrl.take(100)}")
             }
             videos
         }
@@ -247,19 +237,15 @@ class SourceManager(private val context: Context) {
         anime: SAnime? = null,
     ): List<Video> {
         return withContext(Dispatchers.IO) {
-            Log.d(TAG, "getVideosDirect: source=${source.name} ep=${episode.url.take(80)}")
             if (anime != null && source is AnimeHttpSource) {
                 source.prepareNewEpisode(episode, anime)
             }
             try {
                 val videos = source.getVideoList(episode)
-                Log.d(TAG, "  got ${videos.size} videos")
                 videos.forEach { v ->
-                    Log.d(TAG, "    video: \"${v.videoTitle}\" res=${v.resolution}p url=${v.videoUrl.take(100)} headers=${v.headers?.let { h -> (0 until h.size).associate { h.name(it) to h.value(it) } }}")
                 }
                 videos
             } catch (e: Throwable) {
-                Log.d(TAG, "  getVideoList failed: ${e.message}", e)
                 emptyList()
             }
         }

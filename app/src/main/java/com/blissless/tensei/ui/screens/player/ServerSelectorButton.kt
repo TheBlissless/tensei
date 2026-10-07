@@ -96,7 +96,6 @@ fun ServerSelectorButton(
             }
         },
         onClick = {
-            android.util.Log.d("ServerSelectorClick", "serverName=\"$serverName\" isSelected=$isSelected qualities=$qualities")
             onClick()
         }
     )

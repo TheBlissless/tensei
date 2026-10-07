@@ -123,8 +123,6 @@ class AnimeRepository(
     suspend fun graphqlMutation(query: String, variables: Map<String, Any?>): String? {
         val token = userPreferences.authToken.value ?: return null
 
-        Log.d("AniListScoreDebug", "graphqlMutation variables=$variables")
-
         val result = graphQLClient.execute(
             query = query,
             variables = variables,
@@ -134,8 +132,6 @@ class AnimeRepository(
             useCache = false, // Mutations should never be cached
             parser = { it }
         )
-
-        Log.d("AniListScoreDebug", "graphqlMutation result data=${result.data?.take(200)} error=${result.error?.message}")
 
         return result.data
     }
@@ -158,7 +154,6 @@ class AnimeRepository(
                     " isRateLimit=${result.error?.isRateLimit} retryCount=${result.retryCount}"
             )
         } else {
-            Log.d("GraphQLDebug", "Success: ${result.data.take(200)}")
         }
         return result.data
     }
@@ -539,7 +534,6 @@ class AnimeRepository(
 
         // Every page failed to reach the AniList API (not just an empty window) — signal
         // the caller so it can fall back to the AnimeSchedule weekly timetable.
-        Log.d("AiringDebug", "fetchAiringSchedule: pages=${pages.size} nonNullPages=${pages.count { it != null }} sizes=${pages.map { it?.size }}")
         if (pages.all { it == null }) {
             Log.e("AiringDebug", "fetchAiringSchedule: ALL pages failed — throwing AiringScheduleApiDownException")
             throw AiringScheduleApiDownException()
@@ -571,9 +565,7 @@ class AnimeRepository(
                 Log.e("AiringDebug", "AnimeSchedule fallback: weekly timetable empty — schedule unreachable")
                 throw AnimeScheduleUnavailableException()
             }
-            Log.d("AiringDebug", "AnimeSchedule raw entries=${results.size}")
             val mapped = mapAnimeScheduleToAiring(results, now)
-            Log.d("AiringDebug", "AnimeSchedule mapped=${mapped.size}")
             mapped
         } catch (e: AnimeScheduleUnavailableException) {
             throw e
@@ -597,7 +589,6 @@ class AnimeRepository(
             val year = mondayOfWeek.get(IsoFields.WEEK_BASED_YEAR)
             val week = mondayOfWeek.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR)
             val url = Endpoints.AnimeSchedule.timetableUrl(year, week, "raw", tz)
-            Log.d("AiringDebug", "AnimeSchedule URL: $url")
             val request = Request.Builder().url(url)
                 .header("Authorization", "Bearer ${BuildConfig.ANIME_SCHEDULE_API_KEY}")
                 .header("Accept", "application/json")
@@ -608,7 +599,6 @@ class AnimeRepository(
                 val code = it.code
                 if (code == 200) {
                     val body = it.body?.string() ?: ""
-                    Log.d("AiringDebug", "AnimeSchedule HTTP $code bodyLen=${body.length} preview=${body.take(120)}")
                     combined.addAll(json.decodeFromString<List<AnimeScheduleTimetableEntry>>(body))
                 } else {
                     val errBody = it.body?.string().orEmpty()
@@ -676,7 +666,6 @@ class AnimeRepository(
             result.add(build(entry, airingAt))
             airedShown++
         }
-        Log.d("AiringDebug", "AnimeSchedule map summary: total=${entries.size} kept=${result.size} dropped(seen=$droppedSeen, noDate=$droppedNoDate, badDate=$droppedBadDate) airedShown=$airedShown airedSkipped=$airedSkipped")
         return result.sortedWith(compareBy<AiringScheduleAnime> { it.airingAt }.thenBy { it.title.lowercase() })
     }
 
@@ -796,14 +785,10 @@ class AnimeRepository(
             }
         """.trimIndent()
 
-        Log.d("SearchDebug", "Query: $query")
-        Log.d("SearchDebug", "Variables: $varValues")
         val response = publicGraphqlRequest(query, varValues)
-        Log.d("SearchDebug", "Response: ${response?.take(500)}")
         val parsed = response?.let {
             try {
                 val data = json.decodeFromString<ExploreResponse>(it)
-                Log.d("SearchDebug", "Parsed ${data.data.Page.media.size} results")
                 data.data.Page.media
             } catch (e: Exception) {
                 Log.e("SearchDebug", "Parse error: ${e.message}")
@@ -867,7 +852,6 @@ class AnimeRepository(
                 } else {
                     Endpoints.Mal.rankingAnimeUrl(malAnimeRankingType(format, status), limit, offset, fields)
                 }
-                Log.d("SearchDebug", "MAL filtered fallback URL: $url")
                 val batch = requestMalNodes(url) { node ->
                     node.matchesSearchFilters(year, format, status, genres)
                 }
@@ -920,7 +904,6 @@ class AnimeRepository(
             val limit = perPage.coerceIn(1, 100)
             val offset = (page - 1).coerceAtLeast(0) * limit
             val url = Endpoints.Mal.searchAnimeUrl(query, limit, offset, fields)
-            Log.d("SearchDebug", "MAL fallback URL: $url")
             requestMalNodes(url)
         } catch (e: Exception) {
             Log.e("SearchDebug", "MAL fallback failed: ${e.message}", e)
@@ -938,7 +921,6 @@ class AnimeRepository(
             val limit = perPage.coerceIn(1, 100)
             val offset = (page - 1).coerceAtLeast(0) * limit
             val url = Endpoints.Mal.rankingAnimeUrl("all", limit, offset, fields)
-            Log.d("SearchDebug", "MAL ranking fallback URL: $url")
             requestMalNodes(url)
         } catch (e: Exception) {
             Log.e("SearchDebug", "MAL ranking fallback failed: ${e.message}", e)
@@ -961,7 +943,6 @@ class AnimeRepository(
                 return emptyList()
             }
             val body = response.body?.string() ?: return emptyList()
-            Log.d("SearchDebug", "MAL fallback HTTP 200 bodyLen=${body.length}")
             val parsed = try {
                 json.decodeFromString<MalSearchResponse>(body)
             } catch (e: Exception) {
@@ -1009,7 +990,6 @@ class AnimeRepository(
                 "recommendations{node{id,title,main_picture,media_type,num_episodes,status,start_date}}"
             val url = Endpoints.Mal.detailAnimeUrl(malId, fields)
             val node = requestMalDetail<MalAnimeNode>(url) ?: return@withContext null
-            Log.d("SearchDebug", "MAL anime detail OK id=$malId title=${node.title}")
             node.toDetailedAnimeData()
         } catch (e: Exception) {
             Log.e("SearchDebug", "MAL anime detail failed: ${e.message}", e)
@@ -1034,7 +1014,6 @@ class AnimeRepository(
             try {
                 val url = Endpoints.Mal.rankingAnimeUrl(rankingType, 30, 0, fields)
                 val nodes = requestMalNodes(url)
-                Log.d("SearchDebug", "MAL explore '$key': ${nodes.size} entries")
                 if (nodes.isNotEmpty()) sections[key] = nodes
             } catch (e: Exception) {
                 Log.e("SearchDebug", "MAL explore '$key' failed: ${e.message}")
@@ -1223,7 +1202,6 @@ class AnimeRepository(
     // ============================================
 
     suspend fun fetchDetailedAnime(animeId: Int): DetailedAnimeMedia? {
-        Log.d("AnimeDetailDebug", "fetchDetailedAnime START id=$animeId")
         val query = $$"""
             query ($id: Int) {
                 Media(id: $id, type: ANIME) {
@@ -1316,21 +1294,9 @@ class AnimeRepository(
             try {
                 val data = json.decodeFromString<DetailedAnimeResponse>(response)
                 val media = data.data.Media
-                Log.d(
-                    "AnimeDetailDebug",
-                    "fetchDetailedAnime PARSED id=${media.id} title=${media.title?.romaji ?: media.title?.english}" +
-                        " chars=${media.characters?.nodes?.size ?: 0}" +
-                        " staff=${media.staff?.edges?.size ?: 0}" +
-                        " relations=${media.relations?.edges?.size ?: 0}" +
-                        " studios=${media.studios?.nodes?.size ?: 0}" +
-                        " genres=${media.genres?.size ?: 0}" +
-                        " desc=${media.description?.length ?: 0}" +
-                        " recs=${media.recommendations?.nodes?.size ?: 0}"
-                )
                 media
             } catch (e: Exception) {
                 Log.e("AnimeDetailDebug", "fetchDetailedAnime PARSE FAILED id=$animeId: ${e::class.simpleName}: ${e.message}", e)
-                Log.d("AnimeDetailDebug", "fetchDetailedAnime RAW head=${response.take(500)}")
                 null
             }
         }
@@ -1387,6 +1353,8 @@ class AnimeRepository(
                             title { romaji english }
                             coverImage { extraLarge }
                             format
+                            episodes
+                            averageScore
                         }
                     }
                 }
@@ -1418,6 +1386,8 @@ class AnimeRepository(
                                 title { romaji english }
                                 coverImage { extraLarge }
                                 format
+                                episodes
+                                averageScore
                             }
                             staffRole
                         }
@@ -1519,8 +1489,6 @@ class AnimeRepository(
     suspend fun updateStatus(mediaId: Int, status: String, progress: Int? = null, score: Int? = null): Boolean {
         cacheManager.invalidateUserCache()
         graphQLClient.clearCache()
-
-        Log.d("AniListScoreDebug", "updateStatus mediaId=$mediaId status=$status progress=$progress score=$score")
 
         val query = $$"""
             mutation ($mediaId: Int, $status: MediaListStatus$${if (progress != null) $$", $progress: Int" else ""}$${if (score != null) $$", $score: Float" else ""}) {
@@ -1770,8 +1738,6 @@ class AnimeRepository(
     }
 }
 
-
 class AiringScheduleApiDownException : Exception()
 class AnimeScheduleUnavailableException : Exception()
-
 

@@ -68,7 +68,6 @@ class MangaRepository {
     }
 
     private suspend fun executeQuery(query: String, variables: Map<String, Any?> = emptyMap(), token: String? = null, useCache: Boolean = true): String? {
-        android.util.Log.d(TAG, "executeQuery: query=${query.take(100)}... variables=$variables token=${token != null} useCache=$useCache")
         val result = graphQLClient.execute(
             query = query,
             variables = variables,
@@ -78,12 +77,10 @@ class MangaRepository {
             useCache = useCache,
             parser = { it }
         )
-        android.util.Log.d(TAG, "executeQuery: result.data=${result.data != null} result.error=${result.error?.message} fromCache=${result.fromCache}")
         if (result.data != null) {
             // GraphQL APIs return HTTP 200 with an "errors" array on failure, so a non-null
             // body doesn't mean the mutation succeeded. Log whether errors are buried in the body.
             val hasGraphQLErrors = result.data.contains("\"errors\"")
-            android.util.Log.d(TAG, "executeQuery: raw response (first 400 chars): ${result.data.take(400)} graphqlErrorsInBody=$hasGraphQLErrors")
         }
         return result.data
     }
@@ -156,7 +153,6 @@ class MangaRepository {
                 val mediaArray = page["media"]?.jsonArray ?: continue
                 sections[key] = json.decodeFromJsonElement<List<MangaExploreMedia>>(mediaArray)
             }
-            android.util.Log.d(TAG, "fetchExploreSectionsBatched: got ${sections.size} sections, sizes=${sections.mapValues { it.value.size }}")
             sections
         } catch (e: Exception) {
             ErrorHandler.ignore(TAG, "explore parse failed", e)
@@ -211,7 +207,6 @@ class MangaRepository {
             }.awaitAll()
         }
         results.forEach { pair -> pair?.let { sections[it.first] = it.second } }
-        android.util.Log.d(TAG, "fetchExploreSectionsIndividual: got ${sections.size} sections")
         sections
     }
 
@@ -242,7 +237,6 @@ class MangaRepository {
     }
 
     suspend fun fetchMangaDetail(mangaId: Int, token: String? = null): MangaDetail? {
-        android.util.Log.d(TAG, "fetchMangaDetail: mangaId=$mangaId token=${token != null}")
         val query = """
             query (${'$'}id: Int) {
                 Media(id: ${'$'}id, type: MANGA) {
@@ -251,7 +245,7 @@ class MangaRepository {
                     chapters volumes status averageScore meanScore popularity favourites
                     genres tags { name rank isMediaSpoiler description isAdult }
                     seasonYear startDate { year month day } endDate { year month day } format source isAdult
-                    relations { edges { relationType node { id title { romaji english } coverImage { extraLarge } chapters averageScore format } } }
+                    relations { edges { relationType node { id title { romaji english } coverImage { extraLarge } chapters episodes averageScore format } } }
                     characters { nodes { id name { full native } image { large } } }
                     staff { edges { node { id name { full native } image { large } } role } }
                     recommendations { nodes { mediaRecommendation { id idMal title { romaji english } coverImage { extraLarge } chapters volumes averageScore format } } }
@@ -267,11 +261,6 @@ class MangaRepository {
         return try {
             val wrapper = json.decodeFromString<MangaDetailResponse>(raw)
             val media = wrapper.data.Media
-            android.util.Log.d(TAG, "fetchMangaDetail: success, title=${media.title?.romaji} chapters=${media.chapters} " +
-                "chars=${media.characters?.nodes?.size ?: 0} staff=${media.staff?.edges?.size ?: 0} " +
-                "relations=${media.relations?.edges?.size ?: 0} recs=${media.recommendations?.nodes?.size ?: 0} " +
-                "tags=${media.tags?.size ?: 0} genres=${media.genres?.size ?: 0} " +
-                "descNull=${media.description == null} popularity=${media.popularity} favourites=${media.favourites} source=${media.source}")
             mapMangaDetail(media)
         } catch (e: Exception) {
             android.util.Log.e(TAG, "fetchMangaDetail: parse failed for mangaId=$mangaId: ${e.message}", e)
@@ -343,6 +332,7 @@ class MangaRepository {
                         titleRomaji = node.title?.romaji,
                         cover = node.coverImage?.extraLarge ?: "",
                         chapters = node.chapters,
+                        episodes = node.episodes,
                         averageScore = node.averageScore,
                         format = node.format,
                         relationType = e.relationType ?: "UNKNOWN"
@@ -405,7 +395,7 @@ class MangaRepository {
                             node {
                                 id title { romaji english }
                                 coverImage { extraLarge }
-                                chapters averageScore format
+                                chapters episodes averageScore format
                             }
                         }
                     }
@@ -423,6 +413,7 @@ class MangaRepository {
                         titleRomaji = node.title?.romaji,
                         cover = node.coverImage?.extraLarge ?: "",
                         chapters = node.chapters,
+                        episodes = node.episodes,
                         averageScore = node.averageScore,
                         format = node.format,
                         relationType = e.relationType ?: "UNKNOWN"
@@ -598,7 +589,6 @@ class MangaRepository {
                 } else {
                     Endpoints.Mal.rankingMangaUrl(malMangaRankingType(format, status), limit, offset, fields)
                 }
-                android.util.Log.d("MangaMal", "filtered search URL: $url")
                 val batch = fetchMalMangaNodes(url) { node -> node.matchesSearchFilters(format, status, genres) }
                 if (batch.isEmpty()) break
                 collected.addAll(batch)
@@ -619,7 +609,6 @@ class MangaRepository {
             val limit = perPage.coerceIn(1, 100)
             val offset = (page - 1).coerceAtLeast(0) * limit
             val url = Endpoints.Mal.rankingMangaUrl("all", limit, offset, fields)
-            android.util.Log.d("MangaMal", "ranking fallback URL: $url")
             fetchMalMangaNodes(url)
         } catch (e: Exception) {
             android.util.Log.e("MangaMal", "ranking fallback failed: ${e.message}", e)
@@ -835,7 +824,6 @@ class MangaRepository {
             val limit = perPage.coerceIn(1, 100)
             val offset = (page - 1).coerceAtLeast(0) * limit
             val url = Endpoints.Mal.searchMangaUrl(query, limit, offset, fields)
-            android.util.Log.d("MangaMal", "search URL: $url")
             fetchMalMangaNodes(url)
         } catch (e: Exception) {
             android.util.Log.e("MangaMal", "search failed: ${e.message}", e)
@@ -861,7 +849,6 @@ class MangaRepository {
             try {
                 val url = Endpoints.Mal.rankingMangaUrl(rankingType, 30, 0, fields)
                 val nodes = fetchMalMangaNodes(url)
-                android.util.Log.d("MangaMal", "explore '$key': ${nodes.size} entries")
                 if (nodes.isNotEmpty()) sections[key] = nodes
             } catch (e: Exception) {
                 android.util.Log.e("MangaMal", "explore '$key' failed: ${e.message}")
@@ -878,7 +865,6 @@ class MangaRepository {
                 "related_manga{node{id,title,main_picture,media_type,num_chapters,status,start_date}}," +
                 "recommendations{node{id,title,main_picture,media_type,num_chapters,num_volumes,status}}"
             val url = Endpoints.Mal.detailMangaUrl(malId, fields)
-            android.util.Log.d("MangaMal", "detail URL: $url")
             val node = malMangaRequest(url).use { response ->
                 if (response.code != 200) {
                     android.util.Log.w("MangaMal", "detail HTTP ${response.code} url=$url")
@@ -893,7 +879,6 @@ class MangaRepository {
                 }
             }
             node?.let {
-                android.util.Log.d("MangaMal", "detail OK id=$malId title=${it.title}")
                 it.toMangaDetail()
             }
         } catch (e: Exception) {

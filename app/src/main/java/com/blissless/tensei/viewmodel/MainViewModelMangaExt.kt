@@ -6,7 +6,6 @@ import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
 import com.blissless.tensei.api.myanimelist.MalMangaListEntry
 import com.blissless.tensei.MainViewModel
-import com.blissless.tensei.FORCE_MAL_DETAIL_FOR_TESTING
 import com.blissless.tensei.data.manga.MangaDexManager
 import com.blissless.tensei.data.manga.MangaRepository
 import com.blissless.tensei.data.manga.MangaTrackManager
@@ -17,6 +16,8 @@ import com.blissless.tensei.data.models.MangaExploreMedia
 import com.blissless.tensei.data.models.MangaFavorite
 import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.data.models.MangaTrack
+import com.blissless.tensei.data.models.chapterBaseNumber
+import com.blissless.tensei.data.models.countDistinctChapters
 import com.blissless.tensei.data.models.MangaCharacterNode
 import com.blissless.tensei.data.models.MangaStaffEdge
 import com.blissless.tensei.data.models.MangaRelation
@@ -173,10 +174,6 @@ private suspend fun MainViewModel.fetchExtensionChapterList(mangaTitle: String):
                 .appendQueryParameter("manga", mangaTitle)
                 .appendQueryParameter("anime", mangaTitle)
                 .build()
-            android.util.Log.d("MangaDebug", "=== CHAPTER FETCH START ===")
-            android.util.Log.d("MangaDebug", "Authority: '$authority'")
-            android.util.Log.d("MangaDebug", "URI: $uri")
-            android.util.Log.d("MangaDebug", "Title: '$mangaTitle'")
             val cursor = context.contentResolver.query(uri, null, null, null, null)
             if (cursor == null) {
                 android.util.Log.e("MangaDebug", "RESULT: cursor is NULL â€” content provider not found at authority='$authority'")
@@ -184,7 +181,6 @@ private suspend fun MainViewModel.fetchExtensionChapterList(mangaTitle: String):
                 return@withContext null
             }
             cursor.use { c ->
-                android.util.Log.d("MangaDebug", "Cursor column count: ${c.columnCount}, column names: ${c.columnNames?.joinToString()}")
                 if (!c.moveToFirst()) {
                     android.util.Log.e("MangaDebug", "RESULT: cursor has 0 rows")
                     return@withContext null
@@ -195,19 +191,13 @@ private suspend fun MainViewModel.fetchExtensionChapterList(mangaTitle: String):
                     return@withContext null
                 }
                 val jsonData = c.getString(col)
-                android.util.Log.d("MangaDebug", "Raw JSON length: ${jsonData.length} chars")
-                android.util.Log.d("MangaDebug", "Raw JSON (first 500): ${jsonData.take(500)}")
                 val json = JSONObject(jsonData)
                 if (json.has("error")) {
                     android.util.Log.e("MangaDebug", "Extension error: ${json.getString("error")}")
                     return@withContext null
                 }
-                android.util.Log.d("MangaDebug", "JSON keys: ${json.keys().asSequence().toList()}")
                 val totalChapters = json.optInt("totalChapters", 0)
                 val chaptersArr = json.optJSONArray("chapters")
-                android.util.Log.d("MangaDebug", "totalChapters from JSON: $totalChapters")
-                android.util.Log.d("MangaDebug", "chapters array is null: ${chaptersArr == null}")
-                android.util.Log.d("MangaDebug", "chapters array length: ${chaptersArr?.length() ?: 0}")
                 val chapters = mutableListOf<ExtensionChapter>()
                 if (chaptersArr != null) {
                     for (i in 0 until chaptersArr.length()) {
@@ -223,12 +213,8 @@ private suspend fun MainViewModel.fetchExtensionChapterList(mangaTitle: String):
                         )
                     }
                 }
-                android.util.Log.d("MangaDebug", "Parsed chapters count: ${chapters.size}")
                 if (chapters.isNotEmpty()) {
-                    android.util.Log.d("MangaDebug", "First chapter: number='${chapters.first().number}' title='${chapters.first().title}'")
-                    android.util.Log.d("MangaDebug", "Last chapter: number='${chapters.last().number}' title='${chapters.last().title}'")
                 }
-                android.util.Log.d("MangaDebug", "=== CHAPTER FETCH END ===")
                 Pair(chapters, totalChapters)
             }
         } catch (e: Exception) {
@@ -239,7 +225,6 @@ private suspend fun MainViewModel.fetchExtensionChapterList(mangaTitle: String):
 }
 
 private fun MainViewModel.fetchExtensionChapterImages(mangaTitle: String, chapterParam: String, authority: String): List<String>? {
-    android.util.Log.d("MangaExt", "fetchExtensionChapterImages: title='$mangaTitle' chapter='$chapterParam' authority='$authority'")
     return try {
         val uri = Uri.parse("content://$authority/scrape")
             .buildUpon()
@@ -247,7 +232,6 @@ private fun MainViewModel.fetchExtensionChapterImages(mangaTitle: String, chapte
             .appendQueryParameter("anime", mangaTitle)
             .appendQueryParameter("chapter", chapterParam)
             .build()
-        android.util.Log.d("MangaExt", "fetchExtensionChapterImages: querying URI=$uri")
         val cursor = context.contentResolver.query(uri, null, null, null, null)
         if (cursor == null) {
             android.util.Log.w("MangaExt", "fetchExtensionChapterImages: cursor is null")
@@ -264,7 +248,6 @@ private fun MainViewModel.fetchExtensionChapterImages(mangaTitle: String, chapte
                 return@use null
             }
             val jsonData = c.getString(col)
-            android.util.Log.d("MangaExt", "fetchExtensionChapterImages: raw JSON (first 200 chars): ${jsonData.take(200)}")
             val json = JSONObject(jsonData)
             if (json.has("error")) {
                 android.util.Log.w("MangaExt", "fetchExtensionChapterImages: extension error: ${json.optString("error")}")
@@ -279,7 +262,6 @@ private fun MainViewModel.fetchExtensionChapterImages(mangaTitle: String, chapte
                 return@use null
             }
             val images = (0 until imagesArr.length()).map { imagesArr.getString(it) }
-            android.util.Log.d("MangaExt", "fetchExtensionChapterImages: got ${images.size} images, first=${images.firstOrNull()?.take(80)}")
             images
         }
     } catch (e: Exception) {
@@ -491,7 +473,6 @@ suspend fun MainViewModel.searchMangaAdvanced(
 }
 
 suspend fun MainViewModel.fetchMangaExplore(silent: Boolean = false) {
-    android.util.Log.d("MangaExplore", "fetchMangaExplore: start, silent=$silent, mangaRepository=${mangaRepository != null}")
     if (!silent) _isLoadingManga.value = true
     // Pass the auth token when available â€” AniList may treat authenticated requests differently
     // during rate-limiting/outages (HTTP 403 "API temporarily disabled").
@@ -519,7 +500,6 @@ suspend fun MainViewModel.fetchMangaExplore(silent: Boolean = false) {
             sections = merged
         }
     }
-    android.util.Log.d("MangaExplore", "fetchMangaExplore: got ${sections.size} sections, keys=${sections.keys}")
     // Only overwrite existing data with a successful fetch â€” never wipe cached sections
     // with an empty response (network hiccup or API outage).
     if (sections.isNotEmpty()) {
@@ -675,11 +655,10 @@ fun MainViewModel.isMangaFavorited(mangaId: Int): Boolean = mangaId in _favorite
 // â”€â”€â”€ Detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 suspend fun MainViewModel.fetchMangaDetail(mangaId: Int, malId: Int? = null) {
-    android.util.Log.d("MangaDetail", "fetchMangaDetail: START mangaId=$mangaId malId=$malId")
     _isLoadingManga.value = true
     _mangaDetailSource.value = null
     val token = authToken.value
-    var detail = if (FORCE_MAL_DETAIL_FOR_TESTING) null else mangaRepository?.fetchMangaDetail(mangaId, token)
+    var detail = mangaRepository?.fetchMangaDetail(mangaId, token)
     if (detail != null) _mangaDetailSource.value = "anilist"
     // AniList unavailable: fall back to the official MAL manga detail API so the
     // detail screen still renders a full page instead of only the shallow card data.
@@ -691,24 +670,15 @@ suspend fun MainViewModel.fetchMangaDetail(mangaId: Int, malId: Int? = null) {
         detail = mangaRepository?.fetchMangaMalDetail(malIdToUse)
         if (detail != null) {
             _mangaDetailSource.value = "mal"
-            android.util.Log.d("MangaDetail", "fetchMangaDetail: MAL fallback OK mangaId=$mangaId title='${detail.title}'")
         }
     }
     _mangaDetail.value = detail
     if (detail != null) {
         mangaTrackManager?.updateMangaInfo(mangaId, detail.title, detail.cover, detail.titleEnglish, detail.status)
-        android.util.Log.d("MangaDetail", "fetchMangaDetail: SUCCESS mangaId=$mangaId title='${detail.title}' " +
-            "desc=${detail.description != null} genres=${detail.genres.size} tags=${detail.tags.size} " +
-            "chars=${detail.characters?.nodes?.size ?: 0} staff=${detail.staff?.edges?.size ?: 0} " +
-            "relations=${detail.relations.size} recs=${detail.recommendations.size} " +
-            "popularity=${detail.popularity} favourites=${detail.favourites} year=${detail.year} " +
-            "format=${detail.format} source=${detail.source} volumes=${detail.volumes} " +
-            "rankings=${detail.rankings.size} externalLinks=${detail.externalLinks.size}")
     } else {
         android.util.Log.w("MangaDetail", "fetchMangaDetail: FAILED (null) mangaId=$mangaId â€” detail screen will fall back to shallow MangaMedia.asDetail()")
     }
     _isLoadingManga.value = false
-    android.util.Log.d("MangaDetail", "fetchMangaDetail: END mangaId=$mangaId isLoadingManga=${_isLoadingManga.value}")
 }
 
 fun MainViewModel.clearMangaDetail() {
@@ -818,7 +788,6 @@ suspend fun MainViewModel.fetchMangaAllRecommendations(mangaId: Int, malId: Int?
  * from the chapter TITLE (not the URL) when scraping images, matching oni's contract.
  */
 suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
-    android.util.Log.d("MangaChapters", "loadMangaChapters: mangaId=$mangaId title='$title'")
     _isLoadingMangaChapters.value = true
     _hasLoadedMangaChapters.value = false
     _mangaTotalChapters.value = 0
@@ -836,20 +805,17 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
     }
 
     val detail = _mangaDetail.value
-    android.util.Log.d("MangaChapters", "loadMangaChapters: detail=${detail != null} detail.chapters=${detail?.chapters} detail.title=${detail?.title}")
     var chapters = emptyList<MangaChapter>()
 
     // Resolve the title â€” prefer English, then Romaji, then the passed-in title
     val resolvedTitle = detail?.titleEnglish?.takeIf { it.isNotBlank() }
         ?: detail?.title?.takeIf { it.isNotBlank() }
         ?: title
-    android.util.Log.d("MangaChapters", "loadMangaChapters: resolvedTitle='$resolvedTitle'")
 
     // --- 1. Fetch MangaDex aggregate for count metadata (NOT for the chapter list) ---
     var mdLatestChapter: Int? = null
     var mdVolumeCount: Int? = null
     val mangaDexId = mangaDexManager?.findMangaByAniListId(resolvedTitle, mangaId)
-    android.util.Log.d("MangaChapters", "loadMangaChapters: MangaDex lookup -> mangaDexId=$mangaDexId")
     _mangaDexId.value = mangaDexId
     if (mangaDexId != null) {
         val aggregate = mangaDexManager?.fetchAggregate(mangaDexId)
@@ -861,7 +827,6 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
             }?.maxOrNull()
             mdLatestChapter = maxChapter
             mdVolumeCount = aggregate.volumes?.size
-            android.util.Log.d("MangaChapters", "loadMangaChapters: MangaDex aggregate maxChapter=$maxChapter volumes=${mdVolumeCount}")
             mangaTrackManager?.updateMangaDexId(mangaId, mangaDexId)
         }
     }
@@ -873,20 +838,17 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
         detail?.title?.takeIf { it.isNotBlank() },
         title
     ).distinct()
-    android.util.Log.d("MangaChapters", "loadMangaChapters: titlesToTry=$titlesToTry")
 
     var extChapters: List<ExtensionChapter>? = null
     var extTotalChapters = 0
     var matchedTitle: String? = null
     for (t in titlesToTry) {
-        android.util.Log.d("MangaChapters", "loadMangaChapters: trying extension with title='$t'")
         val extResult = fetchExtensionChapterList(t)
         val resultChapters = extResult?.first
         val resultTotal = extResult?.second ?: 0
         // Keep the highest totalChapters seen across attempts â€” a later failed/null result
         // must not wipe the count reported by an earlier successful query.
         if (resultTotal > extTotalChapters) extTotalChapters = resultTotal
-        android.util.Log.d("MangaChapters", "loadMangaChapters: extension returned ${resultChapters?.size ?: 0} chapters (total=$resultTotal) for '$t'")
         if (resultChapters != null && resultChapters.isNotEmpty()) {
             extChapters = resultChapters
             matchedTitle = t
@@ -895,7 +857,6 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
     }
 
     if (extChapters != null && extChapters.isNotEmpty()) {
-        android.util.Log.d("MangaDebug", "PATH: extension chapters (count=${extChapters.size}, totalChapters=$extTotalChapters)")
         _mangaExtensionTitle.value = matchedTitle
         // Build ChapterInfo list with oni's URL scheme: anilist_${mediaId}_ch_${number}
         // Sort by extension's index (oldest-first, chapter 1 at index 0)
@@ -911,7 +872,6 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
         // The extension reports the CURRENT release count (totalChapters) but returned no
         // chapter entries for this title (e.g. the source page only exposes the count).
         // Use the extension total â€” the authoritative current number â€” as the chapter list.
-        android.util.Log.d("MangaChapters", "loadMangaChapters: extension returned only totalChapters=$extTotalChapters, building synthetic list")
         _mangaExtensionTitle.value = null
         chapters = (1..extTotalChapters).map { i ->
             MangaChapter(
@@ -923,7 +883,6 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
         }
     } else {
         // Extension gave no data at all (e.g. offline). Fall back to synthetic chapter list.
-        android.util.Log.d("MangaChapters", "loadMangaChapters: no extension chapters, using synthetic fallback")
         _mangaExtensionTitle.value = null
         // --- 3. Fallback: synthetic chapter list from the best available count ---
         // Only reached when the extension returned neither chapters nor a total.
@@ -934,7 +893,6 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
             detail?.chapters != null && detail.chapters > 0 -> detail.chapters
             else -> 0
         }
-        android.util.Log.d("MangaChapters", "loadMangaChapters: fallbackTotal=$fallbackTotal (mdLatest=$mdLatestChapter, detail.chapters=${detail?.chapters})")
         if (fallbackTotal > 0) {
             chapters = (1..fallbackTotal).map { i ->
                 MangaChapter(
@@ -947,20 +905,17 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
         }
     }
 
-    android.util.Log.d("MangaDebug", "loadMangaChapters: final chapters.size=${chapters.size}")
     _mangaChapters.value = chapters
 
-    // Count only integer chapters for the display total â€” semi-chapters (e.g. 238.5) should
-    // not inflate the denominator or count as full chapters toward AniList progress.
-    // Use tolerance-based check to handle float imprecision (e.g. 238.00002f).
-    val integerChapterCount = chapters.count { ch ->
-        ch.chapterNumber > 0f && (ch.chapterNumber - ch.chapterNumber.toInt()) < 0.001f
-    }
-    android.util.Log.d("MangaChapters", "loadMangaChapters: chapters.size=${chapters.size} integerChapterCount=$integerChapterCount extTotalChapters=$extTotalChapters")
+    // Count chapters per base number for the display total (e.g. 149/354): a subchapter that
+    // opens a new number (314.1) is a chapter of its own, one that only continues an existing
+    // number (314.2, or 313.2 after 313) is not, so 313/314.1/314.2/315 is three chapters.
+    // The old integer-only count dropped every subchapter and undercounted series numbered
+    // 314.1 instead of 314.
+    val countedChapters = countDistinctChapters(chapters.map { it.chapterNumber })
     chapters.filter { ch ->
         ch.chapterNumber > 0f && (ch.chapterNumber - ch.chapterNumber.toInt()) >= 0.001f
     }.forEach { ch ->
-        android.util.Log.d("MangaChapters", "  EXCLUDED chapter: title='${ch.title}' chapterNumber=${ch.chapterNumber} diff=${ch.chapterNumber - ch.chapterNumber.toInt()}")
     }
 
     // Display denominator for progress (e.g. 149/354). Prefer the extension's CURRENT release
@@ -968,15 +923,14 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
     // while the extension already has 354), so it must not override the extension total.
     // extTotalChapters covers the case where the extension returns only a partial list (e.g.
     // just the latest few chapters), which would otherwise make progress look like 149/3.
-    // When the extension provides only a total (no chapter entries), that total includes
-    // semi-chapters, so fall back to the integer-only count from the actual chapter list.
+    // When the extension provides only a total (no chapter entries), that total may cover
+    // subchapters too, so fall back to the base-number count from the actual chapter list.
     val displayTotalChapters = when {
-        extTotalChapters > 0 && extChapters != null && extChapters.isNotEmpty() -> integerChapterCount
-        extChapters != null && extChapters.isNotEmpty() -> integerChapterCount
+        extTotalChapters > 0 && extChapters != null && extChapters.isNotEmpty() -> countedChapters
+        extChapters != null && extChapters.isNotEmpty() -> countedChapters
         detail?.chapters != null && detail.chapters > 0 -> detail.chapters
-        else -> integerChapterCount
+        else -> countedChapters
     }
-    android.util.Log.d("MangaChapters", "loadMangaChapters: displayTotalChapters=$displayTotalChapters")
     _mangaTotalChapters.value = displayTotalChapters
     mangaTrackManager?.updateTotalChapters(
         mangaId,
@@ -1007,7 +961,6 @@ fun MainViewModel.loadChapterImages(chapterId: String, useDataSaver: Boolean = f
         // Serve from the prefetch cache first so chapter transitions (incl. auto-advance)
         // load instantly instead of waiting on a scrape round-trip.
         _mangaChapterImagesCache.value[chapterId]?.let { cached ->
-            android.util.Log.d("MangaReader", "loadChapterImages: served ${cached.size} images from cache for chapterId='$chapterId'")
             _mangaChapterImages.value = cached
             _mangaChapterImagesError.value = null
             return@launch
@@ -1016,15 +969,11 @@ fun MainViewModel.loadChapterImages(chapterId: String, useDataSaver: Boolean = f
         _mangaChapterImages.value = null
         _mangaChapterImagesError.value = null
 
-        android.util.Log.d("MangaReader", "loadChapterImages: chapterId='$chapterId' chapterTitle='$chapterTitle' mangaTitle='$mangaTitle' mangaId=$mangaId")
-
         // Extract the chapter number from the chapter TITLE (matching oni's contract)
         // Title format: "Chapter 346" or "Chapter 346.2: Some Title" â†’ "346" or "346.2"
         val chapterParam = chapterTitle?.let { title ->
             title.removePrefix("Chapter ").substringBefore(":").trim()
         } ?: chapterId.substringAfterLast("_ch_").trim()
-
-        android.util.Log.d("MangaReader", "loadChapterImages: extracted chapterParam='$chapterParam'")
 
         // Resolve the manga title for the extension
         val extTitle = _mangaExtensionTitle.value
@@ -1048,15 +997,9 @@ fun MainViewModel.loadChapterImages(chapterId: String, useDataSaver: Boolean = f
             return@launch
         }
 
-        android.util.Log.d("MangaReader", "loadChapterImages: calling extension scrape with title='$extTitle' chapter='$chapterParam' authority='$authority'")
-
         val images = withContext(Dispatchers.IO) {
             fetchExtensionChapterImages(extTitle, chapterParam, authority)
         }
-
-        android.util.Log.d("MangaReader", "loadChapterImages: extension returned ${images?.size ?: 0} images")
-        images?.take(3)?.forEachIndexed { i, url -> android.util.Log.d("MangaReader", "  image[$i]: ${url.take(200)}") }
-        images?.lastOrNull()?.let { android.util.Log.d("MangaReader", "  image[last]: ${it.take(200)}") }
 
         if (images == null) {
             _mangaChapterImages.value = emptyList()
@@ -1094,14 +1037,11 @@ fun MainViewModel.prefetchMangaChapterImages(chapter: MangaChapter?, mangaTitle:
 
             val chapterParam = next.title.removePrefix("Chapter ").substringBefore(":").trim()
 
-            android.util.Log.d("MangaReader", "prefetchMangaChapterImages: chapterId='${next.chapterId}' chapter='$chapterParam' title='$extTitle'")
-
             val images = withContext(Dispatchers.IO) {
                 fetchExtensionChapterImages(extTitle, chapterParam, authority)
             }
             if (images != null && images.isNotEmpty()) {
                 _mangaChapterImagesCache.value = _mangaChapterImagesCache.value + (next.chapterId to images)
-                android.util.Log.d("MangaReader", "prefetchMangaChapterImages: cached ${images.size} images for chapterId='${next.chapterId}'")
             }
         } finally {
             _prefetchingChapterIds.remove(next.chapterId)
@@ -1126,7 +1066,6 @@ fun MainViewModel.clearChapterImages() {
  * spam/rate-limit the API (which silently breaks later updates, including manual status changes).
  */
 fun MainViewModel.markMangaChapterRead(mangaId: Int, chapter: MangaChapter, mangaTitle: String = "", mangaCover: String = "") {
-    android.util.Log.d("MangaSyncDebug", "markMangaChapterRead mangaId=$mangaId chapterNumber=${chapter.chapterNumber} title='$mangaTitle'")
     // The track writes and the tracking-list refresh are pure SharedPreferences work. Run them
     // off the main thread so the threshold-crossing frame (the scroll/page callback that
     // triggered this) doesn't hitch the reader. The reader's own "read" checkmark updates
@@ -1154,7 +1093,6 @@ fun MainViewModel.refreshMangaTracking() {
 }
 
 fun MainViewModel.updateMangaProgress(mangaId: Int, progress: Float) {
-    android.util.Log.d("MangaSyncDebug", "updateMangaProgress mangaId=$mangaId progress=$progress")
     mangaTrackManager?.updateChapterProgress(mangaId, progress)
     loadLocalMangaTracking()
 }
@@ -1326,7 +1264,6 @@ private suspend fun MainViewModel.executeMangaPendingSyncs() {
             }
             else -> null
         }
-        android.util.Log.d("MangaSyncDebug", "executeMangaPendingSyncs: type=${sync.type} mediaId=${sync.mediaId} malId=$malMangaId ok=$ok")
         if (ok == true) {
             didPush = true
         } else {
@@ -1403,7 +1340,6 @@ private suspend fun MainViewModel.resolveMangaAniListIdForPush(sync: PendingMang
     val resolved = mangaRepository?.findMangaByMalId(malId, authToken.value)
     val aniListId = resolved?.id?.takeIf { it > 0 } ?: mediaId
     if (aniListId != mediaId) {
-        android.util.Log.d("MangaSyncDebug", "resolveMangaAniListIdForPush: mediaId=$mediaId is the MAL id → AniList id=$aniListId")
     }
     return aniListId
 }
@@ -1418,7 +1354,6 @@ private fun MainViewModel.rekeyMangaTrackIfNeeded(oldId: Int, newId: Int, malId:
     if (oldId == newId) return
     val tracker = mangaTrackManager ?: return
     val track = tracker.getTrack(oldId) ?: return
-    android.util.Log.d("MangaSyncDebug", "rekeyMangaTrackIfNeeded: $oldId -> $newId title='${track.title}'")
     tracker.removeTrack(oldId)
     tracker.addTrack(track.copy(mangaId = newId, malId = malId ?: track.malId))
     mangaTrackEnsured.remove(oldId)
@@ -1477,7 +1412,6 @@ fun MainViewModel.onMangaScrollProgress(
         // which janks the reader once the threshold is reached.
         val readKey = "$mangaId:${chapter.chapterId}"
         if (mangaReadSyncedChapters.add(readKey)) {
-            android.util.Log.d("MangaSyncDebug", "THRESHOLD CROSSED mangaId=$mangaId scrollPercent=$scrollPercent chapterNumber=${chapter.chapterNumber}")
             // Mark chapter as read (creates track if needed, updates local progress)
             markMangaChapterRead(mangaId, chapter, mangaTitle, mangaCover)
             // The chapter's stop position is deliberately KEPT here: crossing the threshold
@@ -1519,7 +1453,6 @@ private fun MainViewModel.reconcileCompletion(mangaId: Int, progressOverride: Fl
     // CURRENT manga is auto-completed, so an explicit PAUSED/DROPPED/PLANNING choice is never
     // overridden.
     if (!reading && track.status != "CURRENT") return
-    android.util.Log.d("MangaSyncDebug", "AUTO-COMPLETE: mangaId=$mangaId progress=${effectiveProgress} totalChapters=${track.totalChapters} mediaStatus=${track.mediaStatus} reading=$reading")
     mangaTrackManager?.updateTrackingStatus(mangaId, "COMPLETED")
     loadLocalMangaTracking()
     queueMangaSync(mangaId, "status", status = "COMPLETED", progress = track.totalChapters)
@@ -1539,7 +1472,6 @@ private fun MainViewModel.reconcileAllCompletions() {
     }
     if (changed) {
         loadLocalMangaTracking()
-        android.util.Log.d("MangaSyncDebug", "reconcileAllCompletions: completed $changed manga")
     }
 }
 
@@ -1585,7 +1517,6 @@ fun MainViewModel.updateMangaChapterPages(mangaId: Int, pages: Int) {
 
 fun MainViewModel.updateMangaStatus(mangaId: Int, status: String, progress: Int? = null, score: Int? = null, malId: Int? = null, title: String = "", cover: String = "") {
     val effectiveStatus = status.ifBlank { "CURRENT" }
-    android.util.Log.d("MangaSyncDebug", "updateMangaStatus mangaId=$mangaId status='$status' effectiveStatus='$effectiveStatus' progress=$progress score=$score malId=$malId title='$title'")
     // Local-first: apply the change immediately so the UI reacts instantly, then
     // queue the AniList push for the background debounced sync. Create the track WITH the
     // manga's title/cover so the home/library cards render real data instead of an empty
@@ -1608,14 +1539,12 @@ fun MainViewModel.updateMangaStatus(mangaId: Int, status: String, progress: Int?
 
 /** Set the AniList score (0-100) for a manga, local-first with a debounced remote push. */
 fun MainViewModel.updateMangaScore(mangaId: Int, score: Int, malId: Int? = null) {
-    android.util.Log.d("MangaSyncDebug", "updateMangaScore mangaId=$mangaId score=$score malId=$malId")
     mangaTrackManager?.updateScore(mangaId, score)
     loadLocalMangaTracking()
     queueMangaSync(mangaId, "score", score = score, malId = malId)
 }
 
 fun MainViewModel.removeMangaTracking(mangaId: Int) {
-    android.util.Log.d("MangaSyncDebug", "removeMangaTracking mangaId=$mangaId")
     // Resolve the AniList list-entry id and the MAL id (needed by the remote deletes) from the
     // local track or the in-memory lists BEFORE the track is removed. Without the entry id the
     // AniList entry survives, and without the MAL id the MAL entry survives (deletion happens on a
@@ -1652,7 +1581,6 @@ fun MainViewModel.removeMangaTracking(mangaId: Int) {
     // We must always know the MAL id — on-demand resolution after removal can't find it in the
     // (now empty) local lists, so the MAL entry would be left behind.
     if (knownEntryId != null && knownMalId != null) {
-        android.util.Log.d("MangaSyncDebug", "removeMangaTracking: queuing delete mediaId=$mangaId entryId=$knownEntryId malId=$knownMalId")
         queueMangaSync(mangaId, "delete", entryId = knownEntryId, malId = knownMalId)
     } else {
         viewModelScope.launch {
@@ -1664,7 +1592,6 @@ fun MainViewModel.removeMangaTracking(mangaId: Int) {
                 val entryId = listEntry?.listEntryId ?: knownEntryId
                 val malId = listEntry?.malId ?: knownMalId
                 if (entryId != null || malId != null) {
-                    android.util.Log.d("MangaSyncDebug", "removeMangaTracking: queuing delete (from fetch) mediaId=$mangaId entryId=$entryId malId=$malId")
                     queueMangaSync(mangaId, "delete", entryId = entryId, malId = malId)
                 }
             }
@@ -1678,7 +1605,6 @@ fun MainViewModel.removeMangaTracking(mangaId: Int) {
  * (mirrors anime's removeContinueWatchingEntry, which doesn't untrack the anime).
  */
 fun MainViewModel.dismissMangaContinueReading(mangaId: Int) {
-    android.util.Log.d("MangaSyncDebug", "dismissMangaContinueReading mangaId=$mangaId")
     mangaTrackManager?.clearChapterProgress(mangaId)
     loadLocalMangaTracking()
 }
@@ -1699,7 +1625,6 @@ internal suspend fun MainViewModel.fetchMalMangaList() {
     if (!isMalActive) return
 
     val entries = malApiService.getMangaList()
-    android.util.Log.d("MalSync", "fetchMalMangaList: got ${entries.size} manga entries (isMalActive=$isMalActive)")
     val localTracker = mangaTrackManager ?: return
 
     for (entry in entries) {

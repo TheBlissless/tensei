@@ -441,7 +441,6 @@ fun PlayerScreen(
 
             override fun onTracksChanged(tracks: List<EmbeddedSubtitleTrack>) {
                 embeddedSubtitleTracks = tracks
-                Log.d("PlayerScreen", "onTracksChanged: discovered ${tracks.size} embedded subtitle tracks: ${tracks.map { it.label }}")
             }
 
             override fun onError(error: String) {
@@ -466,14 +465,11 @@ fun PlayerScreen(
                     val seekPos = currentPosition
                     Log.w("PlayerScreen", "onError: retry #$seekRetryCount seekPos=$seekPos isTorrentStream=$isTorrentStream error=$error")
                     if (isTorrentStream && seekPos > 0) {
-                        Log.d("PlayerScreen", "onError: retry#$seekRetryCount torrent seekTo=$seekPos (TorrentStreamServer handles Range)")
                         onTorrentSeek?.invoke(seekPos, engine.duration)
                         engine.seekTo(seekPos)
                     } else if (seekPos > 0) {
-                        Log.d("PlayerScreen", "onError: retry#$seekRetryCount seekOutsideBuffer(seekPos=$seekPos)")
                         engine.seekOutsideBuffer(seekPos)
                     } else {
-                        Log.d("PlayerScreen", "onError: retry#$seekRetryCount prepare() only")
                         engine.prepare()
                     }
                     return
@@ -484,7 +480,6 @@ fun PlayerScreen(
                 // so the engine reconnects to the TorrentStreamServer after more
                 // data has downloaded.
                 if (isInitialLoading && isTorrentStream) {
-                    Log.d("PlayerScreen", "onError: torrent stream initial-load error, re-prepare")
                     seekRetryCount = 1
                     hasError = false
                     playbackError = null
@@ -511,7 +506,6 @@ fun PlayerScreen(
                     val otherCat = remaining.filter { srvCat(it.name) != curCat }
                     val nextServer = (sameCat + otherCat).firstOrNull()
                     if (nextServer != null) {
-                        Log.d("PlayerScreen", "Auto-retrying server: ${nextServer.name} (tried: $autoRetryServers)")
                         // Pass URL (not name) — `handleExtensionServerChange`
                         // now looks up by URL so duplicates are correctly
                         // disambiguated when auto-retrying.
@@ -538,7 +532,6 @@ fun PlayerScreen(
 
             override fun onPlaybackStateChanged(state: Int) {
                 val stateName = when (state) { PlayerEngine.STATE_IDLE -> "IDLE"; PlayerEngine.STATE_BUFFERING -> "BUFFERING"; PlayerEngine.STATE_READY -> "READY"; PlayerEngine.STATE_ENDED -> "ENDED"; else -> "$state" }
-                Log.d("serverChange", "onPlaybackStateChanged: $stateName isManuallySeeking=$isManuallySeeking seekRetryCount=$seekRetryCount isChangingServer=$isChangingServer")
                 bufferIntent = state == PlayerEngine.STATE_BUFFERING
                 if (state == PlayerEngine.STATE_READY) {
                     hasError = false
@@ -648,7 +641,6 @@ fun PlayerScreen(
     }
 
     LaunchedEffect(videoUrl, serverChangeTrigger) {
-        Log.d("serverChange", "reload-LaunchedEffect trigger=$serverChangeTrigger videoUrl=${videoUrl?.take(60)}")
         hasError = false
         playbackError = null
         hasRestoredPosition = false
@@ -693,11 +685,6 @@ fun PlayerScreen(
         } else {
             emptyList()
         }
-
-        Log.d("SubDebug", "PlayerScreen preparePlayback: subtitlesEnabled=$subtitlesEnabled subtitleTracks=${subtitleTracks.map { it.lang }} subtitleUrl=${subtitleUrl != null} selectedSubtitleIndex=$selectedSubtitleIndex engine=${engine.javaClass.simpleName}")
-        Log.d("SubDebug", "PlayerScreen preparePlayback: built configs=${subtitleConfigs.map { "lang=${it.language} selected=${it.selected}" }}")
-
-        Log.d("PlayerScreen", "Preparing playback: videoUrl=${videoUrl.take(120)} referer=$referer subtitleUrl=${subtitleUrl?.take(80)} extensionOkHttpClient=${extensionOkHttpClient != null} videoHeaders=$extensionVideoHeaders")
 
         engine.loadMedia(
             url = videoUrl,
@@ -757,7 +744,6 @@ fun PlayerScreen(
     }
 
     fun seekToPosition(position: Long) {
-        Log.d("PlayerScreen", "seekToPosition: pos=$position bufferedPos=$bufferedPosition maxBufferedPos=$maxBufferedPosition duration=${engine.duration} isManuallySeeking=$isManuallySeeking isTorrentStream=$isTorrentStream")
         hasError = false
         playbackError = null
         bufferIntent = true
@@ -767,7 +753,6 @@ fun PlayerScreen(
         maxBufferedPosition = maxOf(maxBufferedPosition, position)
         bufferedPosition = position
         if (isTorrentStream) {
-            Log.d("PlayerScreen", "seekToPosition: torrent stream — calling onTorrentSeek then seekTo($position), TorrentStreamServer handles Range requests")
             onTorrentSeek?.invoke(position, engine.duration)
             engine.seekTo(position)
             return
@@ -778,7 +763,6 @@ fun PlayerScreen(
     }
 
     fun seekBy(milliseconds: Long) {
-        Log.d("PlayerScreen", "seekBy: ms=$milliseconds currentPos=$currentPosition bufferedPos=$bufferedPosition duration=$duration")
         isManuallySeeking = true
         seekRetryCount = 0
         fastHideUntil = System.currentTimeMillis() + 2500
@@ -825,7 +809,6 @@ fun PlayerScreen(
     }
 
     fun performManualSeek(position: Long) {
-        Log.d("PlayerScreen", "performManualSeek: pos=$position bufferedPos=$bufferedPosition duration=$duration")
         isManuallySeeking = true
         seekRetryCount = 0
         fastHideUntil = System.currentTimeMillis() + 3500
@@ -928,18 +911,15 @@ fun PlayerScreen(
                 if (!autoSkipOpening) {
                     if (introEnteredTime == 0L) {
                         introEnteredTime = System.currentTimeMillis()
-                        Log.d("SkipButton", "enterIntro: pos=$posSeconds t=${introEnteredTime}")
                     }
                     val elapsed = System.currentTimeMillis() - introEnteredTime
                     val shouldShow = controlsVisible || !isPlaying || elapsed < 5000
-                    Log.d("SkipButton", "opening: pos=$posSeconds introTime=$elapsed controls=$controlsVisible isPlaying=$isPlaying show=$shouldShow")
                     showSkipOpeningButton = shouldShow
                 } else {
                     showSkipOpeningButton = false
                 }
             } else {
                 if (introEnteredTime != 0L) {
-                    Log.d("SkipButton", "exitIntro: pos=$posSeconds")
                 }
                 introEnteredTime = 0L
                 showSkipOpeningButton = false
@@ -960,18 +940,15 @@ fun PlayerScreen(
                 if (!autoSkipEnding) {
                     if (creditsEnteredTime == 0L) {
                         creditsEnteredTime = System.currentTimeMillis()
-                        Log.d("SkipButton", "enterCredits: pos=$posSeconds t=${creditsEnteredTime}")
                     }
                     val elapsed = System.currentTimeMillis() - creditsEnteredTime
                     val shouldShow = controlsVisible || !isPlaying || elapsed < 5000
-                    Log.d("SkipButton", "ending: pos=$posSeconds creditsTime=$elapsed controls=$controlsVisible isPlaying=$isPlaying show=$shouldShow")
                     showSkipEndingButton = shouldShow
                 } else {
                     showSkipEndingButton = false
                 }
             } else {
                 if (creditsEnteredTime != 0L) {
-                    Log.d("SkipButton", "exitCredits: pos=$posSeconds")
                 }
                 creditsEnteredTime = 0L
                 showSkipEndingButton = false
@@ -1055,7 +1032,6 @@ fun PlayerScreen(
     } else false
 
     fun handleServerChange(serverName: String, category: String) {
-        Log.d("serverChange", "handleServerChange server=$serverName cat=$category")
         isChangingServer = true
         hasPlaybackStarted = false
         hasError = false
@@ -1078,7 +1054,6 @@ fun PlayerScreen(
     LaunchedEffect(pendingAutoRetry) {
         val target = pendingAutoRetry ?: return@LaunchedEffect
         pendingAutoRetry = null
-        Log.d("PlayerScreen", "Executing auto-retry for server: $target")
         isChangingServer = true
         hasPlaybackStarted = false
         hasError = false
@@ -1118,12 +1093,6 @@ fun PlayerScreen(
         } else {
             emptyList()
         }
-        Log.d("SubDebug", "PlayerScreen rebuildWithSubtitles(enable=$enable): " +
-            "subtitleTracks=${subtitleTracks.size} subtitleUrl=${subtitleUrl != null} " +
-            "selectedSubtitleIndex=$selectedSubtitleIndex selectedEmbeddedTrackIndex=$selectedEmbeddedTrackIndex " +
-            "embeddedSubtitleTracks=${embeddedSubtitleTracks.map { "idx=${it.trackIndex} '${it.label}'" }} " +
-            "engine=${engine.javaClass.simpleName}")
-        Log.d("SubDebug", "PlayerScreen rebuildWithSubtitles: built configs=${subtitleConfigs.map { "lang=${it.language} selected=${it.selected}" }}")
         if (!enable) {
             engine.disableSubtitles()
         } else {
@@ -1540,7 +1509,6 @@ fun PlayerScreen(
                                                             isSelected = server.name == currentServerName,
                                                             qualities = server.qualities.map { it.quality },
                                                             onClick = {
-                                                                android.util.Log.d("ServerSwitch", "dropdown onClick (SUB): server.name='${server.name}' url='${server.url.take(80)}'...")
                                                                 showServerMenu = false
                                                                 autoRetryServers.clear()
                                                                 pendingAutoRetry = null
@@ -1558,7 +1526,6 @@ fun PlayerScreen(
                                                             isSelected = server.name == currentServerName,
                                                             qualities = server.qualities.map { it.quality },
                                                             onClick = {
-                                                                android.util.Log.d("ServerSwitch", "dropdown onClick (DUB): server.name='${server.name}' url='${server.url.take(80)}'...")
                                                                 showServerMenu = false
                                                                 autoRetryServers.clear()
                                                                 pendingAutoRetry = null
@@ -1576,7 +1543,6 @@ fun PlayerScreen(
                                                             isSelected = server.name == currentServerName,
                                                             qualities = server.qualities.map { it.quality },
                                                             onClick = {
-                                                                android.util.Log.d("ServerSwitch", "dropdown onClick (EXT fallback): server.name='${server.name}' url='${server.url.take(80)}'...")
                                                                 showServerMenu = false
                                                                 autoRetryServers.clear()
                                                                 pendingAutoRetry = null
@@ -1687,7 +1653,6 @@ fun PlayerScreen(
                                                 DropdownMenuItem(
                                                     text = { Text("Off", color = if (!subtitlesEnabled) MaterialTheme.colorScheme.primary else Color.White) },
                                                     onClick = {
-                                                        Log.d("SubDebug", "PlayerScreen MENU: Off tapped (subtitlesEnabled=$subtitlesEnabled)")
                                                         if (subtitlesEnabled) rebuildWithSubtitles(false)
                                                         selectedEmbeddedTrackIndex = -1
                                                         engine.disableSubtitles()
@@ -1706,7 +1671,6 @@ fun PlayerScreen(
                                                         DropdownMenuItem(
                                                             text = { Text(track.lang.uppercase(), color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White) },
                                                             onClick = {
-                                                                Log.d("SubDebug", "PlayerScreen MENU: External track $index selected (lang=${track.lang})")
                                                                 selectedSubtitleIndex = index
                                                                 selectedEmbeddedTrackIndex = -1
                                                                 rebuildWithSubtitles(true)
@@ -1976,7 +1940,6 @@ fun PlayerScreen(
                                             isDragging = false
                                             fastHideUntil = System.currentTimeMillis() + 3500
                                             val seekPos = sliderValue.toLong()
-                                            Log.d("PlayerScreen", "onDragEnd: seekPos=$seekPos bufferedPos=$bufferedPosition duration=$duration")
                                             seekToPosition(seekPos)
                                             skipResetJob?.cancel()
                                             skipResetJob = scope.launch {

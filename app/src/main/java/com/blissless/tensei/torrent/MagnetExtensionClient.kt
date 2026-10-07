@@ -74,13 +74,11 @@ class MagnetExtensionClient(private val context: Context) {
         // 2) Beacon fallback (backward compat)
         val beaconIntent = Intent(BEACON_ACTION)
         val resolveInfoList = context.packageManager.queryBroadcastReceivers(beaconIntent, 0)
-        Log.d(TAG, "detectExtensions: found ${resolveInfoList.size} receivers for action '$BEACON_ACTION'")
         for (info in resolveInfoList) {
             val packageName = info.activityInfo.packageName
             if (packageName in seenPackages) continue
             if (com.blissless.tensei.extensions.ExtensionDetector.isBlisslessStreamExtension(packageName)) continue
             val label = info.loadLabel(pm).toString()
-            Log.d(TAG, "detectExtensions: candidate pkg=$packageName label='$label'")
             if (label.startsWith("Tensei: ", ignoreCase = true) || label.startsWith("Anime: ", ignoreCase = true)) {
                 val authority = if (com.blissless.tensei.extensions.ExtensionDetector.isBlisslessTorrentExtension(packageName)) {
                     packageName.removeSuffix(".anime.torrent") + ".provider"
@@ -107,20 +105,15 @@ class MagnetExtensionClient(private val context: Context) {
             .apply { if (category.isNotBlank()) appendQueryParameter("category", category) }
             .build()
 
-        Log.d(TAG, "fetchMagnets: authority=$authority anime='$animeName' anilistId=$anilistId animeRomaji='$animeRomaji' category='$category' uri=$queryUri")
-
         var cursor: Cursor? = null
         val jsonData: String? = try {
             val startTime = System.currentTimeMillis()
             cursor = context.contentResolver.query(queryUri, null, null, null, null)
             val elapsed = System.currentTimeMillis() - startTime
-            Log.d(TAG, "fetchMagnets: query returned in ${elapsed}ms, cursor=${cursor != null}, count=${cursor?.count ?: 0}")
             if (cursor != null && cursor.moveToFirst()) {
                 val colIdx = cursor.getColumnIndex("data")
-                Log.d(TAG, "fetchMagnets: cursor columns=${cursor.columnCount}, data column index=$colIdx")
                 if (colIdx != -1) {
                     val data = cursor.getString(colIdx)
-                    Log.d(TAG, "fetchMagnets: data length=${data?.length ?: 0}, preview=${data?.take(200)}")
                     data
                 } else {
                     Log.w(TAG, "fetchMagnets: no 'data' column in cursor")
@@ -159,8 +152,6 @@ class MagnetExtensionClient(private val context: Context) {
             .apply { if (animeRomaji.isNotBlank()) appendQueryParameter("animeRomaji", animeRomaji) }
             .build()
 
-        Log.d(TAG, "fetchStreamUrl: authority=$authority anilistId=$anilistId episode=$episode lang=$lang anime='$animeName' animeRomaji='$animeRomaji' uri=$queryUri")
-
         var cursor: Cursor? = null
         val jsonData: String? = try {
             cursor = context.contentResolver.query(queryUri, null, null, null, null)
@@ -192,8 +183,6 @@ class MagnetExtensionClient(private val context: Context) {
         return parseStreamUrlResult(jsonData).also { result ->
             if (result != null) {
                 lastStreamError = null
-                Log.d(TAG, "fetchStreamUrl: parsed url=${result.url.take(80)}... " +
-                    "streams=${result.streams.size} subtitles=${result.subtitles.size}")
             } else {
                 lastStreamError = "No usable stream URL in provider response"
             }
@@ -201,7 +190,6 @@ class MagnetExtensionClient(private val context: Context) {
     }
 
     private fun parseMagnets(jsonData: String, anilistId: Int): MagnetData {
-        Log.d(TAG, "parseMagnets: parsing ${jsonData.length} chars for anilistId=$anilistId")
         return try {
             val jsonObject = JSONObject(jsonData)
             if (jsonObject.has("error")) {
@@ -223,7 +211,6 @@ class MagnetExtensionClient(private val context: Context) {
                         }
                     }
                     if (episodes.isNotEmpty()) {
-                        Log.d(TAG, "parseMagnets: parsed ${episodes.size} episodes from episodes list format")
                         return MagnetData(episodes.sortedBy { it.episode }, false)
                     }
                 }
@@ -242,7 +229,6 @@ class MagnetExtensionClient(private val context: Context) {
                 keyCount++
 
                 val epNumber = parseEpisodeNumber(epNum)
-                Log.v(TAG, "parseMagnets: key='$epNum' -> episode=$epNumber, valueType=${value?.javaClass?.simpleName}")
 
                 if (value is JSONObject) {
                     hasMultipleQualities = true
@@ -266,29 +252,23 @@ class MagnetExtensionClient(private val context: Context) {
                             bestMagnet = magnet
                         }
                     }
-                    Log.d(TAG, "parseMagnets: ep=$epNumber qualities=$qCount selected='$bestQuality' magnet=${bestMagnet.take(80)}...")
                     episodes.add(MagnetEpisode(epNumber, bestMagnet, bestQuality))
                 } else if (value is String) {
-                    Log.d(TAG, "parseMagnets: ep=$epNumber single magnet=${(value as String).take(80)}...")
                     episodes.add(MagnetEpisode(epNumber, value as String, ""))
                 } else {
                     Log.w(TAG, "parseMagnets: unexpected value type for key='$epNum': ${value?.javaClass?.name}")
                 }
             }
 
-            Log.d(TAG, "parseMagnets: processed $keyCount keys, ${episodes.size} valid episodes, hasMultipleQualities=$hasMultipleQualities")
             if (episodes.isEmpty()) {
                 Log.w(TAG, "parseMagnets: no valid episodes parsed, returning empty")
                 return MagnetData(emptyList(), false)
             }
             val isSingleTorrent = !hasMultipleQualities && episodes.size == 1
-            Log.d(TAG, "parseMagnets: sorted ${episodes.size} episodes, isSingleTorrent=$isSingleTorrent")
             MagnetData(episodes.sortedBy { it.episode }, isSingleTorrent)
         } catch (_: JSONException) {
-            Log.d(TAG, "parseMagnets: JSON object parse failed, trying JSON array (SeaDex-style)")
             try {
                 val jsonArray = JSONArray(jsonData)
-                Log.d(TAG, "parseMagnets: JSON array with ${jsonArray.length()} elements")
                 if (jsonArray.length() == 0) {
                     Log.w(TAG, "parseMagnets: empty JSON array")
                     return MagnetData(emptyList(), false)
@@ -297,7 +277,6 @@ class MagnetExtensionClient(private val context: Context) {
                 val magnets = (0 until jsonArray.length()).mapNotNull { idx ->
                     try {
                         val m = jsonArray.getString(idx)
-                        Log.v(TAG, "parseMagnets: array[$idx]=${m.take(80)}...")
                         m
                     } catch (_: Exception) {
                         Log.w(TAG, "parseMagnets: array[$idx] is not a string, skipping")
@@ -308,7 +287,6 @@ class MagnetExtensionClient(private val context: Context) {
                     Log.w(TAG, "parseMagnets: no valid magnets in array")
                     return MagnetData(emptyList(), false)
                 }
-                Log.d(TAG, "parseMagnets: first magnet: ${magnets.first().take(80)}...")
                 MagnetData(listOf(MagnetEpisode(0, magnets.first(), "")), true)
             } catch (e2: Exception) {
                 Log.e(TAG, "parseMagnets: both object and array parse failed", e2)
@@ -327,12 +305,10 @@ class MagnetExtensionClient(private val context: Context) {
      */
     private fun parseEpisodeNumber(rawKey: String): Int {
         rawKey.trim().toIntOrNull()?.let {
-            Log.v(TAG, "parseEpisodeNumber: '$rawKey' -> $it (direct parse)")
             return it
         }
         val match = Regex("\\d+").find(rawKey)
         val result = match?.value?.toIntOrNull() ?: 0
-        Log.v(TAG, "parseEpisodeNumber: '$rawKey' -> $result (regex match=${match?.value})")
         return result
     }
 }

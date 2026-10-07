@@ -52,6 +52,8 @@ import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.blissless.tensei.ui.components.DetailSpecGridSkeleton
 import com.blissless.tensei.ui.components.DetailStatStripSkeleton
+import com.blissless.tensei.ui.components.anilistAnnotated
+import com.blissless.tensei.ui.components.cleanAniListText
 import com.blissless.tensei.ui.theme.tenseiColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -894,10 +896,10 @@ internal fun SynopsisCard(
                 modifier = Modifier.padding(top = 8.dp)
             )
             Spacer(modifier = Modifier.height(12.dp))
-            val cleanDescription = description.replace("<br>", "\n").replace("<br/>", "\n")
-                .replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "")
-            Text(cleanDescription, style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            val cleanDescription = cleanAniListText(description)
+            Text(
+                anilistAnnotated(description, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.primary),
+                style = MaterialTheme.typography.bodyMedium,
                 maxLines = if (showFullDescription) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis,
                 lineHeight = 22.sp)
             if (cleanDescription.length > 250) {

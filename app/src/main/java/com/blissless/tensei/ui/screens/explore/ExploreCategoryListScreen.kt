@@ -27,6 +27,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.blissless.tensei.ui.theme.Radius
+import com.blissless.tensei.ui.theme.Spacing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
@@ -328,9 +330,9 @@ fun ExploreCategoryListScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     state = gridState,
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    contentPadding = PaddingValues(Spacing.gutter),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.railItem),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.gutter)
                 ) {
                     if (isManga) {
                         itemsIndexed(items = displayMangaList, key = { _, manga -> "${title}_${manga.id}" }) { index, manga ->
@@ -525,11 +527,11 @@ private fun ExploreCategoryAnimeCard(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Card(
-            shape = RoundedCornerShape(4.dp),
+            shape = Radius.posterShape,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(140f / 195f)
-                .clip(RoundedCornerShape(4.dp))
+                .clip(Radius.posterShape)
                 .clickable {
                     onClick(
                         if (cardBounds != null && cardBounds!!.width() > 0 && cardBounds!!.height() > 0) {
@@ -699,11 +701,11 @@ private fun ExploreCategoryMangaCard(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Card(
-            shape = RoundedCornerShape(4.dp),
+            shape = Radius.posterShape,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(140f / 195f)
-                .clip(RoundedCornerShape(4.dp))
+                .clip(Radius.posterShape)
                 .clickable(onClick = onClick)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {

@@ -52,18 +52,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -76,129 +70,20 @@ import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.CharacterData
 import com.blissless.tensei.data.models.StaffData
+import com.blissless.tensei.ui.components.TenseiScrimChip
+import com.blissless.tensei.ui.components.anilistAnnotated
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
 import com.blissless.tensei.ui.screens.details.easeOut
+import com.blissless.tensei.ui.theme.Spacing
+import com.blissless.tensei.ui.theme.ratingColorOnArtwork
 
-private val boldRegex = Regex("__(.+?)__")
-private val italicRegex = Regex("_(.+?)_")
-private val linkRegex = Regex("\\[(.+?)]\\((.+?)\\)")
-
-private fun formatBioText(text: String, color: Color, primary: Color, animeTitles: Map<String, Int> = emptyMap()): AnnotatedString {
-    val cleaned = text
-        .replace("<br>", "\n").replace("<br/>", "\n")
-        .replace("<b>", "").replace("</b>", "")
-        .replace("<i>", "").replace("</i>", "")
-        .replace("~", "")
-        .replace(Regex("!(\\w+)!"), "$1")
-
-    return buildAnnotatedString {
-        var remaining = cleaned
-        while (remaining.isNotEmpty()) {
-            val boldMatch = boldRegex.find(remaining)
-            val italicMatch = italicRegex.find(remaining)
-            val linkMatch = linkRegex.find(remaining)
-
-            val candidates = mutableListOf<Pair<Int, Regex>>()
-            boldMatch?.let { candidates.add(it.range.first to boldRegex) }
-            italicMatch?.let { candidates.add(it.range.first to italicRegex) }
-            linkMatch?.let { candidates.add(it.range.first to linkRegex) }
-
-            if (candidates.isEmpty()) {
-                appendAnimeTitles(remaining, animeTitles, primary)
-                break
-            }
-
-            candidates.sortBy { it.first }
-            val (_, chosenRegex) = if (candidates.size > 1 && candidates[0].first == candidates[1].first) {
-                val bold = candidates.find { it.second == boldRegex }
-                bold ?: candidates.first()
-            } else {
-                candidates.first()
-            }
-            val match = chosenRegex.find(remaining)!!
-
-            if (match.range.first > 0) {
-                appendAnimeTitles(remaining.substring(0, match.range.first), animeTitles, primary)
-            }
-
-            when (chosenRegex) {
-                boldRegex -> {
-                    pushStyle(SpanStyle(fontWeight = FontWeight.Bold))
-                    appendWithAnimeLinks(match.groupValues[1], animeTitles, primary)
-                    pop()
-                }
-                italicRegex -> {
-                    pushStyle(SpanStyle(fontStyle = FontStyle.Italic))
-                    appendWithAnimeLinks(match.groupValues[1], animeTitles, primary)
-                    pop()
-                }
-                linkRegex -> {
-                    val url = match.groupValues[2]
-                    pushStringAnnotation("URL", url)
-                    pushStyle(SpanStyle(
-                        color = primary,
-                        textDecoration = TextDecoration.Underline
-                    ))
-                    append(match.groupValues[1])
-                    pop()
-                    pop()
-                }
-            }
-
-            remaining = remaining.substring(match.range.last + 1)
-        }
-        addStyle(SpanStyle(color = color), 0, length)
-    }
-}
-
-private fun AnnotatedString.Builder.appendWithAnimeLinks(text: String, animeTitles: Map<String, Int>, primary: Color) {
-    if (animeTitles.isEmpty()) {
-        append(text)
-        return
-    }
-    val titleMatch = animeTitles.entries.firstOrNull { (title, _) ->
-        text.equals(title, ignoreCase = true)
-    }
-    if (titleMatch != null) {
-        pushStringAnnotation("ANIME", titleMatch.value.toString())
-        pushStyle(SpanStyle(color = primary, textDecoration = TextDecoration.Underline))
-        append(text)
-        pop()
-        pop()
-    } else {
-        append(text)
-    }
-}
-
-private fun AnnotatedString.Builder.appendAnimeTitles(text: String, animeTitles: Map<String, Int>, primary: Color) {
-    if (animeTitles.isEmpty()) {
-        append(text)
-        return
-    }
-    var remaining = text
-    while (remaining.isNotEmpty()) {
-        val match = animeTitles.entries
-            .mapNotNull { (title, id) ->
-                val idx = remaining.indexOf(title, ignoreCase = true)
-                if (idx >= 0) Triple(idx, title, id) else null
-            }
-            .minByOrNull { it.first }
-
-        if (match == null) {
-            append(remaining)
-            break
-        }
-        if (match.first > 0) {
-            append(remaining.substring(0, match.first))
-        }
-        pushStringAnnotation("ANIME", match.third.toString())
-        pushStyle(SpanStyle(color = primary, textDecoration = TextDecoration.Underline))
-        append(match.second)
-        pop()
-        pop()
-        remaining = remaining.substring(match.first + match.second.length)
-    }
-}
+/**
+ * Two lines of labelSmall (lineHeight 14sp) in dp: the box every rail card title and
+ * role reserves. Titles come in one and two lines, and a card that grows changes both
+ * the row's height and where the centre of the animated cover sits, so the covers
+ * wobble up and down while the row scrolls.
+ */
+private val RailTextTwoLines = 28.dp
 
 @Composable
 fun CharacterScreen(
@@ -361,7 +246,7 @@ fun CharacterScreen(
                                             node.title?.english?.let { it to node.id }
                                         )
                                     }?.toMap() ?: emptyMap()
-                                    val annotatedBio = formatBioText(
+                                    val annotatedBio = anilistAnnotated(
                                         char.description,
                                         MaterialTheme.colorScheme.onSurfaceVariant,
                                         MaterialTheme.colorScheme.primary,
@@ -426,7 +311,7 @@ fun CharacterScreen(
                                         val cameraDistancePx = with(LocalDensity.current) { 12.dp.toPx() }
                                         LazyRow(
                                             state = appearsListState,
-                                            contentPadding = PaddingValues(horizontal = 16.dp),
+                                            contentPadding = PaddingValues(start = 0.dp, end = 16.dp),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
                                             itemsIndexed(animeList) { index, anime ->
@@ -459,7 +344,6 @@ fun CharacterScreen(
                                                 Column(
                                                     modifier = Modifier
                                                         .width(100.dp)
-                                                        .clip(RoundedCornerShape(12.dp))
                                                         .graphicsLayer {
                                                             scaleX = introScale * scrollScale
                                                             scaleY = introScale * scrollScale
@@ -471,9 +355,10 @@ fun CharacterScreen(
                                                         .clickable { onMediaClick(anime.id, anime.format) },
                                                     horizontalAlignment = Alignment.CenterHorizontally
                                                 ) {
+                                                    Box(modifier = Modifier.aspectRatio(3f / 4f)) {
                                                         Card(
                                                             shape = RoundedCornerShape(12.dp),
-                                                            modifier = Modifier.aspectRatio(3f / 4f),
+                                                            modifier = Modifier.fillMaxSize(),
                                                             colors = CardDefaults.cardColors(
                                                                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                                                             )
@@ -485,16 +370,30 @@ fun CharacterScreen(
                                                                 modifier = Modifier.fillMaxSize()
                                                             )
                                                         }
-                                                        Spacer(modifier = Modifier.height(6.dp))
-                                                        Text(
-                                                            anime.title?.english ?: anime.title?.romaji ?: "Unknown",
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            maxLines = 2,
-                                                            overflow = TextOverflow.Ellipsis,
-                                                            color = MaterialTheme.colorScheme.onBackground,
-                                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                                        )
+                                                        anime.episodes?.takeIf { it > 0 }?.let { epCount ->
+                                                            TenseiScrimChip(
+                                                                text = if (epCount == 1) "1 ep" else "$epCount eps",
+                                                                modifier = Modifier.padding(Spacing.sm).align(Alignment.TopStart)
+                                                            )
+                                                        }
+                                                        anime.averageScore?.takeIf { it > 0 }?.let { score ->
+                                                            TenseiScrimChip(
+                                                                text = String.format(java.util.Locale.US, "%.1f", score / 10.0),
+                                                                color = ratingColorOnArtwork(),
+                                                                modifier = Modifier.padding(Spacing.sm).align(Alignment.TopEnd)
+                                                            )
+                                                        }
                                                     }
+                                                    Spacer(modifier = Modifier.height(6.dp))
+                                                    Text(
+                                                        anime.title?.english ?: anime.title?.romaji ?: "Unknown",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        color = MaterialTheme.colorScheme.onBackground,
+                                                        modifier = Modifier.fillMaxWidth().height(RailTextTwoLines)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -691,7 +590,7 @@ fun StaffScreen(
                                             node.title?.english?.let { it to node.id }
                                         )
                                     }?.toMap() ?: emptyMap()
-                                    val annotatedBio = formatBioText(
+                                    val annotatedBio = anilistAnnotated(
                                         staffData.description,
                                         MaterialTheme.colorScheme.onSurfaceVariant,
                                         MaterialTheme.colorScheme.primary,
@@ -756,7 +655,7 @@ fun StaffScreen(
                                         val workedCameraDistancePx = with(LocalDensity.current) { 12.dp.toPx() }
                                         LazyRow(
                                             state = workedListState,
-                                            contentPadding = PaddingValues(horizontal = 16.dp),
+                                            contentPadding = PaddingValues(start = 0.dp, end = 16.dp),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
                                             itemsIndexed(edges) { index, edge ->
@@ -792,7 +691,6 @@ fun StaffScreen(
                                                     Column(
                                                         modifier = Modifier
                                                             .width(110.dp)
-                                                            .clip(RoundedCornerShape(12.dp))
                                                             .graphicsLayer {
                                                                 scaleX = introScale * scrollScale
                                                                 scaleY = introScale * scrollScale
@@ -804,19 +702,34 @@ fun StaffScreen(
                                                             .clickable { onMediaClick(anime.id, anime.format) },
                                                         horizontalAlignment = Alignment.CenterHorizontally
                                                     ) {
-                                                        Card(
-                                                            shape = RoundedCornerShape(12.dp),
-                                                            modifier = Modifier.aspectRatio(3f / 4f),
-                                                            colors = CardDefaults.cardColors(
-                                                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                                            )
-                                                        ) {
-                                                            AsyncImage(
-                                                                model = anime.coverImage?.extraLarge,
-                                                                contentDescription = anime.title?.romaji,
-                                                                contentScale = ContentScale.Crop,
-                                                                modifier = Modifier.fillMaxSize()
-                                                            )
+                                                        Box(modifier = Modifier.aspectRatio(3f / 4f)) {
+                                                            Card(
+                                                                shape = RoundedCornerShape(12.dp),
+                                                                modifier = Modifier.fillMaxSize(),
+                                                                colors = CardDefaults.cardColors(
+                                                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                                                )
+                                                            ) {
+                                                                AsyncImage(
+                                                                    model = anime.coverImage?.extraLarge,
+                                                                    contentDescription = anime.title?.romaji,
+                                                                    contentScale = ContentScale.Crop,
+                                                                    modifier = Modifier.fillMaxSize()
+                                                                )
+                                                            }
+                                                            anime.episodes?.takeIf { it > 0 }?.let { epCount ->
+                                                                TenseiScrimChip(
+                                                                    text = if (epCount == 1) "1 ep" else "$epCount eps",
+                                                                    modifier = Modifier.padding(Spacing.sm).align(Alignment.TopStart)
+                                                                )
+                                                            }
+                                                            anime.averageScore?.takeIf { it > 0 }?.let { score ->
+                                                                TenseiScrimChip(
+                                                                    text = String.format(java.util.Locale.US, "%.1f", score / 10.0),
+                                                                    color = ratingColorOnArtwork(),
+                                                                    modifier = Modifier.padding(Spacing.sm).align(Alignment.TopEnd)
+                                                                )
+                                                            }
                                                         }
                                                         Spacer(modifier = Modifier.height(6.dp))
                                                         Text(
@@ -825,18 +738,18 @@ fun StaffScreen(
                                                             maxLines = 2,
                                                             overflow = TextOverflow.Ellipsis,
                                                             color = MaterialTheme.colorScheme.onBackground,
-                                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                                            modifier = Modifier.fillMaxWidth().height(RailTextTwoLines)
                                                         )
-                                                        role?.let {
-                                                            Text(
-                                                                it,
-                                                                style = MaterialTheme.typography.labelSmall,
-                                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                                                                maxLines = 2,
-                                                                overflow = TextOverflow.Ellipsis,
-                                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                                            )
-                                                        }
+                                                        // Always laid out, even with no role: a missing role must not
+                                                        // make one card shorter than its neighbours.
+                                                        Text(
+                                                            text = role.orEmpty(),
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                                            maxLines = 2,
+                                                            overflow = TextOverflow.Ellipsis,
+                                                            modifier = Modifier.fillMaxWidth().height(RailTextTwoLines)
+                                                        )
                                                     }
                                                 }
                                             }

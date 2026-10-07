@@ -51,10 +51,8 @@ fun MainViewModel.startApiRetryLoop() {
                 _apiError.value != null
             if (!anyFallback || _isOffline.value) continue
             if (!repository.isAniListReachable()) {
-                android.util.Log.d("AniListRecovery", "AniList still unavailable — keeping fallback data")
                 continue
             }
-            android.util.Log.d("AniListRecovery", "AniList is back — swapping fallback sources to AniList")
             fetchExploreData(force = true)
             if (mangaExploreSource.value == "mal") fetchMangaExplore()
             if (isScheduleOnFallback) fetchAiringSchedule(force = true)
@@ -136,7 +134,6 @@ internal suspend fun MainViewModel.executePendingSyncs() {
                 sync.status?.let {
                     // Write to AniList whenever it is active (alone or as part of BOTH).
                     if (isAniListActive) {
-                        android.util.Log.d("AniListScoreDebug", "executePendingSyncs -> repository.updateStatus mediaId=${sync.mediaId} status=$it progress=${sync.progress} score=${sync.score}")
                         repository.updateStatus(sync.mediaId, it, sync.progress, sync.score)
                     }
                     // Write to MAL whenever it is active (alone or as part of BOTH).
@@ -233,7 +230,6 @@ internal suspend fun MainViewModel.fetchMalList(): Boolean {
     if (!isMalActive) return false
 
     val entries = malApiService.getAnimeList()
-    android.util.Log.d("MalSync", "fetchMalList: got ${entries.size} anime entries (isMalActive=$isMalActive)")
     if (entries.isEmpty()) return false
 
     val currentlyWatching = mutableListOf<AnimeMedia>()
@@ -310,14 +306,6 @@ internal suspend fun MainViewModel.fetchMalList(): Boolean {
         statusCounts[st] = (statusCounts[st] ?: 0) + 1
         if (!seenIds.add(entry.node.id)) duplicates++
     }
-    android.util.Log.d(
-        "MalSync",
-        "fetchMalList per-status counts: watching=${statusCounts["watching"]} planning=${statusCounts["planning"]} " +
-            "completed=${statusCounts["completed"]} on_hold=${statusCounts["on_hold"]} dropped=${statusCounts["dropped"]} " +
-            "other=${statusCounts["unknown"]} duplicates=$duplicates total=${entries.size} unique=${seenIds.size} " +
-            "partitioned CURRENT=${currentlyWatching.size} PLANNING=${planningToWatch.size} COMPLETED=${completed.size} " +
-            "PAUSED=${onHold.size} DROPPED=${dropped.size}"
-    )
 
     loadMalFavoritesFromCache()
     saveHomeDataToCache()

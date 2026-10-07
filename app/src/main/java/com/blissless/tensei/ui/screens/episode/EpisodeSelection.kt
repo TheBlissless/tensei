@@ -378,19 +378,15 @@ fun RichEpisodeScreen(
         episodes.isNotEmpty() && episodes.any { !it.title.startsWith("Episode ") }
 
     LaunchedEffect(anime.id) {
-        Log.d("TmdbDebug", "Fetching TMDB: id=${anime.id} title='${anime.title}' eng='${anime.titleEnglish}' year=${anime.year} format=${anime.format}")
         val cached = viewModel.getCachedTmdbEpisodes(anime.id, anime.status)
         if (cached != null && hasRealTmdbData(cached)) {
-            Log.d("TmdbDebug", "Using cached TMDB data for anime=${anime.id}: ${cached.size} episodes")
             tmdbEpisodes = cached
             isLoadingEpisodes = false
         } else {
-            Log.d("TmdbDebug", "No cache hit for anime=${anime.id}, fetching...")
             var retries = 0
             while (retries < 2) {
                 try {
                     val episodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format, animeEpisodes = anime.totalEpisodes.takeIf { it > 0 })
-                    Log.d("TmdbDebug", "fetchTmdbEpisodes returned ${episodes.size} episodes for anime=${anime.id} (attempt ${retries + 1})")
                     viewModel.cacheTmdbEpisodes(anime.id, episodes)
                     tmdbEpisodes = episodes
                     break
@@ -1180,5 +1176,4 @@ if (hasAired) {
         }
     }
 }
-
 
