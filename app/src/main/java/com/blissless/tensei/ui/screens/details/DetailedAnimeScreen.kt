@@ -1928,10 +1928,11 @@ fun DetailedAnimeScreen(
     }
 
     if (showRemoveFavoriteDialog) {
+        val removeFavoriteTitle = if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showRemoveFavoriteDialog = false },
             title = { Text("Remove Favorite") },
-            text = { Text("Remove ${anime.title} from your favorites?") },
+            text = { Text("Remove $removeFavoriteTitle from your favorites?") },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     showRemoveFavoriteDialog = false
@@ -1959,6 +1960,7 @@ fun DetailedAnimeScreen(
         AnimeRatingSheet(
             anime = animeMedia,
             isOled = isOled,
+            preferEnglishTitles = preferEnglishTitles,
             onDismiss = { showRatingSheet = false },
             onScoreSaved = { score ->
                 if (isLoggedIn) {

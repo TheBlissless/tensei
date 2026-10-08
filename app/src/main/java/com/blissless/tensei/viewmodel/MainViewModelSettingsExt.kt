@@ -92,6 +92,9 @@ fun MainViewModel.setDefaultSubtitleLang(lang: String) =
 fun MainViewModel.setStartupScreen(screen: Int) =
     userPreferences.setStartupScreen(screen)
 
+fun MainViewModel.setAppLanguage(language: String) =
+    userPreferences.setAppLanguage(language)
+
 fun MainViewModel.setBufferAheadSeconds(seconds: Int) =
     userPreferences.setBufferAheadSeconds(seconds)
 

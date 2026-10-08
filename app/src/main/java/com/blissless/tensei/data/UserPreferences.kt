@@ -47,6 +47,7 @@ class UserPreferences(context: Context) {
         private const val KEY_DEFAULT_EXTENSION = "default_extension_package"
         private const val KEY_STREAM_PROVIDER = "stream_provider"
         private const val KEY_STARTUP_SCREEN = "startup_screen"
+        private const val KEY_APP_LANGUAGE = "app_language"
         private const val KEY_BUFFER_AHEAD_SECONDS = "buffer_ahead_seconds"
         private const val KEY_BUFFER_SIZE_MB = "buffer_size_mb"
         private const val KEY_SHOW_BUFFER_INDICATOR = "show_buffer_indicator"
@@ -231,7 +232,11 @@ class UserPreferences(context: Context) {
     // Startup Screen
     private val _startupScreen = MutableStateFlow(2)
     val startupScreen: StateFlow<Int> = _startupScreen.asStateFlow()
-    
+
+    // Interface language: "system" (device language), "en" or "de".
+    private val _appLanguage = MutableStateFlow("system")
+    val appLanguage: StateFlow<String> = _appLanguage.asStateFlow()
+
     // Buffer Settings
     private val _bufferAheadSeconds = MutableStateFlow(30)
     val bufferAheadSeconds: StateFlow<Int> = _bufferAheadSeconds.asStateFlow()
@@ -350,6 +355,7 @@ class UserPreferences(context: Context) {
         }
         _defaultStreamExtension.value = migratedStreamExt
         _startupScreen.value = sharedPreferences.getInt(KEY_STARTUP_SCREEN, 2)
+        _appLanguage.value = sharedPreferences.getString(KEY_APP_LANGUAGE, "system") ?: "system"
         _bufferAheadSeconds.value = sharedPreferences.getInt(KEY_BUFFER_AHEAD_SECONDS, 30)
         _bufferSizeMb.value = sharedPreferences.getInt(KEY_BUFFER_SIZE_MB, 200)
         _showBufferIndicator.value = sharedPreferences.getBoolean(KEY_SHOW_BUFFER_INDICATOR, true)
@@ -608,6 +614,11 @@ class UserPreferences(context: Context) {
     fun setStartupScreen(screen: Int) {
         _startupScreen.value = screen
         sharedPreferences.edit { putInt(KEY_STARTUP_SCREEN, screen) }
+    }
+
+    fun setAppLanguage(language: String) {
+        _appLanguage.value = language
+        sharedPreferences.edit { putString(KEY_APP_LANGUAGE, language) }
     }
 
     // ============================================

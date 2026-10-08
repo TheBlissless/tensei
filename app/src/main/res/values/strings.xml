@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">Tensei</string>
     <string name="widget_airing_schedule_description">Today\'s airing schedule</string>
+    <string name="settings_language_header">LANGUAGE</string>
+    <string name="settings_language_description">Interface language. Untranslated strings fall back to English.</string>
+    <string name="settings_language_title">App Language</string>
+    <string name="settings_language_system">System default</string>
 </resources>

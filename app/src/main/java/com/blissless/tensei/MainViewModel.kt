@@ -484,6 +484,7 @@ class MainViewModel : ViewModel() {
     val defaultExtensionPackage: StateFlow<String> get() = userPreferences.defaultExtensionPackage
     val defaultSubtitleLang: StateFlow<String> get() = userPreferences.defaultSubtitleLang
     val startupScreen: StateFlow<Int> get() = userPreferences.startupScreen
+    val appLanguage: StateFlow<String> get() = userPreferences.appLanguage
 
     // Buffer Settings
     val bufferAheadSeconds: StateFlow<Int> get() = userPreferences.bufferAheadSeconds

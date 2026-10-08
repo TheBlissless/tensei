@@ -4,6 +4,7 @@ package com.blissless.tensei
 import android.Manifest
 import android.app.PictureInPictureParams
 import android.app.RemoteAction
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
@@ -116,6 +117,7 @@ import com.blissless.tensei.ui.theme.AppTheme
 import com.blissless.tensei.ui.theme.ColorMode
 import com.blissless.tensei.ui.theme.ThemeMode
 import com.blissless.tensei.update.UpdateViewModel
+import com.blissless.tensei.util.AppLocale
 import com.blissless.tensei.util.toast
 import com.blissless.tensei.viewmodel.clearAnimeExtensionStreamCaches
 import com.blissless.tensei.viewmodel.clearPlaybackPosition
@@ -178,6 +180,10 @@ class MainActivity : ComponentActivity() {
         const val TOKEN_KEY = "auth_token"
         private const val TAG_TORRENT = "MainActivity.Torrent"
         const val ACTION_PIP_PLAY_PAUSE = "com.blissless.tensei.PIP_PLAY_PAUSE"
+    }
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
     }
 
     private fun getPipPlayPauseIcon(isPlaying: Boolean): Icon {

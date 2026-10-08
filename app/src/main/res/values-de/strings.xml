@@ -1,0 +1,9 @@
+<resources>
+    <!-- Add translated values here. Any key you leave out falls back to English automatically. -->
+    <string name="app_name">Tensei</string>
+    <string name="widget_airing_schedule_description">Heutiger Ausstrahlungsplan</string>
+    <string name="settings_language_header">SPRACHE</string>
+    <string name="settings_language_description">Sprache der Oberfläche. Nicht übersetzte Texte fallen automatisch auf Englisch zurück.</string>
+    <string name="settings_language_title">App-Sprache</string>
+    <string name="settings_language_system">Systemstandard</string>
+</resources>

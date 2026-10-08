@@ -85,7 +85,13 @@ fun CrossProviderSyncDialog(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        // Closed only through the buttons inside the dialog: an accidental tap on
+        // the scrim (or a back press) must not discard the chosen sync direction.
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnClickOutside = false,
+            dismissOnBackPress = false
+        )
     ) {
         Surface(
             shape = Radius.sheetShape,

@@ -1,5 +1,6 @@
 package com.blissless.tensei.stream
 
+import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -68,6 +69,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.SubtitleView
+import com.blissless.tensei.util.AppLocale
 import eu.kanade.tachiyomi.animesource.model.Track
 import eu.kanade.tachiyomi.animesource.model.Video
 import kotlinx.coroutines.delay
@@ -76,6 +78,10 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @UnstableApi
 class PlayerActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     private var player: ExoPlayer? = null
     private var videoContainer: AspectRatioFrameLayout? = null

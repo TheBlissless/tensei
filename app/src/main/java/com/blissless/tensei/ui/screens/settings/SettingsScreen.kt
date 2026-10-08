@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Info
@@ -92,6 +93,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -120,6 +122,7 @@ import com.blissless.tensei.viewmodel.setShowMangaStatusColors
 import com.blissless.tensei.viewmodel.setMaxPerformance
 import com.blissless.tensei.viewmodel.setPreferEnglishTitles
 import com.blissless.tensei.viewmodel.setStartupScreen
+import com.blissless.tensei.viewmodel.setAppLanguage
 import com.blissless.tensei.viewmodel.setMangaReaderMode
 import com.blissless.tensei.viewmodel.setMangaDataSaver
 import com.blissless.tensei.viewmodel.setMangaPageIndicator
@@ -159,6 +162,7 @@ import com.blissless.tensei.viewmodel.installedExtensions
 import com.blissless.tensei.viewmodel.InstalledExtension
 import com.blissless.tensei.viewmodel.selectedExtensionAuthority
 import com.blissless.tensei.viewmodel.selectExtension
+import com.blissless.tensei.util.AppLocale
 import com.blissless.tensei.util.ErrorHandler
 import com.blissless.tensei.util.toast
 import com.blissless.tensei.util.longToast
@@ -699,6 +703,9 @@ private fun GeneralSettingsPage(
 ) {
     val startupScreenState by viewModel.startupScreen.collectAsState()
     val preferEnglishTitles by viewModel.preferEnglishTitles.collectAsState(initial = true)
+    val appLanguage by viewModel.appLanguage.collectAsState()
+    var showLanguagePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     SettingsPageScaffold(title = "General", onBack = onBack) {
         SectionHeader("LAUNCH")
@@ -754,6 +761,26 @@ private fun GeneralSettingsPage(
             )
         }
 
+        SectionHeader(stringResource(R.string.settings_language_header))
+        Text(
+            text = stringResource(R.string.settings_language_description),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp)
+        )
+        SettingsCard {
+            ClickableSettingsRow(
+                onClick = { showLanguagePicker = true },
+                icon = Icons.Default.Language,
+                title = stringResource(R.string.settings_language_title),
+                subtitle = when (appLanguage) {
+                    "en" -> "English"
+                    "de" -> "Deutsch"
+                    else -> stringResource(R.string.settings_language_system)
+                }
+            )
+        }
+
         SectionHeader("CONTENT")
         SettingsCard {
             SettingsToggle(
@@ -774,6 +801,56 @@ private fun GeneralSettingsPage(
                 onCheckedChange = { viewModel.setMaxPerformance(it) }
             )
         }
+    }
+
+    if (showLanguagePicker) {
+        AlertDialog(
+            onDismissRequest = { showLanguagePicker = false },
+            title = { Text(stringResource(R.string.settings_language_title)) },
+            text = {
+                Column {
+                    listOf(
+                        AppLocale.SYSTEM to stringResource(R.string.settings_language_system),
+                        "en" to "English",
+                        "de" to "Deutsch"
+                    ).forEach { (value, label) ->
+                        val isSelected = value == appLanguage
+                        TextButton(
+                            onClick = {
+                                viewModel.setAppLanguage(value)
+                                AppLocale.onChange(context, value)
+                                showLanguagePicker = false
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = null,
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (isSelected) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showLanguagePicker = false }) { Text("Cancel") } }
+        )
     }
 }
 

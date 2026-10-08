@@ -254,6 +254,7 @@ fun HomeAnimeStatusDialog(
 fun AnimeRatingSheet(
     anime: AnimeMedia,
     isOled: Boolean,
+    preferEnglishTitles: Boolean = true,
     onDismiss: () -> Unit,
     onScoreSaved: (Int?) -> Unit
 ) {
@@ -272,7 +273,10 @@ fun AnimeRatingSheet(
                 AsyncImage(model = anime.cover, contentDescription = anime.title, contentScale = ContentScale.Crop, modifier = Modifier.width(60.dp).height(85.dp).clip(RoundedCornerShape(10.dp)))
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(anime.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title,
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("Your Rating", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
                 }

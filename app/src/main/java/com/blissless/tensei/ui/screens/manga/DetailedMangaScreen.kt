@@ -1619,10 +1619,11 @@ fun DetailedMangaScreen(
     }
 
     if (showRemoveFavoriteDialog) {
+        val removeFavoriteTitle = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showRemoveFavoriteDialog = false },
             title = { Text("Remove Favorite") },
-            text = { Text("Remove ${manga.title} from your favorites?") },
+            text = { Text("Remove $removeFavoriteTitle from your favorites?") },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     showRemoveFavoriteDialog = false
@@ -1637,7 +1638,7 @@ fun DetailedMangaScreen(
 
     if (showRatingSheet) {
         MangaRatingSheet(
-            title = manga.title,
+            title = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title,
             coverUrl = manga.cover,
             currentScore = liveScore,
             isOled = isOled,
