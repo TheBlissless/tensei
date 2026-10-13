@@ -210,7 +210,11 @@ object AiringScheduleWidget : GlanceAppWidget() {
     fun WidgetContent(context: Context, data: WidgetScheduleData, coverCache: Map<Int, Bitmap?>, preferEnglish: Boolean = true, isDark: Boolean = true, isOled: Boolean = false) {
         val cal = Calendar.getInstance()
         val dow = cal.get(Calendar.DAY_OF_WEEK) - 1
-        val dayNames = listOf("Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday")
+        val dayNames = listOf(
+            R.string.app_day_sunday, R.string.app_day_monday, R.string.app_day_tuesday,
+            R.string.app_day_wednesday, R.string.app_day_thursday, R.string.app_day_friday,
+            R.string.app_day_saturday
+        )
 
         cal.set(Calendar.HOUR_OF_DAY, 0)
         cal.set(Calendar.MINUTE, 0)
@@ -226,8 +230,8 @@ object AiringScheduleWidget : GlanceAppWidget() {
 
         val ago = if (data.lastUpdateTime > 0) {
             val d = System.currentTimeMillis() - data.lastUpdateTime
-            when { d < 60_000 -> "just now"; d < 3_600_000 -> "${d / 60_000}m ago"; else -> "${d / 3_600_000}h ago" }
-        } else "never"
+            when { d < 60_000 -> context.getString(R.string.app_just_now); d < 3_600_000 -> context.getString(R.string.app_time_minutes_ago, d / 60_000); else -> context.getString(R.string.app_time_hours_ago, d / 3_600_000) }
+        } else context.getString(R.string.app_never)
 
         val bgColor = when {
             isOled -> Color(0xFF000000)
@@ -254,10 +258,10 @@ object AiringScheduleWidget : GlanceAppWidget() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = GlanceModifier.defaultWeight()) {
-                    Text(dayNames[dow], style = TextStyle(
+                    Text(context.getString(dayNames[dow]), style = TextStyle(
                         color = cp(titleColor), fontSize = 16.sp, fontWeight = FontWeight.Bold
                     ))
-                    Text("${items.size} airing today", style = TextStyle(
+                    Text(context.getString(R.string.app_airing_today_count, items.size), style = TextStyle(
                         color = cp(mutedColor), fontSize = 12.sp
                     ))
                 }
@@ -265,7 +269,7 @@ object AiringScheduleWidget : GlanceAppWidget() {
                 val refreshIconTint = cp(if (isDark) Color.White else Color(0xFF616161))
                 CircleIconButton(
                     imageProvider = ImageProvider(R.drawable.ic_refresh),
-                    contentDescription = "Refresh",
+                    contentDescription = context.getString(R.string.app_refresh),
                     onClick = action("refresh") { triggerNow(context) },
                     modifier = GlanceModifier.size(32.dp),
                     backgroundColor = refreshBg,
@@ -282,7 +286,7 @@ object AiringScheduleWidget : GlanceAppWidget() {
                         Box(
                             modifier = GlanceModifier.fillMaxWidth().padding(vertical = 20.dp),
                             contentAlignment = Alignment.Center,
-                            content = @Composable { Text("No anime airing today", style = TextStyle(
+                            content = @Composable { Text(context.getString(R.string.app_no_anime_airing_today), style = TextStyle(
                                 color = cp(dimColor), fontSize = 14.sp
                             ))}
                         )
@@ -309,7 +313,7 @@ object AiringScheduleWidget : GlanceAppWidget() {
                 modifier = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Updated $ago", style = TextStyle(
+                Text(context.getString(R.string.app_updated_ago, ago), style = TextStyle(
                     color = cp(dimColor), fontSize = 10.sp
                 ))
                 Spacer(GlanceModifier.defaultWeight())
@@ -332,20 +336,20 @@ object AiringScheduleWidget : GlanceAppWidget() {
             val h = (ago / 3600).toInt()
             val m = ((ago % 3600) / 60).toInt()
             when {
-                h > 0 && m > 0 -> "${h}h ${m}m ago"
-                h > 0 -> "${h}h ago"
-                m > 0 -> "${m}m ago"
-                else -> "just now"
+                h > 0 && m > 0 -> context.getString(R.string.app_time_hours_minutes_ago, h, m)
+                h > 0 -> context.getString(R.string.app_time_hours_ago, h)
+                m > 0 -> context.getString(R.string.app_time_minutes_ago, m)
+                else -> context.getString(R.string.app_just_now)
             }
         } else {
             val diff = e.timeUntilAiring ?: (e.airingAt - nowTs)
             val h = (diff / 3600).toInt()
             val m = ((diff % 3600) / 60).toInt()
             when {
-                h > 0 && m > 0 -> "in ${h}h ${m}m"
-                h > 0 -> "in ${h}h"
-                m > 0 -> "in ${m}m"
-                else -> "< 1m"
+                h > 0 && m > 0 -> context.getString(R.string.app_time_in_hours_minutes, h, m)
+                h > 0 -> context.getString(R.string.app_time_in_hours, h)
+                m > 0 -> context.getString(R.string.app_time_in_minutes, m)
+                else -> context.getString(R.string.app_time_less_than_minute)
             }
         }
 
@@ -389,7 +393,7 @@ object AiringScheduleWidget : GlanceAppWidget() {
                     if (coverBitmap != null) {
                         Image(
                             provider = ImageProvider(coverBitmap),
-                            contentDescription = "Cover",
+                            contentDescription = context.getString(R.string.app_cover),
                             modifier = GlanceModifier.fillMaxSize()
                         )
                     } else {
@@ -412,7 +416,7 @@ object AiringScheduleWidget : GlanceAppWidget() {
                     ))
                     Spacer(GlanceModifier.width(4.dp))
                 }
-                Text("Ep ${e.airingEpisode}", style = TextStyle(
+                Text(context.getString(R.string.app_episode_abbrev, e.airingEpisode), style = TextStyle(
                     color = cp(infoColor), fontSize = 11.sp
                 ))
                 if (score.isNotEmpty()) {

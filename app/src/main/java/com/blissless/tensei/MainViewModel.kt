@@ -750,12 +750,12 @@ class MainViewModel : ViewModel() {
         val code = uriString.substringAfter("code=").substringBefore("&")
 
         if (code.isEmpty()) {
-            viewModelScope.launch { _toastMessage.emit("MAL login failed: No auth code received") }
+            viewModelScope.launch { _toastMessage.emit(context.getString(R.string.runtime_mal_login_no_auth_code)) }
             return
         }
 
         viewModelScope.launch {
-            _toastMessage.emit("Completing MAL login...")
+            _toastMessage.emit(context.getString(R.string.runtime_mal_login_in_progress))
             val success = malApiService.exchangeCodeForToken(code, BuildConfig.MAL_CLIENT_ID, null)
             if (success) {
                 val anilistStillLoggedIn = userPreferences.authToken.value != null
@@ -770,13 +770,13 @@ class MainViewModel : ViewModel() {
                     fetchMalMangaList()
                 }
                 // prefetchOfflineWatchingStreams() // Disabled for now
-                _toastMessage.emit("Successfully logged into MyAnimeList!")
+                _toastMessage.emit(context.getString(R.string.runtime_mal_login_success))
                 // If the user is now on both providers, offer the one-time copy + ongoing sync.
                 if (anilistStillLoggedIn) {
                     viewModelScope.launch { offerCrossProviderSync() }
                 }
             } else {
-                _toastMessage.emit("MAL login failed: Token exchange error")
+                _toastMessage.emit(context.getString(R.string.runtime_mal_login_token_error))
             }
         }
     }
@@ -1233,7 +1233,7 @@ private suspend fun loadHomeDataWithCache() {
                     if (!hadExisting) saveExploreDataToCache()
                     lastExploreRefreshTime = System.currentTimeMillis()
                 } else {
-                    _apiError.value = error ?: "Failed to load content"
+                    _apiError.value = error ?: context.getString(R.string.runtime_failed_to_load_content)
                 }
                 if (!silent) _isLoadingExplore.value = false
                 return@launch
@@ -1254,7 +1254,7 @@ private suspend fun loadHomeDataWithCache() {
                 _exploreDataSource.value = "anilist"
                 true
             } catch (e: Exception) {
-                _apiError.value = e.message ?: "Failed to load content"
+                _apiError.value = e.message ?: context.getString(R.string.runtime_failed_to_load_content)
                 false
             }
             if (!silent) _isLoadingExplore.value = false
@@ -1394,7 +1394,7 @@ private suspend fun loadHomeDataWithCache() {
         }
     } catch (e: AnimeScheduleUnavailableException) {
         Log.e("AiringDebug", "AnimeSchedule fallback unavailable: ${e.message}", e)
-        _toastMessage.emit("Schedule service is currently unavailable")
+        _toastMessage.emit(context.getString(R.string.runtime_schedule_service_unavailable))
         emptyList()
     }
 
@@ -2053,7 +2053,7 @@ private suspend fun loadHomeDataWithCache() {
         val now = System.currentTimeMillis()
         val last = manualRefreshTimes[key] ?: 0L
         if (now - last < MANUAL_REFRESH_COOLDOWN_MS) {
-            viewModelScope.launch { _toastMessage.emit("Please wait a moment before refreshing again") }
+            viewModelScope.launch { _toastMessage.emit(context.getString(R.string.runtime_refresh_cooldown)) }
             return false
         }
         manualRefreshTimes[key] = now

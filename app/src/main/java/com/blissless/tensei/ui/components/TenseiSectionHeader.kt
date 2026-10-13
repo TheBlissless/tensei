@@ -35,8 +35,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.SectionAccentWidth
 import com.blissless.tensei.ui.theme.SectionStripeShape
@@ -223,7 +225,7 @@ fun TenseiDisclosureHeader(
         )
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-            contentDescription = if (expanded) "Collapse" else "Expand",
+            contentDescription = if (expanded) stringResource(R.string.comp_collapse) else stringResource(R.string.comp_expand),
             tint = scheme.onSurfaceVariant,
             modifier = Modifier
                 .size(20.dp)

@@ -89,6 +89,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -99,6 +100,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.TmdbEpisode
 import kotlinx.coroutines.delay
@@ -266,7 +268,7 @@ fun RichEpisodeScreen(
                 } else {
                     val count = data.episodes.size
                     if (count <= 0 || count < released) {
-                        magnetError = "Source not found via extension"
+                        magnetError = context.getString(R.string.lists_source_not_found)
                         isMagnetReady = false
                     } else {
                         magnetError = null
@@ -427,7 +429,7 @@ fun RichEpisodeScreen(
                 isLoadingExtensionEpisodes = false
                 extensionEpisodesNumbers = numbers
                 if (numbers.isEmpty() || numbers.size < released) {
-                    extensionError = "Source not found via extension"
+                    extensionError = context.getString(R.string.lists_source_not_found)
                     isExtensionReady = false
                     hasExtensionData = false
                 } else {
@@ -526,7 +528,7 @@ fun RichEpisodeScreen(
                                     ) {
                                         Icon(Icons.Default.PlayCircle, contentDescription = null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(5.dp))
-                                        Text(text = "Progress", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+                                         Text(text = stringResource(R.string.lists_progress), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(text = "$currentProgress / ${if (total > 0) total else "??"}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
@@ -543,12 +545,12 @@ fun RichEpisodeScreen(
                                         ) {
                                             Icon(Icons.Default.DateRange, contentDescription = null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(14.dp))
                                             Spacer(modifier = Modifier.width(5.dp))
-                                            Text(
-                                                text = if (released == 1) "1 episode aired" else "$released episodes aired",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = Color.White.copy(alpha = 0.9f)
-                                            )
+                                             Text(
+                                                 text = if (released == 1) stringResource(R.string.lists_one_episode_aired) else stringResource(R.string.lists_episodes_aired, released),
+                                                 style = MaterialTheme.typography.labelSmall,
+                                                 fontWeight = FontWeight.SemiBold,
+                                                 color = Color.White.copy(alpha = 0.9f)
+                                             )
                                         }
                                     }
                                 }
@@ -576,7 +578,7 @@ fun RichEpisodeScreen(
                     .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                     .zIndex(10f)
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.lists_back), tint = Color.White, modifier = Modifier.size(24.dp))
             }
 
             Box(modifier = Modifier
@@ -613,7 +615,7 @@ fun RichEpisodeScreen(
                                 ) {
                                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Resume Ep $nextEp", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                     Text(stringResource(R.string.lists_resume_ep, nextEp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                             OutlinedButton(
@@ -621,7 +623,7 @@ fun RichEpisodeScreen(
                                 shape = RoundedCornerShape(50),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                             ) {
-                                Text("Ep 1", maxLines = 1)
+                                 Text(stringResource(R.string.lists_ep_1), maxLines = 1)
                             }
                             if (released > 1) {
                                 OutlinedButton(
@@ -629,7 +631,7 @@ fun RichEpisodeScreen(
                                     shape = RoundedCornerShape(50),
                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                                 ) {
-                                    Text("Latest", maxLines = 1)
+                                     Text(stringResource(R.string.lists_latest), maxLines = 1)
                                 }
                             }
                         }
@@ -672,43 +674,43 @@ fun RichEpisodeScreen(
                                         viewModel.setDefaultStreamExtension(selectedStreamAuthority!!)
                                     }
                                     onEpisodeSelect(episodeNum, title)
-                                } else {
-                                    context.toast("Episode not aired yet")
-                                }
-                            }
-                        )
-                    }
-                } else if (!isLoadingEpisodes) {
-                    items(availableEpisodeNumbers.size) { index ->
-                        val episodeNum = availableEpisodeNumbers[index]
-                        val isWatched = episodeNum <= currentProgress
-                        val isCurrent = episodeNum == currentProgress + 1
-                        val hasAired = episodeNum <= released
-                        SimpleRichEpisodeCard(
-                            episodeNumber = episodeNum,
-                            isWatched = isWatched,
-                            isCurrent = isCurrent,
-                            hasAired = hasAired,
-                            isOled = isOled,
-                            isSelected = selectedEpisode == episodeNum,
-                            playbackPositions = playbackPositions,
-                            playbackDurations = playbackDurations,
-                            animeId = anime.id,
-                            onSelect = { selectedEpisode = episodeNum },
-                            onPlay = {
-                                if (hasAired) {
-                                    if (isMagnetActive && selectedMagnetAuthority != null) {
-                                        viewModel.setStreamMethod("magnet")
-                                        viewModel.setDefaultMagnetExtension(selectedMagnetAuthority!!)
-                                    }
-                                    onEpisodeSelect(episodeNum, "Episode $episodeNum")
-                                } else {
-                                    context.toast("Episode not aired yet")
-                                }
-                            }
-                        )
-                    }
-                }
+                                 } else {
+                                     context.toast(context.getString(R.string.lists_episode_not_aired_yet))
+                                 }
+                             }
+                         )
+                     }
+                 } else if (!isLoadingEpisodes) {
+                     items(availableEpisodeNumbers.size) { index ->
+                         val episodeNum = availableEpisodeNumbers[index]
+                         val isWatched = episodeNum <= currentProgress
+                         val isCurrent = episodeNum == currentProgress + 1
+                         val hasAired = episodeNum <= released
+                         SimpleRichEpisodeCard(
+                             episodeNumber = episodeNum,
+                             isWatched = isWatched,
+                             isCurrent = isCurrent,
+                             hasAired = hasAired,
+                             isOled = isOled,
+                             isSelected = selectedEpisode == episodeNum,
+                             playbackPositions = playbackPositions,
+                             playbackDurations = playbackDurations,
+                             animeId = anime.id,
+                             onSelect = { selectedEpisode = episodeNum },
+                             onPlay = {
+                                 if (hasAired) {
+                                     if (isMagnetActive && selectedMagnetAuthority != null) {
+                                         viewModel.setStreamMethod("magnet")
+                                         viewModel.setDefaultMagnetExtension(selectedMagnetAuthority!!)
+                                     }
+                                     onEpisodeSelect(episodeNum, "Episode $episodeNum")
+                                 } else {
+                                     context.toast(context.getString(R.string.lists_episode_not_aired_yet))
+                                 }
+                             }
+                         )
+                     }
+                 }
 
                 // Loading and error states at the bottom
                 if (isLoadingEpisodes) {
@@ -724,7 +726,7 @@ fun RichEpisodeScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.tertiary)
                                 Spacer(modifier = Modifier.height(12.dp))
-                                Text("Fetching Tensei sources...", style = MaterialTheme.typography.bodyMedium, color = if (isOled) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                 Text(stringResource(R.string.lists_fetching_tensei_sources), style = MaterialTheme.typography.bodyMedium, color = if (isOled) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -746,7 +748,7 @@ fun RichEpisodeScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.height(12.dp))
-                                Text("Fetching sources...", style = MaterialTheme.typography.bodyMedium, color = if (isOled) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                 Text(stringResource(R.string.lists_fetching_sources), style = MaterialTheme.typography.bodyMedium, color = if (isOled) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -808,7 +810,7 @@ fun RichEpisodeList(
         ) {
             if (onClose != null) {
                 IconButton(onClick = onClose) {
-                    Icon(Icons.Default.Close, contentDescription = "Close player", tint = Color.White)
+                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.lists_close_player), tint = Color.White)
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -834,7 +836,7 @@ fun RichEpisodeList(
             }
             if (onEnterFullscreen != null) {
                 IconButton(onClick = onEnterFullscreen) {
-                    Icon(Icons.Default.Fullscreen, contentDescription = "Enter fullscreen", tint = Color.White)
+                     Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.lists_enter_fullscreen), tint = Color.White)
                 }
             }
         }
@@ -940,7 +942,7 @@ internal fun SimpleRichEpisodeCard(
                     onSelect()
                     onPlay()
                 } else {
-                    context.toast("Episode has not aired yet")
+                                     context.toast(context.getString(R.string.lists_episode_has_not_aired_yet))
                 }
             }
         ) {
@@ -954,7 +956,7 @@ internal fun SimpleRichEpisodeCard(
                         contentAlignment = Alignment.Center
                     ) {
                         when {
-                            isCurrent -> Icon(Icons.Default.PlayArrow, contentDescription = "Current", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                            isCurrent -> Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.lists_current), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                             else -> Text(
                                 text = "$episodeNumber",
                                 style = MaterialTheme.typography.titleMedium,
@@ -967,10 +969,10 @@ internal fun SimpleRichEpisodeCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Episode $episodeNumber",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isOled) Color.White else MaterialTheme.colorScheme.onSurface
+                                 text = stringResource(R.string.lists_episode, episodeNumber),
+                                 style = MaterialTheme.typography.titleSmall,
+                                 fontWeight = FontWeight.SemiBold,
+                                 color = if (isOled) Color.White else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -1048,7 +1050,7 @@ private fun RichTmdbEpisodeCard(
                     onSelect()
                     onPlay()
                 } else {
-                    context.toast("Episode has not aired yet")
+                                     context.toast(context.getString(R.string.lists_episode_has_not_aired_yet))
                 }
             }
         ) {
@@ -1066,7 +1068,7 @@ private fun RichTmdbEpisodeCard(
                         .alpha(if (isWatched) 0.45f else 1f)
                 ) {
                         if (!image.isNullOrEmpty()) {
-                            AsyncImage(model = image, contentDescription = "Episode $episodeNumber", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            AsyncImage(model = image,                             contentDescription = stringResource(R.string.lists_episode, episodeNumber), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         } else {
                             // Gradient placeholder with a faint episode number watermark
                             Box(
@@ -1094,7 +1096,7 @@ if (hasAired) {
                                     contentColor = Color.White
                                 )
                             ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = "Play", modifier = Modifier.size(22.dp))
+                                 Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.lists_play), modifier = Modifier.size(22.dp))
                             }
                         }
                         // Continue watching bar, flush with the bottom of the cover
@@ -1116,17 +1118,17 @@ if (hasAired) {
                 ) {
                     if (hideDescription) {
                         Text(
-                            text = "Episode $episodeNumber",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            color = if (isOled) Color.White.copy(alpha = 0.55f) else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                             text = stringResource(R.string.lists_episode, episodeNumber),
+                             style = MaterialTheme.typography.titleSmall,
+                             fontWeight = FontWeight.Bold,
+                             maxLines = 1,
+                             overflow = TextOverflow.Ellipsis,
+                             color = if (isOled) Color.White.copy(alpha = 0.55f) else MaterialTheme.colorScheme.onSurfaceVariant
+                         )
                         Spacer(modifier = Modifier.height(2.dp))
                     }
                     Text(
-                        text = title?.ifEmpty { "Episode $episodeNumber" } ?: "Episode $episodeNumber",
+                         text = title?.ifEmpty { stringResource(R.string.lists_episode, episodeNumber) } ?: stringResource(R.string.lists_episode, episodeNumber),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 2,
@@ -1147,28 +1149,28 @@ if (hasAired) {
                         )
                         if (descriptionExpanded) {
                             Text(
-                                text = "Less",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .padding(top = 2.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable { descriptionExpanded = false }
-                                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                            )
+                                 text = stringResource(R.string.lists_less),
+                                 style = MaterialTheme.typography.labelMedium,
+                                 fontWeight = FontWeight.SemiBold,
+                                 color = MaterialTheme.colorScheme.primary,
+                                 modifier = Modifier
+                                     .padding(top = 2.dp)
+                                     .clip(RoundedCornerShape(6.dp))
+                                     .clickable { descriptionExpanded = false }
+                                     .padding(horizontal = 4.dp, vertical = 2.dp)
+                             )
                         } else if (descriptionTruncated) {
                             Text(
-                                text = "More",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .padding(top = 2.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable { descriptionExpanded = true }
-                                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                            )
+                                 text = stringResource(R.string.lists_more),
+                                 style = MaterialTheme.typography.labelMedium,
+                                 fontWeight = FontWeight.SemiBold,
+                                 color = MaterialTheme.colorScheme.primary,
+                                 modifier = Modifier
+                                     .padding(top = 2.dp)
+                                     .clip(RoundedCornerShape(6.dp))
+                                     .clickable { descriptionExpanded = true }
+                                     .padding(horizontal = 4.dp, vertical = 2.dp)
+                             )
                         }
                     }
                 }

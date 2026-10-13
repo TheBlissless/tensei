@@ -84,6 +84,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -357,7 +358,7 @@ fun HomeScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isOffline) "No internet connection" else "AniList is currently unavailable",
+                            text = if (isOffline) stringResource(R.string.home_offline) else stringResource(R.string.home_anilist_unavailable),
                             color = if (isOffline) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onErrorContainer,
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -381,7 +382,7 @@ fun HomeScreen(
                         if (isLoggedIn && userAvatar != null) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current).data(userAvatar).build(),
-                                contentDescription = "User Avatar",
+                                contentDescription = stringResource(R.string.profile_sheet_avatar_content_description),
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.size(36.dp).clip(CircleShape)
                             )
@@ -395,7 +396,7 @@ fun HomeScreen(
                             ) {
                                 Icon(
                                     Icons.Default.AccountCircle,
-                                    contentDescription = "User",
+                                    contentDescription = stringResource(R.string.profile_sheet_user_content_description),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -404,7 +405,7 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f, fill = false)) {
                             Text(
-                                text = if (isLoggedIn) (userName ?: "My Anime") else "Tensei",
+                                text = if (isLoggedIn) (userName ?: stringResource(R.string.profile_sheet_default_username)) else "Tensei",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -412,7 +413,7 @@ fun HomeScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = "Tap to view profile",
+                                text = stringResource(R.string.profile_tap_to_view_profile),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -476,14 +477,14 @@ fun HomeScreen(
                                     }
                                     Spacer(modifier = Modifier.height(20.dp))
                                     Text(
-                                        "Welcome to Tensei",
+                                        stringResource(R.string.home_welcome_title),
                                         style = MaterialTheme.typography.headlineSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Text(
-                                        "Your lists are empty. Sign in with AniList to sync your anime list and track your progress, or start exploring!",
+                                        stringResource(R.string.home_welcome_body),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
@@ -499,15 +500,15 @@ fun HomeScreen(
                                             model = ImageRequest.Builder(LocalContext.current)
                                                 .data(com.blissless.tensei.network.Endpoints.AniList.FAVICON)
                                                 .build(),
-                                            contentDescription = "AniList",
+                                            contentDescription = stringResource(R.string.home_anilist_logo_content_description),
                                             modifier = Modifier.size(20.dp)
                                         )
                                         Spacer(modifier = Modifier.width(10.dp))
-                                        Text("Login with AniList", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                        Text(stringResource(R.string.settings_login_anilist), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                                     }
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
-                                        "Don't have an account? Sign up for free at anilist.co",
+                                        stringResource(R.string.home_welcome_signup),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -534,12 +535,12 @@ fun HomeScreen(
                         Column {
                             if (continueWatchingEpisodes.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Continue Watching",
+                                    title = stringResource(R.string.home_continue_watching),
                                     icon = Icons.Default.PlayArrow,
                                     count = continueWatchingEpisodes.size,
                                     iconTint = HomeStatusColors.getColor("CURRENT"),
                                     onClick = {
-                                        statusListTitle = "Continue Watching"
+                                        statusListTitle = context.getString(R.string.home_continue_watching)
                                         statusListIcon = Icons.Default.PlayArrow
                                         statusListType = "CURRENT"
                                         statusListIsManga = false
@@ -558,7 +559,7 @@ fun HomeScreen(
                                         if (anime != null) {
                                             val released = anime.latestEpisode ?: anime.totalEpisodes
                                             if (anime.latestEpisode != null && entry.episode > released) {
-                                                context.toast("Episode not aired yet")
+                                                context.toast(context.getString(R.string.home_episode_not_aired))
                                             } else {
                                                 onPlayEpisode(anime, entry.episode, null)
                                             }
@@ -577,12 +578,12 @@ fun HomeScreen(
                             // was scrolled to the end (finished, e.g. 25/25).
                             if (activeMangaContinueReading.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Continue Reading",
+                                    title = stringResource(R.string.home_continue_reading),
                                     icon = Icons.Default.Bookmark,
                                     count = activeMangaContinueReading.size,
                                     iconTint = HomeStatusColors.getColor("CURRENT"),
                                     onClick = {
-                                        statusListTitle = "Continue Reading"
+                                        statusListTitle = context.getString(R.string.home_continue_reading)
                                         statusListIcon = Icons.Default.PlayArrow
                                         statusListType = "CURRENT"
                                         statusListIsManga = true
@@ -600,12 +601,12 @@ fun HomeScreen(
 
                             if (effectiveCurrentlyWatching.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Currently Watching",
+                                    title = stringResource(R.string.home_currently_watching),
                                     icon = Icons.Default.PlayArrow,
                                     count = effectiveCurrentlyWatching.size,
                                     iconTint = HomeStatusColors.getColor("CURRENT"),
                                     onClick = {
-                                        statusListTitle = "Currently Watching"
+                                        statusListTitle = context.getString(R.string.home_currently_watching)
                                         statusListIcon = Icons.Default.PlayArrow
                                         statusListType = "CURRENT"
                                         statusListIsManga = false
@@ -632,12 +633,12 @@ fun HomeScreen(
 
                             if (effectivePlanningToWatch.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Planning to Watch",
+                                    title = stringResource(R.string.home_planning_to_watch),
                                     icon = Icons.Default.Bookmark,
                                     count = effectivePlanningToWatch.size,
                                     iconTint = HomeStatusColors.getColor("PLANNING"),
                                     onClick = {
-                                        statusListTitle = "Planning to Watch"
+                                        statusListTitle = context.getString(R.string.home_planning_to_watch)
                                         statusListIcon = Icons.Default.Bookmark
                                         statusListType = "PLANNING"
                                         statusListIsManga = false
@@ -663,12 +664,12 @@ fun HomeScreen(
 
                             if (effectiveCompleted.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Completed",
+                                    title = stringResource(R.string.home_completed),
                                     icon = Icons.Default.Check,
                                     count = effectiveCompleted.size,
                                     iconTint = HomeStatusColors.getColor("COMPLETED"),
                                     onClick = {
-                                        statusListTitle = "Completed"
+                                        statusListTitle = context.getString(R.string.home_completed)
                                         statusListIcon = Icons.Default.Check
                                         statusListType = "COMPLETED"
                                         statusListIsManga = false
@@ -694,12 +695,12 @@ fun HomeScreen(
 
                             if (effectiveOnHold.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "On Hold",
+                                    title = stringResource(R.string.home_on_hold),
                                     icon = Icons.Default.Pause,
                                     count = effectiveOnHold.size,
                                     iconTint = HomeStatusColors.getColor("PAUSED"),
                                     onClick = {
-                                        statusListTitle = "On Hold"
+                                        statusListTitle = context.getString(R.string.home_on_hold)
                                         statusListIcon = Icons.Default.Pause
                                         statusListType = "PAUSED"
                                         statusListIsManga = false
@@ -725,12 +726,12 @@ fun HomeScreen(
 
                             if (effectiveDropped.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Dropped",
+                                    title = stringResource(R.string.home_dropped),
                                     icon = Icons.Default.Delete,
                                     count = effectiveDropped.size,
                                     iconTint = HomeStatusColors.getColor("DROPPED"),
                                     onClick = {
-                                        statusListTitle = "Dropped"
+                                        statusListTitle = context.getString(R.string.home_dropped)
                                         statusListIcon = Icons.Default.Delete
                                         statusListType = "DROPPED"
                                         statusListIsManga = false
@@ -760,12 +761,12 @@ fun HomeScreen(
                             // (which stays at the top and only shows manga with a saved reading position).
                             if (mangaCurrentlyReading.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Currently Reading",
+                                    title = stringResource(R.string.home_currently_reading),
                                     icon = Icons.Default.PlayArrow,
                                     count = mangaCurrentlyReading.size,
                                     iconTint = HomeStatusColors.getColor("CURRENT"),
                                     onClick = {
-                                        statusListTitle = "Currently Reading"
+                                        statusListTitle = context.getString(R.string.home_currently_reading)
                                         statusListIcon = Icons.Default.PlayArrow
                                         statusListType = "CURRENT"
                                         statusListIsManga = true
@@ -783,12 +784,12 @@ fun HomeScreen(
 
                             if (mangaPlanningToRead.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Planning to Read",
+                                    title = stringResource(R.string.home_planning_to_read),
                                     icon = Icons.Default.Bookmark,
                                     count = mangaPlanningToRead.size,
                                     iconTint = HomeStatusColors.getColor("PLANNING"),
                                     onClick = {
-                                        statusListTitle = "Planning to Read"
+                                        statusListTitle = context.getString(R.string.home_planning_to_read)
                                         statusListIcon = Icons.Default.Bookmark
                                         statusListType = "PLANNING"
                                         statusListIsManga = true
@@ -806,12 +807,12 @@ fun HomeScreen(
 
                             if (mangaCompleted.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Completed",
+                                    title = stringResource(R.string.home_completed),
                                     icon = Icons.Default.Check,
                                     count = mangaCompleted.size,
                                     iconTint = HomeStatusColors.getColor("COMPLETED"),
                                     onClick = {
-                                        statusListTitle = "Completed"
+                                        statusListTitle = context.getString(R.string.home_completed)
                                         statusListIcon = Icons.Default.Check
                                         statusListType = "COMPLETED"
                                         statusListIsManga = true
@@ -829,12 +830,12 @@ fun HomeScreen(
 
                             if (mangaPaused.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "On Hold",
+                                    title = stringResource(R.string.home_on_hold),
                                     icon = Icons.Default.Pause,
                                     count = mangaPaused.size,
                                     iconTint = HomeStatusColors.getColor("PAUSED"),
                                     onClick = {
-                                        statusListTitle = "On Hold"
+                                        statusListTitle = context.getString(R.string.home_on_hold)
                                         statusListIcon = Icons.Default.Pause
                                         statusListType = "PAUSED"
                                         statusListIsManga = true
@@ -852,12 +853,12 @@ fun HomeScreen(
 
                             if (mangaDropped.isNotEmpty()) {
                                 SectionHeader(
-                                    title = "Dropped",
+                                    title = stringResource(R.string.home_dropped),
                                     icon = Icons.Default.Delete,
                                     count = mangaDropped.size,
                                     iconTint = HomeStatusColors.getColor("DROPPED"),
                                     onClick = {
-                                        statusListTitle = "Dropped"
+                                        statusListTitle = context.getString(R.string.home_dropped)
                                         statusListIcon = Icons.Default.Delete
                                         statusListType = "DROPPED"
                                         statusListIsManga = true
@@ -887,9 +888,9 @@ fun HomeScreen(
                                         ) {
                                             Icon(Icons.Default.Bookmark, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(40.dp))
                                             Spacer(Modifier.height(12.dp))
-                                            Text("Your lists are empty", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                            Text(stringResource(R.string.home_lists_empty), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
                                             Spacer(Modifier.height(4.dp))
-                                            Text("Check out the Explore tab to discover anime!", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(stringResource(R.string.home_lists_empty_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
                                 }
@@ -908,7 +909,7 @@ fun HomeScreen(
         val liveStatusListAnime: List<AnimeMedia> =
             if (!statusListIsManga) {
                 when (statusListTitle) {
-                    "Continue Watching" -> continueWatchingEpisodes.map { entry ->
+                    context.getString(R.string.home_continue_watching) -> continueWatchingEpisodes.map { entry ->
                         animeById[entry.animeId] ?: AnimeMedia(id = entry.animeId, title = entry.animeTitle, titleEnglish = entry.animeTitleEnglish, cover = entry.animeCover, banner = entry.animeBanner)
                     }
                     else -> when (statusListType) {
@@ -925,7 +926,7 @@ fun HomeScreen(
         val liveStatusListManga: List<MangaMedia> =
             if (statusListIsManga) {
                 when (statusListTitle) {
-                    "Continue Reading" -> activeMangaContinueReading
+                    context.getString(R.string.home_continue_reading) -> activeMangaContinueReading
                     else -> when (statusListType) {
                         "CURRENT" -> mangaCurrentlyReading
                         "PLANNING" -> mangaPlanningToRead
@@ -980,7 +981,7 @@ fun HomeScreen(
                         val nextEp = anime.progress + 1
                         val released = anime.latestEpisode ?: anime.totalEpisodes
                         if (anime.latestEpisode != null && nextEp > released) {
-                            context.toast("Episode not aired yet")
+                            context.toast(context.getString(R.string.home_episode_not_aired))
                         } else {
                             onPlayEpisode(anime, nextEp, null)
                         }
@@ -1055,20 +1056,20 @@ fun HomeScreen(
     if (showNoExtensionDialog) {
         AlertDialog(
             onDismissRequest = { showNoExtensionDialog = false },
-            title = { Text("No Extension Selected") },
-            text = { Text("Select a default extension in Settings to load episodes for this title.") },
+            title = { Text(stringResource(R.string.home_no_extension_title)) },
+            text = { Text(stringResource(R.string.home_no_extension_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     showNoExtensionDialog = false
                     reopenEpisodePickerAfterSettings = true
                     onNoExtension()
                 }) {
-                    Text("Go to Settings")
+                    Text(stringResource(R.string.home_go_to_settings))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showNoExtensionDialog = false; reopenEpisodePickerAfterSettings = false }) {
-                    Text("Close")
+                    Text(stringResource(R.string.home_close))
                 }
             }
         )
@@ -1223,10 +1224,10 @@ fun HomeScreen(
                                     malId = detailedData.malId
                                 )
                             } else {
-                                context.toast("Anime not found")
+                                context.toast(context.getString(R.string.home_anime_not_found))
                             }
-                        } catch (_: Exception) {
-                            context.toast("Anime not found")
+                            } catch (_: Exception) {
+                                context.toast(context.getString(R.string.home_anime_not_found))
                         }
                     }
                 }
@@ -1269,10 +1270,10 @@ fun HomeScreen(
                                     malId = detailedData.malId
                                 )
                             } else {
-                                context.toast("Anime not found")
+                                context.toast(context.getString(R.string.home_anime_not_found))
                             }
-                        } catch (_: Exception) {
-                            context.toast("Anime not found")
+                            } catch (_: Exception) {
+                                context.toast(context.getString(R.string.home_anime_not_found))
                         }
                     }
                 }
@@ -1324,7 +1325,7 @@ fun HomeScreen(
                         if (userAvatar != null) {
                             AsyncImage(
                                 model = ImageRequest.Builder(LocalContext.current).data(userAvatar).build(),
-                                contentDescription = "User Avatar",
+                                contentDescription = stringResource(R.string.profile_sheet_avatar_content_description),
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.size(52.dp).clip(CircleShape)
                             )
@@ -1333,7 +1334,7 @@ fun HomeScreen(
                                 modifier = Modifier.size(52.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.AccountCircle, contentDescription = "User", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
+                                Icon(Icons.Default.AccountCircle, contentDescription = stringResource(R.string.profile_sheet_user_content_description), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
                             }
                         }
                     } else {
@@ -1343,7 +1344,7 @@ fun HomeScreen(
                         ) {
                             AsyncImage(
                                 model = appIconDrawable(appIcon),
-                                contentDescription = "App",
+                                contentDescription = stringResource(R.string.profile_sheet_app_content_description),
                                 modifier = Modifier.size(44.dp).clip(CircleShape)
                             )
                         }
@@ -1351,13 +1352,13 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.width(14.dp))
                     Column {
                         Text(
-                            if (isLoggedIn) (userName ?: "My Anime") else "Tensei",
+                            if (isLoggedIn) (userName ?: stringResource(R.string.profile_sheet_default_username)) else "Tensei",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            if (isLoggedIn) "Profile, favorites & activity" else "Local favorites & app settings",
+                            if (isLoggedIn) stringResource(R.string.profile_sheet_subtitle_logged_in) else stringResource(R.string.profile_sheet_subtitle_guest),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1367,7 +1368,7 @@ fun HomeScreen(
                 if (isLoggedIn) {
                     ProfileSheetItem(
                         icon = Icons.Default.AccountCircle,
-                        label = "My Profile",
+                        label = stringResource(R.string.profile_sheet_my_profile),
                         onClick = {
                             showProfileSheet = false
                             onProfileClick()
@@ -1377,7 +1378,7 @@ fun HomeScreen(
                 } else {
                     ProfileSheetItem(
                         icon = Icons.Default.Favorite,
-                        label = "Favorites",
+                        label = stringResource(R.string.profile_favorites),
                         onClick = {
                             showProfileSheet = false
                             showOfflineFavoritesDialog = true
@@ -1387,7 +1388,7 @@ fun HomeScreen(
                 }
                 ProfileSheetItem(
                     icon = Icons.Default.Settings,
-                    label = "Settings",
+                    label = stringResource(R.string.settings_title),
                     onClick = {
                         showProfileSheet = false
                         onNavigateToSettings?.invoke()
@@ -1426,8 +1427,8 @@ private fun MangaHorizontalRow(
             val displayTitle = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title
             val progressText = when {
                 manga.totalChapters > 0 && manga.progress > 0 -> "${manga.progress} / ${manga.totalChapters}"
-                manga.totalChapters > 0 -> "${manga.totalChapters} ch."
-                manga.progress > 0 -> "Ch. ${manga.progress}"
+                manga.totalChapters > 0 -> stringResource(R.string.home_chapter_count, manga.totalChapters)
+                manga.progress > 0 -> stringResource(R.string.home_chapter_number, manga.progress)
                 else -> null
             }
             Column(modifier = Modifier.width(140.dp)) {
@@ -1476,7 +1477,7 @@ private fun MangaHorizontalRow(
                                 modifier = Modifier.align(Alignment.TopEnd).size(30.dp),
                                 shape = RoundedCornerShape(10.dp),
                                 colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f), contentColor = Color.White)
-                            ) { Icon(imageVector = Icons.Outlined.Info, contentDescription = "Info", modifier = Modifier.size(16.dp)) }
+                            ) { Icon(imageVector = Icons.Outlined.Info, contentDescription = stringResource(R.string.home_info_content_description), modifier = Modifier.size(16.dp)) }
                         }
                     }
                 }
@@ -1540,10 +1541,10 @@ private fun MangaContinueReadingCard(
     }
     val barFraction = if (hasScrollProgress) scrollProgress else overallProgress
     val progressLabel = when {
-        currentPage != null -> "Page $currentPage of $pageTotal"
-        hasScrollProgress -> "${(scrollProgress * 100).toInt()}% read"
-        manga.totalChapters > 0 -> "${manga.progress} / ${manga.totalChapters} ch."
-        else -> "Reading"
+        currentPage != null -> stringResource(R.string.home_page_of, currentPage, pageTotal)
+        hasScrollProgress -> stringResource(R.string.home_percent_read, (scrollProgress * 100).toInt())
+        manga.totalChapters > 0 -> stringResource(R.string.home_chapters_progress, manga.progress, manga.totalChapters)
+        else -> stringResource(R.string.home_reading)
     }
     val progressColor = if (isOled) Color.White else MaterialTheme.colorScheme.primary
     val displayMangaTitle = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title
@@ -1591,10 +1592,10 @@ private fun MangaContinueReadingCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    TenseiScrimChip(text = "Ch. $trackedChapter")
+                    TenseiScrimChip(text = stringResource(R.string.home_chapter_number, trackedChapter))
                     TenseiCircleAction(
                         icon = Icons.Default.Close,
-                        contentDescription = "Remove from Continue Reading",
+                        contentDescription = stringResource(R.string.home_remove_from_continue_reading),
                         onClick = onDismissClick,
                         size = Sizes.continueCardDismissSize,
                         containerColor = Color.Black.copy(alpha = 0.5f),

@@ -10,6 +10,8 @@ import com.blissless.tensei.ui.theme.ColorMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import androidx.core.content.edit
 
 /**
@@ -77,6 +79,9 @@ class UserPreferences(context: Context) {
         private const val KEY_MANGA_IMAGE_SCALING = "manga_image_scaling"
         private const val KEY_MANGA_PAGE_INDICATOR = "manga_page_indicator"
         private const val KEY_SELECTED_MANGA_EXTENSION = "selected_manga_extension_authority"
+        private const val KEY_MANGA_SOURCE_METHOD = "manga_source_method"
+        private const val KEY_DEFAULT_EXTERNAL_MANGA_EXTENSION = "default_external_manga_extension"
+        private const val KEY_MANGA_EXTENSION_LANGUAGES = "manga_extension_languages"
         private const val KEY_MANGA_SYNC_THRESHOLD = "manga_anilist_sync_threshold"
         private const val KEY_MANGA_LOCK_ROTATION = "manga_lock_rotation"
         private const val KEY_MANGA_FULLSCREEN = "manga_fullscreen"
@@ -195,6 +200,19 @@ class UserPreferences(context: Context) {
     // Default Stream Extension (tensei stream — ContentProvider-based)
     private val _defaultStreamExtension = MutableStateFlow<String?>(null)
     val defaultStreamExtension: StateFlow<String?> = _defaultStreamExtension.asStateFlow()
+
+    // Manga source method: "tensei" (Blissless ContentProvider extensions) or
+    // "external" (installed Mihon-style manga extension APKs).
+    private val _mangaSourceMethod = MutableStateFlow("tensei")
+    val mangaSourceMethod: StateFlow<String> = _mangaSourceMethod.asStateFlow()
+
+    // Default external manga extension (package name) used when mangaSourceMethod == "external".
+    private val _defaultExternalMangaExtension = MutableStateFlow<String?>(null)
+    val defaultExternalMangaExtension: StateFlow<String?> = _defaultExternalMangaExtension.asStateFlow()
+
+    // Per-extension preferred language for external manga extensions (pkgName -> language).
+    private val _mangaExtensionLanguages = MutableStateFlow<Map<String, String>>(emptyMap())
+    val mangaExtensionLanguages: StateFlow<Map<String, String>> = _mangaExtensionLanguages.asStateFlow()
 
     // Manga Reader Preferences
     private val _mangaReaderMode = MutableStateFlow("vertical_scroll")
@@ -354,6 +372,9 @@ class UserPreferences(context: Context) {
             sharedPreferences.edit { putString(KEY_DEFAULT_STREAM_EXTENSION, migratedStreamExt) }
         }
         _defaultStreamExtension.value = migratedStreamExt
+        _mangaSourceMethod.value = sharedPreferences.getString(KEY_MANGA_SOURCE_METHOD, "tensei") ?: "tensei"
+        _defaultExternalMangaExtension.value = sharedPreferences.getString(KEY_DEFAULT_EXTERNAL_MANGA_EXTENSION, null)
+        _mangaExtensionLanguages.value = loadMangaExtensionLanguages()
         _startupScreen.value = sharedPreferences.getInt(KEY_STARTUP_SCREEN, 2)
         _appLanguage.value = sharedPreferences.getString(KEY_APP_LANGUAGE, "system") ?: "system"
         _bufferAheadSeconds.value = sharedPreferences.getInt(KEY_BUFFER_AHEAD_SECONDS, 30)
@@ -1000,6 +1021,49 @@ class UserPreferences(context: Context) {
             }
         }
     }
+
+    fun setMangaSourceMethod(method: String) {
+        _mangaSourceMethod.value = method
+        sharedPreferences.edit { putString(KEY_MANGA_SOURCE_METHOD, method) }
+    }
+
+    fun setDefaultExternalMangaExtension(pkgName: String?) {
+        _defaultExternalMangaExtension.value = pkgName
+        sharedPreferences.edit {
+            if (pkgName == null) {
+                remove(KEY_DEFAULT_EXTERNAL_MANGA_EXTENSION)
+            } else {
+                putString(KEY_DEFAULT_EXTERNAL_MANGA_EXTENSION, pkgName)
+            }
+        }
+    }
+
+    fun getMangaExtensionLanguage(pkgName: String): String? =
+        _mangaExtensionLanguages.value[pkgName]
+
+    fun setMangaExtensionLanguage(pkgName: String, language: String) {
+        val next = _mangaExtensionLanguages.value + (pkgName to language)
+        _mangaExtensionLanguages.value = next
+        saveMangaExtensionLanguages(next)
+    }
+
+    private fun loadMangaExtensionLanguages(): Map<String, String> {
+        val raw = sharedPreferences.getString(KEY_MANGA_EXTENSION_LANGUAGES, null) ?: return emptyMap()
+        return runCatching {
+            val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+            json.decodeFromString(languageMapSerializer(), raw)
+        }.getOrDefault(emptyMap())
+    }
+
+    private fun saveMangaExtensionLanguages(map: Map<String, String>) {
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        sharedPreferences.edit { putString(KEY_MANGA_EXTENSION_LANGUAGES, json.encodeToString(languageMapSerializer(), map)) }
+    }
+
+    private fun languageMapSerializer() = MapSerializer(
+        String.serializer(),
+        String.serializer(),
+    )
 
     // ─── Manga AniList Sync Threshold ─────────────────────────────────
 

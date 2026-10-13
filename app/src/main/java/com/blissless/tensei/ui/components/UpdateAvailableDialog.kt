@@ -16,8 +16,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.blissless.tensei.R
 import com.blissless.tensei.update.GitHubRelease
 import com.blissless.tensei.ui.theme.Radius
 
@@ -49,7 +51,7 @@ fun UpdateAvailableDialog(
         },
         title = {
             Text(
-                text = "Update Available",
+                text = stringResource(R.string.comp_update_available),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -57,12 +59,12 @@ fun UpdateAvailableDialog(
         text = {
             Column {
                 Text(
-                    text = "Version ${release.tagName.removePrefix("v")} is now available.",
+                    text = stringResource(R.string.comp_update_version, release.tagName.removePrefix("v")),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Would you like to download and install it?",
+                    text = stringResource(R.string.comp_update_download_prompt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -74,12 +76,12 @@ fun UpdateAvailableDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = Radius.controlShape
             ) {
-                Text("Update")
+                Text(stringResource(R.string.comp_update))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Later")
+                Text(stringResource(R.string.comp_later))
             }
         }
     )

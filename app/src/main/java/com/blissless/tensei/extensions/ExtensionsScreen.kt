@@ -46,6 +46,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,11 +72,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -83,6 +87,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.components.SkeletonBlock
 import com.blissless.tensei.ui.components.shimmer
 import com.blissless.tensei.ui.theme.Radius
@@ -90,6 +96,9 @@ import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
 import com.blissless.tensei.util.longToast
 import com.blissless.tensei.util.toast
+import com.blissless.tensei.extensions.manga.AvailableExtension
+import com.blissless.tensei.extensions.manga.LoadedExtension
+import com.blissless.tensei.extensions.manga.MangaExtensionManager
 
 /**
  * Extension management, laid out the way every other extension-based app does it
@@ -125,10 +134,25 @@ fun ExtensionsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    // Mihon-compatible manga extensions live on the same page behind a tab, so there is a
+    // single place to manage both anime and manga extensions (and their repositories).
+    val mangaManager = remember { MangaExtensionManager.get(context) }
+    val mangaExtensions by mangaManager.extensions.collectAsState()
+    val mangaRepos by mangaManager.repos.collectAsState()
+    val mangaAvailable by mangaManager.available.collectAsState()
+    val mangaAvailableError by mangaManager.availableError.collectAsState()
+    val mangaLoadErrors by mangaManager.loadErrors.collectAsState()
+    val mangaBusy by mangaManager.busy.collectAsState()
+    val mangaMessage by mangaManager.message.collectAsState()
+
     var searchQuery by remember { mutableStateOf("") }
     var showAddRepoDialog by remember { mutableStateOf(false) }
-    var repoPendingRemoval by remember { mutableStateOf<RepoState?>(null) }
+    var repoPendingRemoval by remember { mutableStateOf<RepoRow?>(null) }
     var extensionPendingUninstall by remember { mutableStateOf<Extension?>(null) }
+
+    LaunchedEffect(Unit) {
+        mangaManager.fetchAvailable()
+    }
 
     val installedPackages = uiState.extensions.map { it.packageName }.toSet()
     val installedNames = uiState.extensions.map { it.name }.toSet()
@@ -193,13 +217,40 @@ fun ExtensionsScreen(
         return
     }
 
-    val filteredExtensions = remember(uiState.extensions, searchQuery) {
+    val mangaRepoSet = remember(mangaRepos) { mangaRepos.toSet() }
+
+    // Anime + manga extensions merged into a single alphabetical list. Each row
+    // carries a small kind badge so the two ecosystems are distinguishable even
+    // though they now share one list.
+    val installedItems = remember(uiState.extensions, mangaExtensions) {
+        buildList {
+            uiState.extensions.forEach { add(InstalledItem.Anime(it)) }
+            mangaExtensions.forEach { add(InstalledItem.Manga(it)) }
+            sortBy { it.sortName.lowercase() }
+        }
+    }
+
+    val filteredInstalled = remember(installedItems, searchQuery) {
         if (searchQuery.isBlank()) {
-            uiState.extensions
+            installedItems
         } else {
-            uiState.extensions.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
-                    it.packageName.contains(searchQuery, ignoreCase = true)
+            installedItems.filter {
+                it.sortName.contains(searchQuery, ignoreCase = true) ||
+                    it.pkgName.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+
+    // Anime repositories and manga repositories merged into one list keyed by URL.
+    val repoRows = remember(uiState.repos, mangaRepoSet) {
+        buildList {
+            val seen = mutableSetOf<String>()
+            uiState.repos.forEach {
+                seen += it.url
+                add(RepoRow(url = it.url, anime = it, isManga = it.url in mangaRepoSet))
+            }
+            mangaRepoSet.filterNot { it in seen }.forEach {
+                add(RepoRow(url = it, anime = null, isManga = true))
             }
         }
     }
@@ -216,6 +267,30 @@ fun ExtensionsScreen(
         contentPadding = PaddingValues(top = Spacing.sm, bottom = 100.dp),
         verticalArrangement = Arrangement.spacedBy(Spacing.xxs)
     ) {
+        mangaMessage?.let { message ->
+            item {
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                )
+            }
+        }
+
+        if (mangaBusy) {
+            item {
+                Row(
+                    modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text(stringResource(R.string.extensions_working), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
         if (uiState.error != null) {
             item {
                 ExtensionsErrorRow(
@@ -227,8 +302,8 @@ fun ExtensionsScreen(
 
         item {
             ExtensionsGroupHeader(
-                title = "Repositories",
-                count = uiState.repos.size
+                title = stringResource(R.string.extensions_repositories),
+                count = repoRows.size
             )
         }
 
@@ -239,19 +314,19 @@ fun ExtensionsScreen(
                     ExtensionsGroupDivider()
                     ExtensionsRowSkeleton()
                 } else {
-                    uiState.repos.forEachIndexed { index, repoState ->
+                    repoRows.forEachIndexed { index, row ->
                         ExtensionsRepoRow(
-                            repoState = repoState,
-                            onClick = { onSelectRepo(repoState.url) },
+                            row = row,
+                            onBrowse = { onSelectRepo(row.url) },
                             onCopyUrl = {
-                                copyToClipboard(context, "Repo URL", repoState.url)
-                                context.toast("Repo URL copied")
+                                copyToClipboard(context, context.getString(R.string.extensions_repo_url), row.url)
+                                context.toast(context.getString(R.string.extensions_repo_url_copied))
                             },
-                            onRemove = { repoPendingRemoval = repoState }
+                            onRemove = { repoPendingRemoval = row }
                         )
-                        if (index < uiState.repos.lastIndex) ExtensionsGroupDivider()
+                        if (index < repoRows.lastIndex) ExtensionsGroupDivider()
                     }
-                    if (uiState.repos.isNotEmpty()) ExtensionsGroupDivider()
+                    if (repoRows.isNotEmpty()) ExtensionsGroupDivider()
                     ExtensionsAddRepoRow(onClick = { showAddRepoDialog = true })
                 }
             }
@@ -259,9 +334,9 @@ fun ExtensionsScreen(
 
         item {
             ExtensionsGroupHeader(
-                title = "Installed",
-                count = uiState.extensions.size,
-                actionLabel = if (updatableCount > 0) "Update all" else null,
+                title = stringResource(R.string.extensions_installed),
+                count = installedItems.size,
+                actionLabel = if (updatableCount > 0) stringResource(R.string.extensions_update_all) else null,
                 actionIcon = Icons.Default.Download,
                 actionProgress = uiState.isUpdatingAll,
                 actionEnabled = !uiState.isUpdatingAll,
@@ -273,7 +348,7 @@ fun ExtensionsScreen(
         // text field is never torn down and rebuilt by the list recomposition
         // that each keystroke causes. Without the key the field could drop the
         // first characters after an update check landed mid-typing.
-        if (!showSkeleton && uiState.extensions.isNotEmpty()) {
+        if (!showSkeleton && installedItems.isNotEmpty()) {
             item(key = EXTENSIONS_SEARCH_KEY) {
                 ExtensionsSearchField(
                     query = searchQuery,
@@ -292,36 +367,49 @@ fun ExtensionsScreen(
                         }
                     }
 
-                    filteredExtensions.isEmpty() -> {
+                    filteredInstalled.isEmpty() -> {
                         ExtensionsHintRow(
                             icon = Icons.Default.Extension,
                             title = if (searchQuery.isBlank()) {
-                                "No extensions installed"
+                                stringResource(R.string.extensions_no_extensions_installed)
                             } else {
-                                "No matches"
+                                stringResource(R.string.extensions_no_matches)
                             },
                             message = if (searchQuery.isBlank()) {
-                                "Open a repository above to install one."
+                                stringResource(R.string.extensions_no_extensions_installed_hint)
                             } else {
-                                "No installed extension matches \"$searchQuery\"."
+                                stringResource(R.string.extensions_no_matches_hint, searchQuery)
                             }
                         )
                     }
 
                     else -> {
-                        filteredExtensions.forEachIndexed { index, extension ->
-                            ExtensionsInstalledRow(
-                                extension = extension,
-                                hasUpdate = extension.packageName in uiState.updatablePackageNames,
-                                onUpdate = { viewModel.updateExtension(extension.packageName) },
-                                onAppInfo = { openAppSettings(context, extension.packageName) },
-                                onCopyPackage = {
-                                    copyToClipboard(context, "Package name", extension.packageName)
-                                    context.toast("Package name copied")
-                                },
-                                onUninstall = { extensionPendingUninstall = extension }
-                            )
-                            if (index < filteredExtensions.lastIndex) ExtensionsGroupDivider()
+                        filteredInstalled.forEachIndexed { index, item ->
+                            when (item) {
+                                is InstalledItem.Anime -> ExtensionsInstalledRow(
+                                    extension = item.ext,
+                                    hasUpdate = item.ext.packageName in uiState.updatablePackageNames,
+                                    onUpdate = { viewModel.updateExtension(item.ext.packageName) },
+                                    onAppInfo = { openAppSettings(context, item.ext.packageName) },
+                                    onCopyPackage = {
+                                        copyToClipboard(context, context.getString(R.string.extensions_package_name), item.ext.packageName)
+                                        context.toast(context.getString(R.string.extensions_package_name_copied))
+                                    },
+                                    onUninstall = { extensionPendingUninstall = item.ext }
+                                )
+
+                                is InstalledItem.Manga -> {
+                                    val update = mangaManager.updateFor(item.ext.pkgName)
+                                    MangaInstalledRow(
+                                        ext = item.ext,
+                                        update = update,
+                                        busy = mangaBusy,
+                                        onUpdate = { update?.let { mangaManager.install(it.pkgName, it.apkUrl) } },
+                                        onUninstall = { mangaManager.uninstall(item.ext.pkgName) }
+                                    )
+                                }
+                            }
+                            if (index < filteredInstalled.lastIndex) ExtensionsGroupDivider()
                         }
                     }
                 }
@@ -332,9 +420,9 @@ fun ExtensionsScreen(
             item {
                 Text(
                     text = if (updatableCount == 1) {
-                        "1 extension can be updated from a repository."
+                        stringResource(R.string.extensions_updatable_one)
                     } else {
-                        "$updatableCount extensions can be updated from a repository."
+                        stringResource(R.string.extensions_updatable_many, updatableCount)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
@@ -342,27 +430,92 @@ fun ExtensionsScreen(
                 )
             }
         }
+
+        if (mangaLoadErrors.isNotEmpty()) {
+            item {
+                ExtensionsGroupHeader(title = stringResource(R.string.extensions_load_errors), count = mangaLoadErrors.size)
+            }
+            item {
+                ExtensionsGroupCard {
+                    mangaLoadErrors.forEach { err ->
+                        Text(
+                            err,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            ExtensionsGroupHeader(title = stringResource(R.string.extensions_available), count = mangaAvailable?.size ?: 0)
+        }
+        item {
+            ExtensionsGroupCard {
+                mangaAvailableError?.let { err ->
+                    Text(
+                        err,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)
+                    )
+                }
+                val list = mangaAvailable
+                when {
+                    list == null -> {
+                        ExtensionsRowSkeleton()
+                    }
+                    list.isEmpty() -> {
+                        ExtensionsHintRow(
+                            icon = Icons.Default.Extension,
+                            title = stringResource(R.string.extensions_no_extensions_available),
+                            message = stringResource(R.string.extensions_no_extensions_available_hint)
+                        )
+                    }
+                    else -> {
+                        val installedPkgs = mangaExtensions.map { it.pkgName }.toSet()
+                        list.forEachIndexed { index, avail ->
+                            MangaAvailableRow(
+                                ext = avail,
+                                installed = avail.pkgName in installedPkgs,
+                                busy = mangaBusy,
+                                onInstall = { mangaManager.install(avail.pkgName, avail.apkUrl) }
+                            )
+                            if (index < list.lastIndex) ExtensionsGroupDivider()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showAddRepoDialog) {
         ExtensionsAddRepoDialog(
             onDismiss = { showAddRepoDialog = false },
-            onConfirm = { url ->
-                viewModel.addRepo(url)
+            onConfirm = { url, kind ->
+                when (kind) {
+                    ExtensionKind.ANIME -> viewModel.addRepo(url)
+                    ExtensionKind.MANGA -> if (mangaManager.addRepo(url)) {
+                        mangaManager.fetchAvailable()
+                    }
+                }
                 showAddRepoDialog = false
             }
         )
     }
 
-    repoPendingRemoval?.let { repoState ->
+    repoPendingRemoval?.let { row ->
         ExtensionsConfirmDialog(
-            title = "Remove repository?",
-            message = repoState.repo?.name?.let {
-                "$it will be removed from this device. Installed extensions are not uninstalled."
-            } ?: "This repository will be removed from this device.",
-            confirmLabel = "Remove",
+            title = stringResource(R.string.extensions_remove_repo_dialog_title),
+            message = row.anime?.repo?.name?.let {
+                stringResource(R.string.extensions_remove_repo_dialog_msg, it)
+            } ?: stringResource(R.string.extensions_remove_repo_dialog_msg_anon),
+            confirmLabel = stringResource(R.string.extensions_remove),
             onConfirm = {
-                viewModel.removeRepo(repoState.url)
+                row.anime?.let { viewModel.removeRepo(it.url) }
+                if (row.isManga) mangaManager.removeRepo(row.url)
                 repoPendingRemoval = null
             },
             onDismiss = { repoPendingRemoval = null }
@@ -371,9 +524,9 @@ fun ExtensionsScreen(
 
     extensionPendingUninstall?.let { extension ->
         ExtensionsConfirmDialog(
-            title = "Uninstall ${extension.name}?",
-            message = "You will be asked to confirm in the system uninstall dialog.",
-            confirmLabel = "Uninstall",
+            title = stringResource(R.string.extensions_uninstall_dialog_title, extension.name),
+            message = stringResource(R.string.extensions_uninstall_dialog_msg),
+            confirmLabel = stringResource(R.string.extensions_uninstall),
             onConfirm = {
                 AnimeExtensionInstaller(context).uninstall(extension.packageName)
                 extensionPendingUninstall = null
@@ -384,6 +537,177 @@ fun ExtensionsScreen(
 }
 
 // --- Group chrome ------------------------------------------------------------
+
+/** Which extension ecosystem a row belongs to. */
+private enum class ExtensionKind(val label: String) {
+    ANIME("Anime"),
+    MANGA("Manga")
+}
+
+/** A unified installed-extension entry, either an Aniyomi anime ext or a Mihon manga ext. */
+private sealed interface InstalledItem {
+    val sortName: String
+    val pkgName: String
+
+    data class Anime(val ext: Extension) : InstalledItem {
+        override val sortName get() = ext.name
+        override val pkgName get() = ext.packageName
+    }
+
+    data class Manga(val ext: LoadedExtension) : InstalledItem {
+        override val sortName get() = ext.name
+        override val pkgName get() = ext.pkgName
+    }
+}
+
+/** A repository row, combining an anime repo state (if any) with the manga repo listing. */
+private data class RepoRow(
+    val url: String,
+    val anime: RepoState?,
+    val isManga: Boolean,
+)
+
+@Composable
+private fun MangaInstalledRow(
+    ext: LoadedExtension,
+    update: AvailableExtension?,
+    busy: Boolean,
+    onUpdate: () -> Unit,
+    onUninstall: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    val scheme = MaterialTheme.colorScheme
+    val iconBitmap = remember(ext.pkgName, ext.icon) {
+        ext.icon?.toBitmap(64, 64)
+    }
+
+    ExtensionsRow(
+        title = ext.name,
+        subtitle = buildString {
+            append("v${ext.versionName}")
+            append(" (${ext.versionCode})")
+            if (ext.lang.isNotBlank()) append(" - ${ext.lang}")
+        },
+        badge = if (ext.nsfw) "NSFW" else null,
+        kindLabel = ExtensionKind.MANGA.label,
+        leading = {
+            if (iconBitmap != null) {
+                Image(
+                    painter = BitmapPainter(iconBitmap.asImageBitmap()),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(Radius.controlShape)
+                )
+            } else {
+                ExtensionsIconTile(
+                    icon = Icons.Default.Extension,
+                    tint = scheme.primary,
+                    containerColor = scheme.primary.copy(alpha = 0.08f)
+                )
+            }
+        },
+        trailing = {
+            if (update != null) {
+                FilledTonalButton(
+                    onClick = onUpdate,
+                    enabled = !busy,
+                    shape = Radius.chipShape,
+                    contentPadding = PaddingValues(horizontal = Spacing.sm),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(Spacing.xs))
+                    Text(stringResource(R.string.extensions_update), style = MaterialTheme.typography.labelMedium)
+                }
+                Spacer(Modifier.width(Spacing.xs))
+            }
+            Box {
+                IconButton(
+                    onClick = { menuExpanded = true },
+                    modifier = Modifier.size(Sizes.iconButton)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.extensions_options, ext.name),
+                        tint = scheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.extensions_uninstall), color = scheme.error) },
+                        onClick = {
+                            menuExpanded = false
+                            onUninstall()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = scheme.error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun MangaAvailableRow(
+    ext: AvailableExtension,
+    installed: Boolean,
+    busy: Boolean,
+    onInstall: () -> Unit
+) {
+    ExtensionsRow(
+        title = ext.name,
+        subtitle = buildString {
+            append("v${ext.versionName}")
+            append(" (${ext.versionCode})")
+            if (ext.lang.isNotBlank()) append(" - ${ext.lang}")
+        },
+        kindLabel = ExtensionKind.MANGA.label,
+        leading = {
+            if (ext.iconUrl.isNotBlank()) {
+                AsyncImage(
+                    model = ext.iconUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(Radius.controlShape)
+                )
+            } else {
+                ExtensionsIconTile(
+                    icon = Icons.Default.Extension,
+                    tint = MaterialTheme.colorScheme.primary,
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                )
+            }
+        },
+        trailing = {
+            FilledTonalButton(
+                onClick = onInstall,
+                enabled = !busy,
+                shape = Radius.chipShape,
+                contentPadding = PaddingValues(horizontal = Spacing.sm),
+                modifier = Modifier.height(32.dp)
+            ) {
+                Text(
+                    if (installed) stringResource(R.string.extensions_reinstall) else stringResource(R.string.extensions_install),
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        }
+    )
+}
 
 /**
  * Section label with an optional trailing action, matching the label style the
@@ -489,7 +813,9 @@ private fun ExtensionsRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     subtitleColor: Color? = null,
+    subtitleMaxLines: Int = 1,
     badge: String? = null,
+    kindLabel: String? = null,
     onClick: (() -> Unit)? = null,
     leading: @Composable () -> Unit,
     trailing: @Composable () -> Unit = {}
@@ -514,6 +840,20 @@ private fun ExtensionsRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
                 )
+                if (kindLabel != null) {
+                    Spacer(Modifier.width(Spacing.sm))
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = Radius.chipShape
+                    ) {
+                        Text(
+                            text = kindLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                        )
+                    }
+                }
                 if (badge != null) {
                     Spacer(Modifier.width(Spacing.sm))
                     Surface(
@@ -535,7 +875,7 @@ private fun ExtensionsRow(
                     style = MaterialTheme.typography.bodySmall,
                     color = subtitleColor
                         ?: MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    maxLines = 1,
+                    maxLines = subtitleMaxLines,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -569,27 +909,33 @@ private fun ExtensionsIconTile(
 
 @Composable
 private fun ExtensionsRepoRow(
-    repoState: RepoState,
-    onClick: () -> Unit,
+    row: RepoRow,
+    onBrowse: () -> Unit,
     onCopyUrl: () -> Unit,
     onRemove: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
-    val repo = repoState.repo
+    val animeState = row.anime
+    val repo = animeState?.repo
     val isReady = repo != null
 
     ExtensionsRow(
-        title = repo?.name ?: repoState.url,
-        subtitle = when {
-            repoState.error != null -> repoState.error
-            repoState.isLoading -> "Loading..."
-            isReady -> repo.description.takeIf { it.isNotBlank() }
-                ?: "${repo.extensions.size} available"
-            else -> "Tap to retry"
+        title = repo?.name ?: row.url,
+        subtitle = if (animeState?.error != null) {
+            animeState.error
+        } else if (animeState?.isLoading == true) {
+            stringResource(R.string.extensions_loading)
+        } else if (isReady) {
+            repo.description.takeIf { it.isNotBlank() } ?: stringResource(R.string.extensions_available_count, repo.extensions.size)
+        } else if (row.isManga) {
+            stringResource(R.string.extensions_manga_repo_subtitle)
+        } else {
+            stringResource(R.string.extensions_tap_to_retry)
         },
-        subtitleColor = if (repoState.error != null) scheme.error else null,
-        onClick = if (isReady) onClick else null,
+        subtitleColor = if (animeState?.error != null) scheme.error else null,
+        kindLabel = if (row.anime != null) ExtensionKind.ANIME.label else ExtensionKind.MANGA.label,
+        onClick = if (isReady) onBrowse else null,
         leading = {
             Box(
                 modifier = Modifier
@@ -604,7 +950,7 @@ private fun ExtensionsRepoRow(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (repoState.isLoading) {
+                if (animeState?.isLoading == true) {
                     CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                 } else {
                     Icon(
@@ -628,7 +974,7 @@ private fun ExtensionsRepoRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Repository options",
+                        contentDescription = stringResource(R.string.extensions_repo_options),
                         tint = scheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.size(18.dp)
                     )
@@ -638,7 +984,7 @@ private fun ExtensionsRepoRow(
                     onDismissRequest = { menuExpanded = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Copy URL") },
+                        text = { Text(stringResource(R.string.extensions_copy_url)) },
                         onClick = {
                             menuExpanded = false
                             onCopyUrl()
@@ -652,7 +998,7 @@ private fun ExtensionsRepoRow(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Remove", color = scheme.error) },
+                        text = { Text(stringResource(R.string.extensions_remove), color = scheme.error) },
                         onClick = {
                             menuExpanded = false
                             onRemove()
@@ -675,8 +1021,9 @@ private fun ExtensionsRepoRow(
 @Composable
 private fun ExtensionsAddRepoRow(onClick: () -> Unit) {
     ExtensionsRow(
-        title = "Add repository",
-        subtitle = "Paste a repository index.json URL",
+        title = stringResource(R.string.extensions_add_repo),
+        subtitle = stringResource(R.string.extensions_add_repo_subtitle),
+        subtitleMaxLines = 2,
         onClick = onClick,
         leading = {
             ExtensionsIconTile(
@@ -721,8 +1068,11 @@ private fun ExtensionsInstalledRow(
     val subtitle = buildString {
         append("v${extension.versionName} (${extension.versionCode})")
         if (sourceCount > 0) {
-            append(" - ${sourceCount} source")
-            if (sourceCount != 1) append("s")
+            append(" - ")
+            append(
+                if (sourceCount == 1) stringResource(R.string.extensions_source_count_one)
+                else stringResource(R.string.extensions_source_count_many, sourceCount)
+            )
         }
         if (languages.isNotEmpty()) {
             append(" - ${languages.joinToString(", ")}")
@@ -733,6 +1083,7 @@ private fun ExtensionsInstalledRow(
         title = extension.name,
         subtitle = subtitle,
         badge = if (extension.isNsfw) "NSFW" else null,
+        kindLabel = ExtensionKind.ANIME.label,
         onClick = onAppInfo,
         leading = {
             if (iconBitmap != null) {
@@ -774,7 +1125,7 @@ private fun ExtensionsInstalledRow(
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(Modifier.width(Spacing.xs))
-                    Text("Update", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.extensions_update), style = MaterialTheme.typography.labelMedium)
                 }
                 Spacer(Modifier.width(Spacing.xs))
             }
@@ -785,7 +1136,7 @@ private fun ExtensionsInstalledRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = "${extension.name} options",
+                        contentDescription = stringResource(R.string.extensions_options, extension.name),
                         tint = scheme.onSurfaceVariant.copy(alpha = 0.6f),
                         modifier = Modifier.size(18.dp)
                     )
@@ -795,7 +1146,7 @@ private fun ExtensionsInstalledRow(
                     onDismissRequest = { menuExpanded = false }
                 ) {
                     DropdownMenuItem(
-                        text = { Text("App info") },
+                        text = { Text(stringResource(R.string.extensions_app_info)) },
                         onClick = {
                             menuExpanded = false
                             onAppInfo()
@@ -809,7 +1160,7 @@ private fun ExtensionsInstalledRow(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Copy package name") },
+                        text = { Text(stringResource(R.string.extensions_copy_package_name)) },
                         onClick = {
                             menuExpanded = false
                             onCopyPackage()
@@ -823,7 +1174,7 @@ private fun ExtensionsInstalledRow(
                         }
                     )
                     DropdownMenuItem(
-                        text = { Text("Uninstall", color = scheme.error) },
+                        text = { Text(stringResource(R.string.extensions_uninstall), color = scheme.error) },
                         onClick = {
                             menuExpanded = false
                             onUninstall()
@@ -853,6 +1204,7 @@ private fun ExtensionsHintRow(
     ExtensionsRow(
         title = title,
         subtitle = message,
+        subtitleMaxLines = 2,
         leading = {
             ExtensionsIconTile(
                 icon = icon,
@@ -890,14 +1242,14 @@ private fun ExtensionsErrorRow(message: String, onRetry: () -> Unit) {
             modifier = Modifier.weight(1f)
         )
         TextButton(onClick = onRetry) {
-            Icon(
-                Icons.Default.Refresh,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(Modifier.width(Spacing.xs))
-            Text("Retry")
-        }
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(Spacing.xs))
+                Text(stringResource(R.string.extensions_retry))
+            }
     }
 }
 
@@ -940,7 +1292,7 @@ private fun ExtensionsSearchField(query: String, onQueryChange: (String) -> Unit
         value = query,
         onValueChange = onQueryChange,
         modifier = Modifier.fillMaxWidth(),
-        placeholder = { Text("Search installed") },
+        placeholder = { Text(stringResource(R.string.extensions_search_installed)) },
         leadingIcon = {
             Icon(
                 imageVector = Icons.Default.Search,
@@ -954,7 +1306,7 @@ private fun ExtensionsSearchField(query: String, onQueryChange: (String) -> Unit
                 IconButton(onClick = { onQueryChange("") }) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Clear",
+                        contentDescription = stringResource(R.string.extensions_clear),
                         tint = scheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
@@ -977,12 +1329,16 @@ private fun ExtensionsSearchField(query: String, onQueryChange: (String) -> Unit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ExtensionsAddRepoDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+private fun ExtensionsAddRepoDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, ExtensionKind) -> Unit
+) {
     var url by remember { mutableStateOf("") }
+    var kind by remember { mutableStateOf(ExtensionKind.MANGA) }
     val keyboard = LocalSoftwareKeyboardController.current
     val submit = {
         if (url.isNotBlank()) {
-            onConfirm(url.trim())
+            onConfirm(url.trim(), kind)
             url = ""
             keyboard?.hide()
         }
@@ -990,11 +1346,28 @@ private fun ExtensionsAddRepoDialog(onDismiss: () -> Unit, onConfirm: (String) -
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add repository") },
+        title = { Text(stringResource(R.string.extensions_add_repo)) },
         text = {
             Column {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    ExtensionKind.entries.forEach { candidate ->
+                        FilterChip(
+                            selected = kind == candidate,
+                            onClick = { kind = candidate },
+                            label = { Text(candidate.label) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            shape = Radius.chipShape
+                        )
+                    }
+                }
+                Spacer(Modifier.height(Spacing.md))
                 Text(
-                    text = "Paste the repository index URL.",
+                    text = stringResource(R.string.extensions_add_repo_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1015,10 +1388,10 @@ private fun ExtensionsAddRepoDialog(onDismiss: () -> Unit, onConfirm: (String) -
             }
         },
         confirmButton = {
-            TextButton(onClick = submit, enabled = url.isNotBlank()) { Text("Add") }
+            TextButton(onClick = submit, enabled = url.isNotBlank()) { Text(stringResource(R.string.extensions_add)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         }
     )
 }
@@ -1041,7 +1414,7 @@ private fun ExtensionsConfirmDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         }
     )
 }

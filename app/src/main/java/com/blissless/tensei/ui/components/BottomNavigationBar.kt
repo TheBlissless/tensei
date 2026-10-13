@@ -1,5 +1,6 @@
 package com.blissless.tensei.ui.components
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -40,9 +41,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.PillShape
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Spacing
@@ -65,13 +68,13 @@ import com.blissless.tensei.ui.theme.tenseiColors
  * @param hidden when true nothing is rendered (player loading, full-screen overlays)
  * @param onSelect invoked with the new tab index
  */
-private data class NavTab(val label: String, val icon: ImageVector)
+private data class NavTab(@StringRes val labelRes: Int, val icon: ImageVector)
 
 private val NAV_TABS = listOf(
-    NavTab("Schedule", Icons.Rounded.CalendarMonth),
-    NavTab("Home", Icons.Rounded.Home),
-    NavTab("Anime", Icons.Rounded.Movie),
-    NavTab("Manga", Icons.Rounded.MenuBook),
+    NavTab(R.string.comp_nav_schedule, Icons.Rounded.CalendarMonth),
+    NavTab(R.string.comp_nav_home, Icons.Rounded.Home),
+    NavTab(R.string.comp_nav_anime, Icons.Rounded.Movie),
+    NavTab(R.string.comp_nav_manga, Icons.Rounded.MenuBook),
 )
 
 @Composable
@@ -192,6 +195,7 @@ private fun NavTabItem(
     // mid-flight, and is only dropped once the pill has collapsed past the
     // icon. Composing it on `selected` alone made it pop in at full width.
     val labelVisible = selected || width > 56.dp
+    val label = stringResource(tab.labelRes)
 
     Row(
         modifier = Modifier
@@ -209,14 +213,14 @@ private fun NavTabItem(
     ) {
         Icon(
             imageVector = tab.icon,
-            contentDescription = tab.label,
+            contentDescription = label,
             tint = contentColor,
             modifier = Modifier.size(21.dp),
         )
         if (labelVisible) {
             Spacer(Modifier.width(Spacing.xs))
             Text(
-                text = tab.label,
+                text = label,
                 style = MaterialTheme.typography.labelMedium,
                 color = contentColor.copy(alpha = labelAlpha),
                 maxLines = 1,

@@ -78,9 +78,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.LocalAnimeEntry
@@ -373,14 +375,14 @@ fun AnimeScreen(
                                         format = detailedData.format
                                     )
                                 } else {
-                                    context.toast("Anime not found - ID: ${relation.id}")
+                                    context.toast(context.getString(R.string.explore_anime_not_found, relation.id))
                                 }
                             } catch (e: Exception) {
-                                context.toast("Error: ${e.message}")
+                                context.toast(context.getString(R.string.explore_error, e.message))
                             }
                         }
                     } catch (e: Exception) {
-                        context.toast("Error: ${e.message}")
+                        context.toast(context.getString(R.string.explore_error, e.message))
                     }
                 }
             },
@@ -420,14 +422,14 @@ fun AnimeScreen(
                                         format = detailedData.format
                                     )
                                 } else {
-                                    context.toast("Anime not found - ID: ${rec.id}")
+                                    context.toast(context.getString(R.string.explore_anime_not_found, rec.id))
                                 }
                             } catch (e: Exception) {
-                                context.toast("Error: ${e.message}")
+                                context.toast(context.getString(R.string.explore_error, e.message))
                             }
                         }
                     } catch (e: Exception) {
-                        context.toast("Error: ${e.message}")
+                        context.toast(context.getString(R.string.explore_error, e.message))
                     }
                 }
             },
@@ -655,7 +657,7 @@ fun AnimeScreen(
             ) {
             if (apiError != null || isOffline) {
                 TenseiErrorBanner(
-                    message = if (isOffline) "No internet connection" else "AniList is currently unavailable",
+                    message = if (isOffline) stringResource(R.string.home_offline) else stringResource(R.string.home_anilist_unavailable),
                     icon = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
                     onRetry = requestRefresh,
                 )
@@ -697,8 +699,9 @@ fun AnimeScreen(
 
             // This Season
             if (filteredSeasonalAnime.isNotEmpty() || showLoadingUi) {
-                SectionTitle("This Season", filteredSeasonalAnime.size, isOled, onClick = {
-                    openAnimeCategory("This Season", Icons.Default.DateRange, filteredSeasonalAnime)
+                val thisSeasonTitle = stringResource(R.string.explore_this_season)
+                SectionTitle(thisSeasonTitle, filteredSeasonalAnime.size, isOled, onClick = {
+                    openAnimeCategory(thisSeasonTitle, Icons.Default.DateRange, filteredSeasonalAnime)
                 })
             }
             if (filteredSeasonalAnime.isNotEmpty()) {
@@ -743,8 +746,9 @@ fun AnimeScreen(
 
             // Top Rated Series
             if (filteredTopSeries.isNotEmpty() || showLoadingUi) {
-                SectionTitle("Top Rated Series", filteredTopSeries.size, isOled, onClick = {
-                    openAnimeCategory("Top Rated Series", Icons.Default.Star, filteredTopSeries)
+                val topRatedSeriesTitle = stringResource(R.string.explore_top_rated_series)
+                SectionTitle(topRatedSeriesTitle, filteredTopSeries.size, isOled, onClick = {
+                    openAnimeCategory(topRatedSeriesTitle, Icons.Default.Star, filteredTopSeries)
                 })
             }
             if (filteredTopSeries.isNotEmpty()) {
@@ -789,8 +793,9 @@ fun AnimeScreen(
 
             // Top Rated Movies
             if (filteredTopMovies.isNotEmpty() || showLoadingUi) {
-                SectionTitle("Top Rated Movies", filteredTopMovies.size, isOled, onClick = {
-                    openAnimeCategory("Top Rated Movies", Icons.Default.PlayCircle, filteredTopMovies)
+                val topRatedMoviesTitle = stringResource(R.string.explore_top_rated_movies)
+                SectionTitle(topRatedMoviesTitle, filteredTopMovies.size, isOled, onClick = {
+                    openAnimeCategory(topRatedMoviesTitle, Icons.Default.PlayCircle, filteredTopMovies)
                 })
             }
             if (filteredTopMovies.isNotEmpty()) {
@@ -835,11 +840,11 @@ fun AnimeScreen(
 
             // Genre Sections (alphabetical order)
             val genreSections = listOf(
-                Triple("Action", filteredActionAnime, Icons.Default.Whatshot),
-                Triple("Comedy", filteredComedyAnime, Icons.Default.SentimentSatisfied),
-                Triple("Fantasy", filteredFantasyAnime, Icons.Default.AutoAwesome),
-                Triple("Romance", filteredRomanceAnime, Icons.Default.Favorite),
-                Triple("Sci-Fi", filteredScifiAnime, Icons.Default.Explore)
+                Triple(stringResource(R.string.explore_genre_action), filteredActionAnime, Icons.Default.Whatshot),
+                Triple(stringResource(R.string.explore_genre_comedy), filteredComedyAnime, Icons.Default.SentimentSatisfied),
+                Triple(stringResource(R.string.explore_genre_fantasy), filteredFantasyAnime, Icons.Default.AutoAwesome),
+                Triple(stringResource(R.string.explore_genre_romance), filteredRomanceAnime, Icons.Default.Favorite),
+                Triple(stringResource(R.string.explore_genre_scifi), filteredScifiAnime, Icons.Default.Explore)
             )
             genreSections.forEachIndexed { index, (genreTitle, genreList, genreIcon) ->
                 GenreSection(

@@ -72,12 +72,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AiringScheduleAnime
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.ExploreAnime
@@ -95,6 +97,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.absoluteValue
 import kotlin.time.Duration.Companion.milliseconds
+import com.blissless.tensei.util.LocaleDate
 import com.blissless.tensei.util.toast
 import com.blissless.tensei.util.longToast
 import androidx.compose.foundation.layout.WindowInsets
@@ -112,22 +115,8 @@ import com.blissless.tensei.ui.theme.Spacing
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.TenseiType
 
-val DayNames = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
-val DayAbbreviations = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-
 private fun getDaysFromCurrentDay(currentDay: Int): List<Int> {
     return (0..6).map { offset -> (currentDay + offset) % 7 }
-}
-
-private fun ordinalDay(day: Int): String {
-    val suffix = when {
-        day % 100 in 11..13 -> "th"
-        day % 10 == 1 -> "st"
-        day % 10 == 2 -> "nd"
-        day % 10 == 3 -> "rd"
-        else -> "th"
-    }
-    return "$day$suffix"
 }
 
 private sealed class TimelineItem {
@@ -204,6 +193,9 @@ fun ScheduleScreen(
     var showAnimeDialog by remember { mutableStateOf(false) }
     var firstOpenedAnime by remember { mutableStateOf<ExploreAnime?>(null) }
     val context = LocalContext.current
+    val locale = remember(context) { LocaleDate.localeOf(context) }
+    val dayNames = remember(locale) { LocaleDate.dayNames(locale) }
+    val dayAbbreviations = remember(locale) { LocaleDate.dayAbbreviations(locale) }
     val aniListFavorites by viewModel.aniListFavorites.collectAsState()
     val currentlyWatching by viewModel.currentlyWatching.collectAsState()
     val planningToWatch by viewModel.planningToWatch.collectAsState()
@@ -239,7 +231,7 @@ fun ScheduleScreen(
 
     LaunchedEffect(currentlyWatching, planningToWatch, completed, onHold, dropped, aniListFavorites) { listVersion++ }
     LaunchedEffect(isFavoriteRateLimited) {
-        if (isFavoriteRateLimited) context.toast("Please wait before toggling again")
+        if (isFavoriteRateLimited) context.toast(context.getString(R.string.schedule_wait_toggling))
     }
 
     LaunchedEffect(isLoading) { if (!isLoading && isRefreshing) isRefreshing = false }
@@ -281,12 +273,12 @@ fun ScheduleScreen(
         result.forEach { (_, list) -> list.sortWith(compareBy<AiringScheduleAnime> { it.airingAt }.thenBy { it.title.lowercase() }) }; result
     }
 
-    val allUpcomingTimelineItems = remember(filteredScheduleByDay, orderedDays, currentDayOfWeek) {
+    val allUpcomingTimelineItems = remember(filteredScheduleByDay, orderedDays, currentDayOfWeek, dayNames) {
         val items = mutableListOf<TimelineItem>()
         val tf = SimpleDateFormat("HH:mm", Locale.getDefault())
         orderedDays.forEach { dayIndex ->
             val dayAnime = (filteredScheduleByDay[dayIndex] ?: emptyList()).sortedWith(compareBy<AiringScheduleAnime> { it.airingAt }.thenBy { it.title.lowercase() })
-            items.add(TimelineItem.DayHeader(dayIndex, DayNames[dayIndex]))
+            items.add(TimelineItem.DayHeader(dayIndex, dayNames[dayIndex]))
             if (dayAnime.isNotEmpty()) {
                 val grouped = LinkedHashMap<Int, MutableList<TimelineItem.Anime>>()
                 dayAnime.forEach { a -> grouped.getOrPut((a.airingAt / 3600).toInt()) { mutableListOf() }.add(TimelineItem.Anime(a)) }
@@ -394,18 +386,18 @@ fun ScheduleScreen(
     ) {
         if (apiError != null || isOffline) {
             TenseiErrorBanner(
-                message = if (isOffline) "No internet connection" else "AniList is currently unavailable",
+                message = if (isOffline) stringResource(R.string.home_offline) else stringResource(R.string.home_anilist_unavailable),
                 icon = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
                 onRetry = requestRefresh,
             )
         }
 
         val scheduleSubtitle = if (viewMode == 0) {
-            "$todayPastCount aired · $totalUpcomingThisWeek upcoming"
+            stringResource(R.string.schedule_subtitle_aired_upcoming, todayPastCount, totalUpcomingThisWeek)
         } else if (selectedDayPastCount > 0) {
-            "$selectedDayPastCount aired · $selectedDayFutureCount upcoming"
+            stringResource(R.string.schedule_subtitle_aired_upcoming, selectedDayPastCount, selectedDayFutureCount)
         } else {
-            "$selectedDayFutureCount upcoming"
+            stringResource(R.string.schedule_subtitle_upcoming, selectedDayFutureCount)
         }
 
         ExploreTopBarRow(
@@ -418,7 +410,7 @@ fun ScheduleScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = "Airing Schedule",
+                        text = stringResource(R.string.schedule_title),
                         style = TenseiType.screenTitle,
                         color = onBg,
                         maxLines = 1,
@@ -436,7 +428,7 @@ fun ScheduleScreen(
             trailing = {
                 SearchCircleAction(
                     onClick = onSearchClick,
-                    contentDescription = "Search the schedule"
+                    contentDescription = stringResource(R.string.schedule_search_content_description)
                 )
             }
         )
@@ -447,8 +439,6 @@ fun ScheduleScreen(
         val currentDayForSelector = if (viewMode == 0) visibleDayByScroll else selectedDay
 
         // Day selector: horizontally swipeable day buttons (Day name, date, airing count)
-        val dateFormat = remember { SimpleDateFormat("MMM", Locale.getDefault()) }
-        val dayOfMonthFormat = remember { SimpleDateFormat("d", Locale.getDefault()) }
         val daySelectorState = rememberLazyListState()
         LaunchedEffect(currentDayForSelector, orderedDaysForSelector) {
             val index = orderedDaysForSelector.indexOf(currentDayForSelector)
@@ -466,11 +456,8 @@ fun ScheduleScreen(
                 val isSelected = currentDayForSelector == dayIndex
                 val isToday = currentDayOfWeek == dayIndex
                 val dayCount = filteredScheduleByDay[dayIndex]?.size ?: 0
-                val dateText = buildString {
-                    append(ordinalDay(dayOfMonthFormat.format(Date((startOfToday + pos * 86400L) * 1000L)).toInt()))
-                    append(" ")
-                    append(dateFormat.format(Date((startOfToday + pos * 86400L) * 1000L)))
-                }
+                val dateMillis = (startOfToday + pos * 86400L) * 1000L
+                val dateText = "${LocaleDate.dayOrdinal(LocaleDate.formatDayNumber(dateMillis, locale), locale)} ${LocaleDate.formatMonthAbbrev(dateMillis, locale)}"
                 Surface(
                     modifier = Modifier
                         .width(100.dp)
@@ -499,7 +486,7 @@ fun ScheduleScreen(
                         verticalArrangement = Arrangement.SpaceEvenly
                     ) {
                         Text(
-                            DayAbbreviations[dayIndex],
+                            dayAbbreviations[dayIndex],
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
@@ -511,7 +498,7 @@ fun ScheduleScreen(
                             color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            if (dayCount > 0) "$dayCount airing" else "none",
+                            if (dayCount > 0) stringResource(R.string.schedule_day_count_airing, dayCount) else stringResource(R.string.schedule_day_count_none),
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                             color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
@@ -537,10 +524,10 @@ fun ScheduleScreen(
                 if (timelineItems.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("No airing anime", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(if (viewMode == 1) "for this day" else "found", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                            Text(stringResource(R.string.schedule_empty_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (viewMode == 1) stringResource(R.string.schedule_empty_for_day) else stringResource(R.string.schedule_empty_found), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                             Spacer(Modifier.height(16.dp))
-                            Text("Swipe down to refresh", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
+                            Text(stringResource(R.string.schedule_swipe_refresh), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f))
                         }
                     }
                 } else if (viewMode == 1) {
@@ -626,10 +613,10 @@ fun ScheduleScreen(
                                 delay(100.milliseconds)
                                 val d = viewModel.fetchDetailedAnimeData(relation.id)
                                 if (d != null) selectedAnime = ExploreAnime(id = relation.id, title = d.title, titleEnglish = d.titleEnglish, cover = d.cover, banner = d.banner, episodes = d.episodes, latestEpisode = d.latestEpisode, averageScore = d.averageScore, genres = d.genres, year = d.year, format = d.format)
-                                else context.toast("Anime not found - ID: ${relation.id}")
-                            } catch (e: Exception) { context.toast("Error: ${e.message}") }
+                                else context.toast(context.getString(R.string.schedule_anime_not_found, relation.id))
+                            } catch (e: Exception) { context.toast(context.getString(R.string.schedule_error, e.message)) }
                         }
-                    } catch (e: Exception) { context.toast("Error: ${e.message}") }
+                    } catch (e: Exception) { context.toast(context.getString(R.string.schedule_error, e.message)) }
                 }
             },
             onRecommendationClick = { rec ->
@@ -652,10 +639,10 @@ fun ScheduleScreen(
                                 delay(100.milliseconds)
                                 val d = viewModel.fetchDetailedAnimeData(rec.id)
                                 if (d != null) selectedAnime = ExploreAnime(id = rec.id, title = d.title, titleEnglish = d.titleEnglish, cover = d.cover, banner = d.banner, episodes = d.episodes, latestEpisode = d.latestEpisode, averageScore = d.averageScore, genres = d.genres, year = d.year, format = d.format)
-                                else context.toast("Anime not found - ID: ${rec.id}")
-                            } catch (e: Exception) { context.toast("Error: ${e.message}") }
+                                else context.toast(context.getString(R.string.schedule_anime_not_found, rec.id))
+                            } catch (e: Exception) { context.toast(context.getString(R.string.schedule_error, e.message)) }
                         }
-                    } catch (e: Exception) { context.toast("Error: ${e.message}") }
+                    } catch (e: Exception) { context.toast(context.getString(R.string.schedule_error, e.message)) }
                 }
             },
             onCharacterClick = onCharacterClick, onStaffClick = onStaffClick,
@@ -751,7 +738,7 @@ private fun DayHeaderItem(dayName: String, isToday: Boolean) {
         if (isToday) {
             Spacer(Modifier.width(10.dp))
             Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
-                Text("TODAY", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
+                Text(stringResource(R.string.schedule_today), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
         }
@@ -879,7 +866,7 @@ private fun TimelineAnimeItem(
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (anime.airingEpisode > 0) {
                                 Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
-                                    Text("Ep ${anime.airingEpisode}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
+                                    Text(stringResource(R.string.schedule_episode, anime.airingEpisode), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                                 }
                             }
@@ -907,7 +894,7 @@ private fun TimelineAnimeItem(
                             when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
                         }
                         Text(
-                            "Aired $elapsedText ago",
+                            stringResource(R.string.schedule_aired_ago, elapsedText),
                             style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                         )
@@ -918,7 +905,7 @@ private fun TimelineAnimeItem(
                             when { h > 24 -> "${h / 24}d ${h % 24}h"; h > 0 -> "${h}h ${m}m"; else -> "${m}m" }
                         }
                         Text(
-                            "in $timeUntilText",
+                            stringResource(R.string.schedule_airing_in, timeUntilText),
                             style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary
                         )
                     }

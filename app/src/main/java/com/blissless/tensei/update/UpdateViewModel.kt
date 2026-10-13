@@ -70,10 +70,10 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         try {
             val channel = NotificationChannel(
                 "update_downloads",
-                "Update Downloads",
+                getApplication<Application>().getString(R.string.runtime_update_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Update download progress"
+                description = getApplication<Application>().getString(R.string.runtime_update_channel_description)
             }
             notificationManager.createNotificationChannel(channel)
         } catch (e: Exception) { ErrorHandler.ignore("UpdateViewModel", "best-effort operation failed", e) }
@@ -87,7 +87,7 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         val notification = NotificationCompat.Builder(ctx, "update_downloads")
                         .setSmallIcon(R.drawable.ic_notification_small)
             .setLargeIcon(BitmapFactory.decodeResource(ctx.resources, R.drawable.ic_notification_large))
-            .setContentTitle("Downloading update")
+            .setContentTitle(ctx.getString(R.string.runtime_update_title))
             .setContentText("$progress%")
             .setProgress(100, progress, false)
             .setOngoing(true)
@@ -109,20 +109,20 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
                     ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: ""
                 }
                 if (release.tagName.isBlank()) {
-                    _uiState.value = UpdateUiState(error = "No releases found")
+                    _uiState.value = UpdateUiState(error = getApplication<Application>().getString(R.string.runtime_update_no_releases))
                     return@launch
                 }
                 val cleanTag = release.tagName.removePrefix("v").removePrefix("V")
                 if (compareVersions(cleanTag, currentVersion) <= 0) {
                     _uiState.value = UpdateUiState(release = release)
                     if (showToast) {
-                        _toastMessage.tryEmit("Already up to date ($currentVersion)")
+                        _toastMessage.tryEmit(getApplication<Application>().getString(R.string.runtime_update_up_to_date, currentVersion))
                     }
                     return@launch
                 }
                 _uiState.value = UpdateUiState(release = release)
             } catch (e: Exception) {
-                _uiState.value = UpdateUiState(error = e.message ?: "Update check failed")
+                _uiState.value = UpdateUiState(error = e.message ?: getApplication<Application>().getString(R.string.runtime_update_check_failed))
             }
         }
     }
@@ -138,7 +138,7 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         val asset = release.assets.find { it.name.contains(targetAbi, ignoreCase = true) }
             ?: release.assets.firstOrNull { it.name.endsWith(".apk") }
             ?: run {
-                _uiState.value = _uiState.value.copy(error = "No APK found for $targetAbi")
+                _uiState.value = _uiState.value.copy(error = getApplication<Application>().getString(R.string.runtime_update_no_apk, targetAbi))
                 return
             }
 
@@ -152,7 +152,7 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
                 installApk(file)
             } catch (e: Exception) {
                 dismissDownloadNotification()
-                _uiState.value = _uiState.value.copy(isDownloading = false, downloadProgress = 0f, error = e.message ?: "Download failed")
+                _uiState.value = _uiState.value.copy(isDownloading = false, downloadProgress = 0f, error = e.message ?: getApplication<Application>().getString(R.string.runtime_update_download_failed))
             }
         }
     }
@@ -213,7 +213,7 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         try {
             ctx.startActivity(intent)
         } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(error = "Failed to open installer: ${e.message}")
+            _uiState.value = _uiState.value.copy(error = getApplication<Application>().getString(R.string.runtime_update_installer_failed, e.message))
         }
     }
 

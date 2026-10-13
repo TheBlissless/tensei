@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings extra strings - Manga source / external extensions -->
+    <string name="settings_x_manga_source">Manga Source</string>
+    <string name="settings_x_external_extension">External Extension</string>
+    <string name="settings_x_external_extension_desc">Tensei uses the built-in Blissless manga extensions. External uses installed Mihon-compatible extension APKs.</string>
+    <string name="settings_x_default_external_extension">Default external extension</string>
+    <string name="settings_x_language">Language</string>
+    <string name="settings_x_no_external_extensions_installed">No external extensions installed. Install some from Manage extensions.</string>
+    <string name="settings_x_tensei">Tensei</string>
+    <string name="settings_x_external">External</string>
+    <!-- Content descriptions -->
+    <string name="settings_x_cd_anilist_avatar">AniList Avatar</string>
+    <string name="settings_x_cd_mal_avatar">MyAnimeList Avatar</string>
+    <string name="settings_x_cd_anilist">AniList</string>
+    <string name="settings_x_cd_mal">MyAnimeList</string>
+</resources>

@@ -93,6 +93,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -110,6 +111,7 @@ import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
+import com.blissless.tensei.R
 import com.blissless.tensei.api.AnimeSkipService
 import com.blissless.tensei.data.models.EpisodeStreams
 import com.blissless.tensei.data.models.EpisodeTimestamps
@@ -568,7 +570,7 @@ fun PlayerScreen(
                     onClearPlaybackPosition?.invoke(animeId, currentEpisode)
                     if (autoPlayNextEpisode && onNextEpisode != null && !isChangingServer) {
                         if (isLatestEpisode) {
-                            context.toast("Latest episode watched")
+                            context.toast(context.getString(R.string.player_latest_episode_watched))
                         } else {
                             onNextEpisode.invoke()
                         }
@@ -731,7 +733,7 @@ fun PlayerScreen(
     LaunchedEffect(videoUrl, isFallbackStream) {
         if (isFallbackStream && !hasShownFallbackToast && videoUrl.isNotEmpty()) {
             hasShownFallbackToast = true
-            val message = if (requestedCategory == "dub") "Dub not available, playing sub" else "Sub not available, playing dub"
+            val message = if (requestedCategory == "dub") context.getString(R.string.player_dub_not_available_playing_sub) else context.getString(R.string.player_sub_not_available_playing_dub)
             context.longToast(message)
         }
     }
@@ -931,7 +933,7 @@ fun PlayerScreen(
             if (isInCredits) {
                 if (autoSkipEnding && !hasSkippedOutro && !isManuallySeeking) {
                     if (isLatestEpisode) {
-                        context.toast("Latest episode watched")
+                        context.toast(context.getString(R.string.player_latest_episode_watched))
                     } else {
                         onNextEpisode.invoke()
                     }
@@ -1397,7 +1399,7 @@ fun PlayerScreen(
                                 ) {
                                     Icon(
                                         Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Back",
+                                        contentDescription = stringResource(R.string.player_back),
                                         tint = Color.White,
                                         modifier = Modifier.size(if (isCompact) 20.dp else 24.dp)
                                     )
@@ -1430,7 +1432,7 @@ fun PlayerScreen(
                                                 Text("·", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
                                             }
                                             Text(
-                                                text = "Ep $currentEpisode${if (totalEpisodes > 0) "/$totalEpisodes" else ""}",
+                                                text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
                                                 color = Color.White.copy(alpha = 0.7f),
                                                 style = MaterialTheme.typography.labelSmall
                                             )
@@ -1600,7 +1602,7 @@ fun PlayerScreen(
                                             ) {
                                                 Icon(
                                                     Icons.Filled.ClosedCaption,
-                                                    contentDescription = "Subtitles",
+                                                    contentDescription = stringResource(R.string.player_subtitles),
                                                     tint = if (subtitlesEnabled) Color.White else Color.Gray.copy(alpha = 0.5f),
                                                     modifier = Modifier.size(if (isCompact) 16.dp else 20.dp)
                                                 )
@@ -1616,7 +1618,7 @@ fun PlayerScreen(
                                         ) {
                                             if (subtitleSettingsView) {
                                                 Text(
-                                                    "Profiles",
+                                                    stringResource(R.string.player_translation_profiles),
                                                     color = Color.Gray,
                                                     style = MaterialTheme.typography.labelSmall,
                                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
@@ -1640,7 +1642,7 @@ fun PlayerScreen(
                                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                                             Icon(Icons.Default.Settings, null, tint = Color.White, modifier = Modifier.size(16.dp))
                                                             Spacer(Modifier.width(8.dp))
-                                                            Text("Edit Subtitles", color = Color.White)
+                                                            Text(stringResource(R.string.player_edit_subtitles), color = Color.White)
                                                         }
                                                     },
                                                     onClick = {
@@ -1651,7 +1653,7 @@ fun PlayerScreen(
                                                 )
                                             } else {
                                                 DropdownMenuItem(
-                                                    text = { Text("Off", color = if (!subtitlesEnabled) MaterialTheme.colorScheme.primary else Color.White) },
+                                                    text = { Text(stringResource(R.string.player_off), color = if (!subtitlesEnabled) MaterialTheme.colorScheme.primary else Color.White) },
                                                     onClick = {
                                                         if (subtitlesEnabled) rebuildWithSubtitles(false)
                                                         selectedEmbeddedTrackIndex = -1
@@ -1665,7 +1667,7 @@ fun PlayerScreen(
                                                     else emptyList()
                                                 }
                                                 if (externalTrackList.isNotEmpty()) {
-                                                    Text("External", color = Color.Gray, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                                    Text(stringResource(R.string.player_external), color = Color.Gray, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                                                     externalTrackList.forEachIndexed { index, track ->
                                                         val isSelected = subtitlesEnabled && selectedSubtitleIndex == index && selectedEmbeddedTrackIndex < 0
                                                         DropdownMenuItem(
@@ -1686,7 +1688,7 @@ fun PlayerScreen(
                                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                                             Icon(Icons.Default.Settings, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
                                                             Spacer(Modifier.width(6.dp))
-                                                            Text("Settings", color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+                                                            Text(stringResource(R.string.player_settings), color = Color.Gray, style = MaterialTheme.typography.labelSmall)
                                                         }
                                                     },
                                                     onClick = { subtitleSettingsView = true }
@@ -1742,7 +1744,7 @@ fun PlayerScreen(
                                 modifier = Modifier.size(if (isCompact) 40.dp else 56.dp).then(if (!isCompact) Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape) else Modifier).alpha(if (onPreviousEpisode != null && !isLoadingStream && !isChangingServer) 1f else 0.3f),
                                 enabled = onPreviousEpisode != null && !isLoadingStream && !isChangingServer
                             ) {
-                                Icon(Icons.Default.SkipPrevious, "Previous Episode", tint = Color.White, modifier = Modifier.size(if (isCompact) 24.dp else 32.dp))
+                                Icon(Icons.Default.SkipPrevious, stringResource(R.string.player_previous_episode), tint = Color.White, modifier = Modifier.size(if (isCompact) 24.dp else 32.dp))
                             }
 
                             IconButton(
@@ -1766,7 +1768,7 @@ fun PlayerScreen(
                                 } else {
                                     Icon(
                                         imageVector = if (hasError) Icons.Default.Refresh else if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = if (hasError) "Retry" else if (isPlaying) "Pause" else "Play",
+                                        contentDescription = if (hasError) stringResource(R.string.player_retry) else if (isPlaying) stringResource(R.string.player_pause) else stringResource(R.string.player_play),
                                         tint = Color.White,
                                         modifier = Modifier.size(if (isCompact) 30.dp else 42.dp)
                                     )
@@ -1780,7 +1782,7 @@ fun PlayerScreen(
                                 modifier = Modifier.size(if (isCompact) 40.dp else 56.dp).then(if (!isCompact) Modifier.background(Color.Black.copy(alpha = 0.5f), CircleShape) else Modifier).alpha(if (onNextEpisode != null && !isLatestEpisode && !isLoadingStream && !isChangingServer) 1f else 0.3f),
                                 enabled = onNextEpisode != null && !isLatestEpisode && !isLoadingStream && !isChangingServer
                             ) {
-                                Icon(Icons.Default.SkipNext, "Next Episode", tint = Color.White, modifier = Modifier.size(if (isCompact) 24.dp else 32.dp))
+                                Icon(Icons.Default.SkipNext, stringResource(R.string.player_next_episode), tint = Color.White, modifier = Modifier.size(if (isCompact) 24.dp else 32.dp))
                             }
                         }
                     }
@@ -1814,7 +1816,7 @@ fun PlayerScreen(
                         }
                     }
                     StreamErrorOverlay(
-                        errorMessage = playbackError ?: "Unknown error",
+                        errorMessage = playbackError ?: stringResource(R.string.player_unknown_error),
                         showTryNextServer = hasMoreServers,
                         onTryNextServer = {
                             if (extensionServers.isNotEmpty()) {
@@ -2075,7 +2077,7 @@ fun PlayerScreen(
                                     ) {
                                         Icon(
                                             if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                            contentDescription = if (isFullscreen) "Exit Fullscreen" else "Fullscreen",
+                                            contentDescription = if (isFullscreen) stringResource(R.string.player_exit_fullscreen) else stringResource(R.string.player_fullscreen),
                                             tint = Color.White,
                                             modifier = Modifier.size(14.dp)
                                         )
@@ -2167,7 +2169,7 @@ fun PlayerScreen(
                 onResetProfile = { index ->
                     val data = subtitleProfileData
                     val updatedProfiles = data.profiles.toMutableList().also {
-                        it[index] = SubtitleSettings(profileName = "Profile ${index + 1}")
+                        it[index] = SubtitleSettings(profileName = context.getString(R.string.player_default_profile_name, index + 1))
                     }
                     saveSubtitleProfileData(data.copy(profiles = updatedProfiles))
                 },

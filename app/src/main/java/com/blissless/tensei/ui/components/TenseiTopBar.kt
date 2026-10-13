@@ -34,9 +34,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
@@ -105,7 +107,7 @@ fun TenseiTopBar(
                 ) {
                     Icon(
                         imageVector = leadingIcon,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.common_back),
                         tint = contentColor,
                         modifier = Modifier.size(22.dp),
                     )
@@ -215,7 +217,7 @@ fun TenseiBackButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     IconButton(onClick = onClick, modifier = modifier.size(Sizes.iconButton)) {
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-            contentDescription = "Back",
+            contentDescription = stringResource(R.string.common_back),
             modifier = Modifier.size(22.dp),
         )
     }

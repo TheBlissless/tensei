@@ -162,6 +162,14 @@ import com.blissless.tensei.viewmodel.installedExtensions
 import com.blissless.tensei.viewmodel.InstalledExtension
 import com.blissless.tensei.viewmodel.selectedExtensionAuthority
 import com.blissless.tensei.viewmodel.selectExtension
+import com.blissless.tensei.viewmodel.mangaSourceMethod
+import com.blissless.tensei.viewmodel.defaultExternalMangaExtension
+import com.blissless.tensei.viewmodel.mangaExtensionLanguages
+import com.blissless.tensei.viewmodel.setMangaSourceMethod
+import com.blissless.tensei.viewmodel.setDefaultExternalMangaExtension
+import com.blissless.tensei.viewmodel.setMangaExtensionLanguage
+import com.blissless.tensei.viewmodel.externalExtensionLanguages
+import com.blissless.tensei.extensions.manga.MangaExtensionManager
 import com.blissless.tensei.util.AppLocale
 import com.blissless.tensei.util.ErrorHandler
 import com.blissless.tensei.util.toast
@@ -191,19 +199,17 @@ fun SettingsScreen(
 
     val appIcon by viewModel.appIcon.collectAsState()
 
-    val groups = remember {
-        listOf(
-            SettingsGroup("appearance", "Appearance", "Theme, colors, and display options", Icons.Default.Palette),
-            SettingsGroup("account", "Account & Sync", "Login, tracking, and sync settings", Icons.Default.Person),
-            SettingsGroup("general", "General", "Startup screen and content preferences", Icons.Default.Settings),
-            SettingsGroup("stream", "Stream Settings", "Streaming method, audio, and buffering", Icons.Default.PlayArrow),
-            SettingsGroup("player", "Player Settings", "Playback controls and skipping", Icons.Default.Subscriptions),
-            SettingsGroup("reader", "Reader Settings", "Manga reading preferences", Icons.Default.Bookmark),
-            SettingsGroup("extensions", "Extensions", "Manage source extensions", Icons.Default.Extension),
-            SettingsGroup("cache", "Cache Management", "Storage and data cleanup", Icons.Default.Storage),
-            SettingsGroup("about", "About", "Version and updates", Icons.Default.Info)
-        )
-    }
+    val groups = listOf(
+        SettingsGroup("appearance", stringResource(R.string.settings_group_appearance), stringResource(R.string.settings_group_appearance_desc), Icons.Default.Palette),
+        SettingsGroup("account", stringResource(R.string.settings_group_account), stringResource(R.string.settings_group_account_desc), Icons.Default.Person),
+        SettingsGroup("general", stringResource(R.string.settings_group_general), stringResource(R.string.settings_group_general_desc), Icons.Default.Settings),
+        SettingsGroup("stream", stringResource(R.string.settings_group_stream), stringResource(R.string.settings_group_stream_desc), Icons.Default.PlayArrow),
+        SettingsGroup("player", stringResource(R.string.settings_group_player), stringResource(R.string.settings_group_player_desc), Icons.Default.Subscriptions),
+        SettingsGroup("reader", stringResource(R.string.settings_group_reader), stringResource(R.string.settings_group_reader_desc), Icons.Default.Bookmark),
+        SettingsGroup("extensions", stringResource(R.string.settings_group_extensions), stringResource(R.string.settings_group_extensions_desc), Icons.Default.Extension),
+        SettingsGroup("cache", stringResource(R.string.settings_group_cache), stringResource(R.string.settings_group_cache_desc), Icons.Default.Storage),
+        SettingsGroup("about", stringResource(R.string.settings_group_about), stringResource(R.string.settings_group_about_desc), Icons.Default.Info)
+    )
 
     AnimatedContent(
         targetState = selectedGroup,
@@ -264,7 +270,7 @@ private fun AccountSettingsPage(
     val malUsername by viewModel.malUsernameFlow.collectAsState()
     val malAvatar by viewModel.malAvatar.collectAsState()
 
-    SettingsPageScaffold(title = "Account & Sync", onBack = onBack) {
+    SettingsPageScaffold(title = stringResource(R.string.settings_group_account), onBack = onBack) {
         val anilistLogged = loginProvider == LoginProvider.ANILIST || loginProvider == LoginProvider.BOTH
         val malLogged = loginProvider == LoginProvider.MAL || loginProvider == LoginProvider.BOTH
 
@@ -279,7 +285,7 @@ private fun AccountSettingsPage(
                     if (userAvatar != null) {
                         AsyncImage(
                             model = userAvatar,
-                            contentDescription = "AniList Avatar",
+                            contentDescription = stringResource(R.string.settings_x_cd_anilist_avatar),
                             modifier = Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)),
                             contentScale = ContentScale.Crop
                         )
@@ -292,8 +298,8 @@ private fun AccountSettingsPage(
                         }
                     }
                     Column {
-                        Text(userName ?: "Logged In", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                        Text("via AniList", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                        Text(userName ?: stringResource(R.string.settings_logged_in), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.settings_via_anilist), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -305,7 +311,7 @@ private fun AccountSettingsPage(
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Log Out of AniList", color = Color.White)
+                    Text(stringResource(R.string.settings_logout_anilist), color = Color.White)
                 }
             }
 
@@ -328,7 +334,7 @@ private fun AccountSettingsPage(
                     if (malAvatar != null) {
                         AsyncImage(
                             model = malAvatar,
-                            contentDescription = "MyAnimeList Avatar",
+                            contentDescription = stringResource(R.string.settings_x_cd_mal_avatar),
                             modifier = Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)),
                             contentScale = ContentScale.Crop
                         )
@@ -341,8 +347,8 @@ private fun AccountSettingsPage(
                         }
                     }
                     Column {
-                        Text(malUsername ?: "Logged In", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                        Text("via MyAnimeList", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                        Text(malUsername ?: stringResource(R.string.settings_logged_in), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.settings_via_mal), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -354,7 +360,7 @@ private fun AccountSettingsPage(
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Log Out of MyAnimeList", color = Color.White)
+                    Text(stringResource(R.string.settings_logout_mal), color = Color.White)
                 }
             }
 
@@ -366,7 +372,7 @@ private fun AccountSettingsPage(
         }
 
         if (loginProvider == LoginProvider.NONE) {
-            SectionHeader("SIGN IN")
+            SectionHeader(stringResource(R.string.settings_section_sign_in))
             SettingsCard {
                 Spacer(modifier = Modifier.height(4.dp))
                 AniListLoginButton(viewModel)
@@ -377,29 +383,29 @@ private fun AccountSettingsPage(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        SectionHeader("TRACKING & SYNC")
+        SectionHeader(stringResource(R.string.settings_section_tracking_sync))
         SettingsCard {
             SettingsSliderRow(
-                title = "Episode Tracking",
-                description = "Auto-update anime progress when you've watched this percentage",
+                title = stringResource(R.string.settings_tracking_episode),
+                description = stringResource(R.string.settings_tracking_episode_desc),
                 value = trackingPercentage.toFloat(),
                 valueRange = 50f..100f,
-                valueLabel = "${trackingPercentage}%",
+                valueLabel = stringResource(R.string.settings_value_percent, trackingPercentage),
                 onValueChange = { viewModel.setTrackingPercentage((round(it / 5f) * 5f).toInt()) },
-                minLabel = "50%",
-                maxLabel = "100%"
+                minLabel = stringResource(R.string.settings_value_percent, 50),
+                maxLabel = stringResource(R.string.settings_value_percent, 100)
             )
         }
         SettingsCard {
             SettingsSliderRow(
-                title = "Manga Tracking",
-                description = "Auto-update manga progress when you've read this percentage",
+                title = stringResource(R.string.settings_tracking_manga),
+                description = stringResource(R.string.settings_tracking_manga_desc),
                 value = mangaSyncThreshold.toFloat(),
                 valueRange = 75f..100f,
-                valueLabel = "${mangaSyncThreshold}%",
+                valueLabel = stringResource(R.string.settings_value_percent, mangaSyncThreshold),
                 onValueChange = { viewModel.setMangaSyncThreshold(it.toInt()) },
-                minLabel = "75%",
-                maxLabel = "100%"
+                minLabel = stringResource(R.string.settings_value_percent, 75),
+                maxLabel = stringResource(R.string.settings_value_percent, 100)
             )
         }
 
@@ -407,8 +413,8 @@ private fun AccountSettingsPage(
         SectionHeader("DISCORD")
         SettingsCard {
             SettingsToggle(
-                title = "Discord Rich Presence",
-                description = "Show what you're watching/reading on Discord\nMay only work with the official Discord app",
+                title = stringResource(R.string.settings_discord_title),
+                description = stringResource(R.string.settings_discord_desc),
                 checked = discordRichPresence,
                 onCheckedChange = { viewModel.setDiscordRichPresence(it) }
             )
@@ -418,16 +424,16 @@ private fun AccountSettingsPage(
     if (showAniListLogoutConfirmation) {
         AlertDialog(
             onDismissRequest = { showAniListLogoutConfirmation = false },
-            title = { Text("Log Out of AniList") },
-            text = { Text("Are you sure you want to log out of AniList? Your MyAnimeList session will be kept.") },
+            title = { Text(stringResource(R.string.settings_logout_anilist)) },
+            text = { Text(stringResource(R.string.settings_logout_anilist_msg)) },
             confirmButton = {
                 Button(
                     onClick = { viewModel.logoutProvider(LoginProvider.ANILIST); showAniListLogoutConfirmation = false },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Log Out") }
+                ) { Text(stringResource(R.string.settings_logout)) }
             },
             dismissButton = {
-                TextButton(onClick = { showAniListLogoutConfirmation = false }) { Text("Cancel") }
+                TextButton(onClick = { showAniListLogoutConfirmation = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -435,16 +441,16 @@ private fun AccountSettingsPage(
     if (showMalLogoutConfirmation) {
         AlertDialog(
             onDismissRequest = { showMalLogoutConfirmation = false },
-            title = { Text("Log Out of MyAnimeList") },
-            text = { Text("Are you sure you want to log out of MyAnimeList? Your AniList session will be kept.") },
+            title = { Text(stringResource(R.string.settings_logout_mal)) },
+            text = { Text(stringResource(R.string.settings_logout_mal_msg)) },
             confirmButton = {
                 Button(
                     onClick = { viewModel.logoutProvider(LoginProvider.MAL); showMalLogoutConfirmation = false },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Log Out") }
+                ) { Text(stringResource(R.string.settings_logout)) }
             },
             dismissButton = {
-                TextButton(onClick = { showMalLogoutConfirmation = false }) { Text("Cancel") }
+                TextButton(onClick = { showMalLogoutConfirmation = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -464,11 +470,11 @@ private fun AniListLoginButton(viewModel: MainViewModel) {
             model = ImageRequest.Builder(LocalContext.current)
                 .data(com.blissless.tensei.network.Endpoints.AniList.FAVICON)
                 .crossfade(true).build(),
-            contentDescription = "AniList",
+            contentDescription = stringResource(R.string.settings_x_cd_anilist),
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(10.dp))
-        Text("Login with AniList")
+        Text(stringResource(R.string.settings_login_anilist))
     }
 }
 
@@ -486,11 +492,11 @@ private fun MalLoginButton(viewModel: MainViewModel) {
             model = ImageRequest.Builder(LocalContext.current)
                 .data(com.blissless.tensei.network.Endpoints.Mal.FAVICON)
                 .crossfade(true).build(),
-            contentDescription = "MyAnimeList",
+            contentDescription = stringResource(R.string.settings_x_cd_mal),
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(10.dp))
-        Text("Login with MyAnimeList")
+        Text(stringResource(R.string.settings_login_mal))
     }
 }
 
@@ -506,19 +512,19 @@ private fun AppearanceSettingsPage(
     val showMangaCardButtons by viewModel.showMangaCardButtons.collectAsState(initial = true)
     val showMangaStatusColors by viewModel.showMangaStatusColors.collectAsState(initial = true)
 
-    SettingsPageScaffold(title = "Appearance", onBack = onBack) {
+    SettingsPageScaffold(title = stringResource(R.string.settings_group_appearance), onBack = onBack) {
         val currentThemeMode by viewModel.themeMode.collectAsState()
         val colorModeValue by viewModel.colorMode.collectAsState()
         val currentColorMode = remember(colorModeValue) { ColorMode.fromValue(colorModeValue) }
 
-        SectionHeader("THEME MODE")
+        SectionHeader(stringResource(R.string.settings_section_theme_mode))
         SettingsCard {
             SettingsRadioItem(
                 selected = currentThemeMode == ThemeMode.SYSTEM.value,
                 onClick = { viewModel.setThemeMode(ThemeMode.SYSTEM.value) },
                 icon = Icons.Default.Settings,
-                title = "System Theme",
-                description = "Follow your device theme setting"
+                title = stringResource(R.string.settings_theme_system),
+                description = stringResource(R.string.settings_theme_system_desc)
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -529,8 +535,8 @@ private fun AppearanceSettingsPage(
                 selected = currentThemeMode == ThemeMode.LIGHT.value,
                 onClick = { viewModel.setThemeMode(ThemeMode.LIGHT.value) },
                 icon = Icons.Default.LightMode,
-                title = "Light",
-                description = "Bright and clean appearance"
+                title = stringResource(R.string.settings_theme_light),
+                description = stringResource(R.string.settings_theme_light_desc)
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -541,8 +547,8 @@ private fun AppearanceSettingsPage(
                 selected = currentThemeMode == ThemeMode.DARK.value,
                 onClick = { viewModel.setThemeMode(ThemeMode.DARK.value) },
                 icon = Icons.Default.DarkMode,
-                title = "Dark",
-                description = "Easy on the eyes at night"
+                title = stringResource(R.string.settings_theme_dark),
+                description = stringResource(R.string.settings_theme_dark_desc)
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -553,19 +559,19 @@ private fun AppearanceSettingsPage(
                 selected = currentThemeMode == ThemeMode.OLED.value,
                 onClick = { viewModel.setThemeMode(ThemeMode.OLED.value) },
                 icon = Icons.Default.Storage,
-                title = "OLED",
-                description = "Pure black for AMOLED screens"
+                title = stringResource(R.string.settings_theme_oled),
+                description = stringResource(R.string.settings_theme_oled_desc)
             )
         }
 
-        SectionHeader("COLOR MODE")
+        SectionHeader(stringResource(R.string.settings_section_color_mode))
         SettingsCard {
             SettingsRadioItem(
                 selected = currentColorMode == ColorMode.MATERIAL,
                 onClick = { viewModel.setColorMode(ColorMode.MATERIAL.value) },
                 icon = Icons.Default.Palette,
-                title = "Material 3",
-                description = "Full Material You colors across the app"
+                title = stringResource(R.string.settings_color_material),
+                description = stringResource(R.string.settings_color_material_desc)
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -576,8 +582,8 @@ private fun AppearanceSettingsPage(
                 selected = currentColorMode == ColorMode.SEMI_MONOCHROME,
                 onClick = { viewModel.setColorMode(ColorMode.SEMI_MONOCHROME.value) },
                 icon = Icons.Default.Contrast,
-                title = "Semi Monochrome",
-                description = "Mostly white with some accents"
+                title = stringResource(R.string.settings_color_semi_mono),
+                description = stringResource(R.string.settings_color_semi_mono_desc)
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -588,18 +594,18 @@ private fun AppearanceSettingsPage(
                 selected = currentColorMode == ColorMode.MONOCHROME,
                 onClick = { viewModel.setColorMode(ColorMode.MONOCHROME.value) },
                 icon = Icons.Default.InvertColors,
-                title = "Monochrome",
-                description = "Grey and white appearance"
+                title = stringResource(R.string.settings_color_mono),
+                description = stringResource(R.string.settings_color_mono_desc)
             )
         }
 
         val hideEpisodeDescription by viewModel.hideEpisodeDescription.collectAsState(initial = true)
 
-        SectionHeader("EPISODES")
+        SectionHeader(stringResource(R.string.settings_section_episodes))
         SettingsCard {
             SettingsToggle(
-                title = "Hide Episode Descriptions",
-                description = "Show only the episode number and title in episode lists",
+                title = stringResource(R.string.settings_hide_episode_desc),
+                description = stringResource(R.string.settings_hide_episode_desc_detail),
                 checked = hideEpisodeDescription,
                 onCheckedChange = { viewModel.setHideEpisodeDescription(it) }
             )
@@ -607,14 +613,14 @@ private fun AppearanceSettingsPage(
 
         val appIcon by viewModel.appIcon.collectAsState()
 
-        SectionHeader("APP ICON")
+        SectionHeader(stringResource(R.string.settings_section_app_icon))
         SettingsCard {
             AppIconRadioItem(
                 selected = appIcon == "default",
                 onClick = { viewModel.setAppIcon("default") },
                 previewRes = R.drawable.ic_icon_default,
-                title = "Default",
-                description = "Standard app icon"
+                title = stringResource(R.string.settings_icon_default),
+                description = stringResource(R.string.settings_icon_default_desc)
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -625,8 +631,8 @@ private fun AppearanceSettingsPage(
                 selected = appIcon == "wob",
                 onClick = { viewModel.setAppIcon("wob") },
                 previewRes = R.drawable.ic_icon_wob,
-                title = "White on Black",
-                description = "Light logo on a dark background"
+                title = stringResource(R.string.settings_icon_wob),
+                description = stringResource(R.string.settings_icon_wob_desc)
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -637,8 +643,8 @@ private fun AppearanceSettingsPage(
                 selected = appIcon == "bow",
                 onClick = { viewModel.setAppIcon("bow") },
                 previewRes = R.drawable.ic_icon_bow,
-                title = "Black on White",
-                description = "Dark logo on a light background"
+                title = stringResource(R.string.settings_icon_bow),
+                description = stringResource(R.string.settings_icon_bow_desc)
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 54.dp),
@@ -657,36 +663,36 @@ private fun AppearanceSettingsPage(
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
-                    "The app will restart to apply the new icon",
+                    stringResource(R.string.settings_icon_restart_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
             }
         }
 
-        SectionHeader("DISPLAY")
+        SectionHeader(stringResource(R.string.settings_section_display))
         SettingsCard {
             SettingsToggle(
-                title = "Anime Status Color Indicators",
-                description = "Show colored status bars on anime cards",
+                title = stringResource(R.string.settings_display_anime_status_colors),
+                description = stringResource(R.string.settings_display_anime_status_colors_desc),
                 checked = showStatusColorsState,
                 onCheckedChange = { viewModel.setShowStatusColors(it) }
             )
             SettingsToggle(
-                title = "Anime Card Buttons",
-                description = "Bookmark and play buttons on anime cards in Explore",
+                title = stringResource(R.string.settings_display_anime_card_buttons),
+                description = stringResource(R.string.settings_display_anime_card_buttons_desc),
                 checked = showAnimeCardButtons,
                 onCheckedChange = { viewModel.setShowAnimeCardButtons(it) }
             )
             SettingsToggle(
-                title = "Manga Status Color Indicators",
-                description = "Show colored status bars on manga cards",
+                title = stringResource(R.string.settings_display_manga_status_colors),
+                description = stringResource(R.string.settings_display_manga_status_colors_desc),
                 checked = showMangaStatusColors,
                 onCheckedChange = { viewModel.setShowMangaStatusColors(it) }
             )
             SettingsToggle(
-                title = "Manga Card Buttons",
-                description = "Bookmark and read buttons on manga cards in Explore",
+                title = stringResource(R.string.settings_display_manga_card_buttons),
+                description = stringResource(R.string.settings_display_manga_card_buttons_desc),
                 checked = showMangaCardButtons,
                 onCheckedChange = { viewModel.setShowMangaCardButtons(it) }
             )
@@ -707,60 +713,7 @@ private fun GeneralSettingsPage(
     var showLanguagePicker by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    SettingsPageScaffold(title = "General", onBack = onBack) {
-        SectionHeader("LAUNCH")
-        Text(
-            text = "Choose which screen appears when you open the app",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp)
-        )
-        SettingsCard {
-            SettingsRadioItem(
-                selected = startupScreenState == 0,
-                onClick = { viewModel.setStartupScreen(0) },
-                icon = Icons.Default.CalendarMonth,
-                title = "Schedule",
-                description = "Airing schedule view"
-            )
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 54.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                thickness = 0.5.dp
-            )
-            SettingsRadioItem(
-                selected = startupScreenState == 1,
-                onClick = { viewModel.setStartupScreen(1) },
-                icon = Icons.Default.Home,
-                title = "Home",
-                description = "Your anime and manga lists"
-            )
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 54.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                thickness = 0.5.dp
-            )
-            SettingsRadioItem(
-                selected = startupScreenState == 2,
-                onClick = { viewModel.setStartupScreen(2) },
-                icon = Icons.Default.Explore,
-                title = "Anime",
-                description = "Browse and discover anime"
-            )
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 54.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                thickness = 0.5.dp
-            )
-            SettingsRadioItem(
-                selected = startupScreenState == 3,
-                onClick = { viewModel.setStartupScreen(3) },
-                icon = Icons.Default.MenuBook,
-                title = "Manga",
-                description = "Browse and discover manga"
-            )
-        }
-
+    SettingsPageScaffold(title = stringResource(R.string.settings_group_general), onBack = onBack) {
         SectionHeader(stringResource(R.string.settings_language_header))
         Text(
             text = stringResource(R.string.settings_language_description),
@@ -774,29 +727,81 @@ private fun GeneralSettingsPage(
                 icon = Icons.Default.Language,
                 title = stringResource(R.string.settings_language_title),
                 subtitle = when (appLanguage) {
-                    "en" -> "English"
-                    "de" -> "Deutsch"
+                    "en" -> stringResource(R.string.settings_language_en)
+                    "de" -> stringResource(R.string.settings_language_de)
                     else -> stringResource(R.string.settings_language_system)
                 }
             )
         }
 
-        SectionHeader("CONTENT")
+        SectionHeader(stringResource(R.string.settings_section_launch))
+        Text(
+            text = stringResource(R.string.settings_launch_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 8.dp)
+        )
+        SettingsCard {
+            SettingsRadioItem(
+                selected = startupScreenState == 0,
+                onClick = { viewModel.setStartupScreen(0) },
+                icon = Icons.Default.CalendarMonth,
+                title = stringResource(R.string.settings_startup_schedule),
+                description = stringResource(R.string.settings_startup_schedule_desc)
+            )
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 54.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                thickness = 0.5.dp
+            )
+            SettingsRadioItem(
+                selected = startupScreenState == 1,
+                onClick = { viewModel.setStartupScreen(1) },
+                icon = Icons.Default.Home,
+                title = stringResource(R.string.settings_startup_home),
+                description = stringResource(R.string.settings_startup_home_desc)
+            )
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 54.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                thickness = 0.5.dp
+            )
+            SettingsRadioItem(
+                selected = startupScreenState == 2,
+                onClick = { viewModel.setStartupScreen(2) },
+                icon = Icons.Default.Explore,
+                title = stringResource(R.string.settings_startup_anime),
+                description = stringResource(R.string.settings_startup_anime_desc)
+            )
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 54.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                thickness = 0.5.dp
+            )
+            SettingsRadioItem(
+                selected = startupScreenState == 3,
+                onClick = { viewModel.setStartupScreen(3) },
+                icon = Icons.Default.MenuBook,
+                title = stringResource(R.string.settings_startup_manga),
+                description = stringResource(R.string.settings_startup_manga_desc)
+            )
+        }
+        SectionHeader(stringResource(R.string.settings_section_content))
         SettingsCard {
             SettingsToggle(
-                title = "English Titles",
-                description = "Show English titles instead of Romaji",
+                title = stringResource(R.string.settings_english_titles),
+                description = stringResource(R.string.settings_english_titles_desc),
                 checked = preferEnglishTitles,
                 onCheckedChange = { viewModel.setPreferEnglishTitles(it) }
             )
         }
 
-        SectionHeader("PERFORMANCE")
+        SectionHeader(stringResource(R.string.settings_section_performance))
         SettingsCard {
             val maxPerformanceState by viewModel.maxPerformance.collectAsState(initial = false)
             SettingsToggle(
-                title = "Max Performance",
-                description = "Force the app to run at the highest refresh rate available. Only works on Android 11+",
+                title = stringResource(R.string.settings_max_performance),
+                description = stringResource(R.string.settings_max_performance_desc),
                 checked = maxPerformanceState,
                 onCheckedChange = { viewModel.setMaxPerformance(it) }
             )
@@ -849,7 +854,7 @@ private fun GeneralSettingsPage(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showLanguagePicker = false }) { Text("Cancel") } }
+            confirmButton = { TextButton(onClick = { showLanguagePicker = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 }
@@ -883,25 +888,25 @@ private fun StreamSettingsPage(
         viewModel.loadAvailableStreamExtensions()
     }
 
-    SettingsPageScaffold(title = "Stream Settings", onBack = onBack) {
-        SectionHeader("STREAM METHOD")
+    SettingsPageScaffold(title = stringResource(R.string.settings_group_stream), onBack = onBack) {
+        SectionHeader(stringResource(R.string.settings_section_stream_method))
         SettingsCard {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 SettingsChoiceChip(label = "Tensei", isSelected = streamMethod == "magnet", onClick = { viewModel.setStreamMethod("magnet") })
-                SettingsChoiceChip(label = "External", isSelected = streamMethod == "direct", onClick = { viewModel.setStreamMethod("direct") })
+                SettingsChoiceChip(label = stringResource(R.string.settings_stream_external), isSelected = streamMethod == "direct", onClick = { viewModel.setStreamMethod("direct") })
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "Stream via HTTP extensions or Tensei extensions",
+                stringResource(R.string.settings_stream_method_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
 
-        SectionHeader("EXTENSIONS")
+        SectionHeader(stringResource(R.string.settings_section_extensions))
         SettingsCard {
             ClickableSettingsRow(
                 onClick = {
@@ -916,17 +921,17 @@ private fun StreamSettingsPage(
                     }
                 },
                 icon = Icons.Default.Extension,
-                title = "Default Extension",
+                title = stringResource(R.string.settings_default_extension),
                 subtitle = if (streamMethod == "direct") {
                     if (defaultExtPackage.isNotEmpty())
                         extUiState.extensions.find { it.packageName == defaultExtPackage }?.name ?: defaultExtPackage
-                    else "None"
+                    else stringResource(R.string.common_none)
                 } else {
                     val streamName = defaultStreamExtension?.takeIf { it.isNotBlank() }?.let { auth -> streamExtensions.find { it.second == auth }?.first }
                     if (streamName != null) streamName
                     else {
                         val name = defaultMagnetExtension?.takeIf { it.isNotBlank() }?.let { auth -> magnetExtensions.find { it.second == auth }?.first }
-                        name ?: defaultMagnetExtension?.takeIf { it.isNotBlank() } ?: "None"
+                        name ?: defaultMagnetExtension?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_none)
                     }
                 }
             )
@@ -935,12 +940,12 @@ private fun StreamSettingsPage(
             ClickableSettingsRow(
                 onClick = { showSubtitleLangPicker = true },
                 icon = Icons.Default.Subtitles,
-                title = "Default Subtitle Language",
+                title = stringResource(R.string.settings_default_subtitle_lang),
                 subtitle = defaultSubtitleLang
             )
         }
 
-        SectionHeader("AUDIO")
+        SectionHeader(stringResource(R.string.settings_section_audio))
         SettingsCard {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -951,49 +956,49 @@ private fun StreamSettingsPage(
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "Preferred Audio Category",
+                stringResource(R.string.settings_preferred_audio_category),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                "Try servers from this category first when playing",
+                stringResource(R.string.settings_preferred_audio_category_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
 
-        SectionHeader("BUFFER")
+        SectionHeader(stringResource(R.string.settings_section_buffer))
         SettingsCard {
             SettingsSliderRow(
-                title = "Buffer Ahead",
-                description = "Amount of video to buffer ahead of playback",
+                title = stringResource(R.string.settings_buffer_ahead),
+                description = stringResource(R.string.settings_buffer_ahead_desc),
                 value = bufferAheadSeconds.toFloat(),
                 valueRange = 0f..300f,
-                valueLabel = "${bufferAheadSeconds}s",
+                valueLabel = stringResource(R.string.settings_value_seconds, bufferAheadSeconds),
                 onValueChange = { viewModel.setBufferAheadSeconds((round(it / 10f) * 10f).toInt()) },
-                minLabel = "0s",
-                maxLabel = "300s",
+                minLabel = stringResource(R.string.settings_value_seconds, 0),
+                maxLabel = stringResource(R.string.settings_value_seconds, 300),
                 leadingIcon = Icons.Default.PlayArrow
             )
         }
         SettingsCard {
             SettingsSliderRow(
-                title = "Max Buffer Size",
-                description = "Maximum amount of data to buffer",
+                title = stringResource(R.string.settings_buffer_size),
+                description = stringResource(R.string.settings_buffer_size_desc),
                 value = bufferSizeMb.toFloat(),
                 valueRange = 50f..500f,
-                valueLabel = "${bufferSizeMb}MB",
+                valueLabel = stringResource(R.string.settings_value_mb, bufferSizeMb),
                 onValueChange = { viewModel.setBufferSizeMb((round(it / 25f) * 25f).toInt()) },
-                minLabel = "50MB",
-                maxLabel = "500MB",
+                minLabel = stringResource(R.string.settings_value_mb, 50),
+                maxLabel = stringResource(R.string.settings_value_mb, 500),
                 leadingIcon = Icons.Default.Memory
             )
         }
         SettingsCard {
             SettingsToggle(
-                title = "Show Buffer Indicator",
-                description = "Display buffered amount on the progress bar",
+                title = stringResource(R.string.settings_buffer_indicator),
+                description = stringResource(R.string.settings_buffer_indicator_desc),
                 checked = showBufferIndicator,
                 onCheckedChange = { viewModel.setShowBufferIndicator(it) }
             )
@@ -1003,7 +1008,7 @@ private fun StreamSettingsPage(
     if (showExtPicker) {
         AlertDialog(
             onDismissRequest = { showExtPicker = false },
-            title = { Text("Default Extension") },
+            title = { Text(stringResource(R.string.settings_default_extension)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     if (streamMethod == "direct") {
@@ -1014,7 +1019,7 @@ private fun StreamSettingsPage(
                         }
                         if (standardExtensions.isNotEmpty()) {
                             Text(
-                                "External",
+                                stringResource(R.string.settings_stream_external),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1057,7 +1062,7 @@ private fun StreamSettingsPage(
                     } else {
                         if (streamExtensions.isNotEmpty()) {
                             Text(
-                                "Stream",
+                                stringResource(R.string.settings_stream_group),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.tertiary,
@@ -1102,7 +1107,7 @@ private fun StreamSettingsPage(
                                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                             }
                             Text(
-                                "Torrent",
+                                stringResource(R.string.settings_stream_torrent),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1145,14 +1150,14 @@ private fun StreamSettingsPage(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showExtPicker = false }) { Text("Cancel") } }
+            confirmButton = { TextButton(onClick = { showExtPicker = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 
     if (showSubtitleLangPicker) {
         AlertDialog(
             onDismissRequest = { showSubtitleLangPicker = false },
-            title = { Text("Default Subtitle Language") },
+            title = { Text(stringResource(R.string.settings_default_subtitle_lang)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     subtitleLanguages.forEach { lang ->
@@ -1187,7 +1192,7 @@ private fun StreamSettingsPage(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showSubtitleLangPicker = false }) { Text("Cancel") } }
+            confirmButton = { TextButton(onClick = { showSubtitleLangPicker = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 }
@@ -1210,80 +1215,80 @@ private fun PlayerSettingsPage(
     val supportsPiP by viewModel.supportsPiP.collectAsState(initial = false)
     val context = LocalContext.current
 
-    SettingsPageScaffold(title = "Player Settings", onBack = onBack) {
-        SectionHeader("SKIP CONTROLS")
+    SettingsPageScaffold(title = stringResource(R.string.settings_group_player), onBack = onBack) {
+        SectionHeader(stringResource(R.string.settings_section_skip_controls))
         SettingsCard {
             SettingsSliderRow(
-                title = "Skip Forward",
-                description = "Double-tap right side to skip forward",
+                title = stringResource(R.string.settings_skip_forward),
+                description = stringResource(R.string.settings_skip_forward_desc),
                 value = forwardSkipSeconds.toFloat(),
                 valueRange = 5f..30f,
-                valueLabel = "${forwardSkipSeconds}s",
+                valueLabel = stringResource(R.string.settings_value_seconds, forwardSkipSeconds),
                 onValueChange = { viewModel.setForwardSkipSeconds((round(it / 5f) * 5f).toInt()) },
-                minLabel = "5s",
-                maxLabel = "30s",
+                minLabel = stringResource(R.string.settings_value_seconds, 5),
+                maxLabel = stringResource(R.string.settings_value_seconds, 30),
                 leadingIcon = Icons.Default.FastForward
             )
         }
         SettingsCard {
             SettingsSliderRow(
-                title = "Skip Backward",
-                description = "Double-tap left side to skip backward",
+                title = stringResource(R.string.settings_skip_backward),
+                description = stringResource(R.string.settings_skip_backward_desc),
                 value = backwardSkipSeconds.toFloat(),
                 valueRange = 5f..30f,
-                valueLabel = "${backwardSkipSeconds}s",
+                valueLabel = stringResource(R.string.settings_value_seconds, backwardSkipSeconds),
                 onValueChange = { viewModel.setBackwardSkipSeconds((round(it / 5f) * 5f).toInt()) },
-                minLabel = "5s",
-                maxLabel = "30s",
+                minLabel = stringResource(R.string.settings_value_seconds, 5),
+                maxLabel = stringResource(R.string.settings_value_seconds, 30),
                 leadingIcon = Icons.Default.FastRewind
             )
         }
 
-        SectionHeader("AUTOMATION")
+        SectionHeader(stringResource(R.string.settings_section_automation))
         SettingsCard {
             SettingsToggle(
-                title = "Auto Skip Opening",
-                description = "Automatically skip anime openings",
+                title = stringResource(R.string.settings_auto_skip_opening),
+                description = stringResource(R.string.settings_auto_skip_opening_desc),
                 checked = autoSkipOpening,
                 onCheckedChange = { viewModel.setAutoSkipOpening(it) }
             )
             SettingsToggle(
-                title = "Auto Skip Ending",
-                description = "Automatically skip anime endings",
+                title = stringResource(R.string.settings_auto_skip_ending),
+                description = stringResource(R.string.settings_auto_skip_ending_desc),
                 checked = autoSkipEnding,
                 onCheckedChange = { viewModel.setAutoSkipEnding(it) }
             )
             SettingsToggle(
-                title = "Auto Play Next Episode",
-                description = "Automatically play the next episode when current ends",
+                title = stringResource(R.string.settings_auto_play_next),
+                description = stringResource(R.string.settings_auto_play_next_desc),
                 checked = autoPlayNextEpisode,
                 onCheckedChange = { viewModel.setAutoPlayNextEpisode(it) }
             )
             SettingsToggle(
-                title = "Picture-in-Picture",
-                description = "Enter mini player when leaving the app",
+                title = stringResource(R.string.settings_pip),
+                description = stringResource(R.string.settings_pip_desc),
                 checked = supportsPiP,
                 onCheckedChange = { viewModel.setSupportsPiP(it) }
             )
         }
 
-        SectionHeader("SWIPE GESTURES")
+        SectionHeader(stringResource(R.string.settings_section_swipe))
         SettingsCard {
             SettingsToggle(
-                title = "Swipe for Volume",
-                description = "Swipe up/down on the left side to adjust volume",
+                title = stringResource(R.string.settings_swipe_volume),
+                description = stringResource(R.string.settings_swipe_volume_desc),
                 checked = swipeVolume,
                 onCheckedChange = { viewModel.setSwipeVolume(it) }
             )
             SettingsToggle(
-                title = "Swipe for Brightness",
-                description = "Swipe up/down on the right side to adjust brightness",
+                title = stringResource(R.string.settings_swipe_brightness),
+                description = stringResource(R.string.settings_swipe_brightness_desc),
                 checked = swipeBrightness,
                 onCheckedChange = { viewModel.setSwipeBrightness(it) }
             )
             SettingsToggle(
-                title = "Swap Sides",
-                description = "Swap the volume and brightness gesture sides",
+                title = stringResource(R.string.settings_swipe_swap),
+                description = stringResource(R.string.settings_swipe_swap_desc),
                 checked = swipeSwap,
                 onCheckedChange = { viewModel.setSwipeSwap(it) }
             )
@@ -1305,31 +1310,94 @@ private fun ReaderSettingsPage(
     val autoAdvance by viewModel.mangaAutoAdvance.collectAsState()
     val installedMangaExtensions by viewModel.installedExtensions.collectAsState()
     val selectedMangaExtension by viewModel.selectedExtensionAuthority.collectAsState()
+    val mangaSourceMethod by viewModel.mangaSourceMethod.collectAsState()
+    val defaultExternalMangaExtension by viewModel.defaultExternalMangaExtension.collectAsState()
+    val mangaExtensionLanguages by viewModel.mangaExtensionLanguages.collectAsState()
     var showMangaExtPicker by remember { mutableStateOf(false) }
+    var showExternalExtPicker by remember { mutableStateOf(false) }
+    var showExternalLangPicker by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val externalManager = remember { MangaExtensionManager.get(context) }
+    val externalExtensions by externalManager.extensions.collectAsState()
+    val selectedExternalLanguage = defaultExternalMangaExtension?.let { mangaExtensionLanguages[it] }
 
     LaunchedEffect(Unit) {
         viewModel.discoverExtensions()
     }
 
-    SettingsPageScaffold(title = "Reader Settings", onBack = onBack) {
-        SectionHeader("DEFAULT SOURCE")
+    SettingsPageScaffold(title = stringResource(R.string.settings_group_reader), onBack = onBack) {
+        SectionHeader(stringResource(R.string.settings_x_manga_source))
         SettingsCard {
-            ClickableSettingsRow(
-                onClick = { showMangaExtPicker = true },
-                icon = Icons.Default.Extension,
-                title = "Default Extension",
-                subtitle = installedMangaExtensions.find { it.authority == selectedMangaExtension }?.label
-                    ?: selectedMangaExtension?.removeSuffix(".provider")
-                    ?: "None"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                SettingsChoiceChip(
+                    label = stringResource(R.string.settings_x_tensei),
+                    isSelected = mangaSourceMethod != "external",
+                    onClick = { viewModel.setMangaSourceMethod("tensei") }
+                )
+                SettingsChoiceChip(
+                    label = stringResource(R.string.settings_x_external),
+                    isSelected = mangaSourceMethod == "external",
+                    onClick = { viewModel.setMangaSourceMethod("external") }
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.settings_x_external_extension_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
 
-        SectionHeader("READING MODE")
+        if (mangaSourceMethod != "external") {
+            SectionHeader(stringResource(R.string.settings_section_default_source))
+            SettingsCard {
+                ClickableSettingsRow(
+                    onClick = { showMangaExtPicker = true },
+                    icon = Icons.Default.Extension,
+                    title = stringResource(R.string.settings_default_extension),
+                    subtitle = installedMangaExtensions.find { it.authority == selectedMangaExtension }?.label
+                        ?: selectedMangaExtension?.removeSuffix(".provider")
+                        ?: stringResource(R.string.common_none)
+                )
+            }
+        } else {
+            SectionHeader(stringResource(R.string.settings_x_external_extension))
+            SettingsCard {
+                ClickableSettingsRow(
+                    onClick = { externalManager.refresh(); showExternalExtPicker = true },
+                    icon = Icons.Default.Extension,
+                    title = stringResource(R.string.settings_x_default_external_extension),
+                    subtitle = externalExtensions.find { it.pkgName == defaultExternalMangaExtension }?.name
+                        ?: defaultExternalMangaExtension
+                        ?: stringResource(R.string.common_none)
+                )
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 54.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                    thickness = 0.5.dp
+                )
+                ClickableSettingsRow(
+                    onClick = {
+                        if (defaultExternalMangaExtension != null) showExternalLangPicker = true
+                    },
+                    icon = Icons.Default.Language,
+                    title = stringResource(R.string.settings_x_language),
+                    subtitle = selectedExternalLanguage
+                        ?: if (defaultExternalMangaExtension != null) "English (default)" else stringResource(R.string.common_none)
+                )
+            }
+        }
+
+        SectionHeader(stringResource(R.string.settings_section_reading_mode))
         SettingsCard {
             val modes = listOf(
-                Triple("vertical_scroll", "Vertical Scroll", "Webtoon-style continuous scroll") to Icons.Default.ViewAgenda,
-                Triple("left_to_right", "Left to Right", "One page per screen, swipe left") to Icons.AutoMirrored.Filled.ArrowForward,
-                Triple("right_to_left", "Right to Left", "One page per screen, swipe right (manga)") to Icons.AutoMirrored.Filled.ArrowBack
+                Triple("vertical_scroll", stringResource(R.string.settings_reading_vertical), stringResource(R.string.settings_reading_vertical_desc)) to Icons.Default.ViewAgenda,
+                Triple("left_to_right", stringResource(R.string.settings_reading_ltr), stringResource(R.string.settings_reading_ltr_desc)) to Icons.AutoMirrored.Filled.ArrowForward,
+                Triple("right_to_left", stringResource(R.string.settings_reading_rtl), stringResource(R.string.settings_reading_rtl_desc)) to Icons.AutoMirrored.Filled.ArrowBack
             )
             modes.forEachIndexed { index, (triple, icon) ->
                 val (key, title, description) = triple
@@ -1350,11 +1418,11 @@ private fun ReaderSettingsPage(
             }
         }
 
-        SectionHeader("DISPLAY")
+        SectionHeader(stringResource(R.string.settings_section_display))
         SettingsCard {
             SettingsToggle(
-                title = "Page Indicator",
-                description = "Show current page number in the bottom-right corner while reading.",
+                title = stringResource(R.string.settings_page_indicator),
+                description = stringResource(R.string.settings_page_indicator_desc),
                 checked = showPageIndicator,
                 onCheckedChange = { viewModel.setMangaPageIndicator(it) }
             )
@@ -1364,8 +1432,8 @@ private fun ReaderSettingsPage(
                 thickness = 0.5.dp
             )
             SettingsToggle(
-                title = "Lock Rotation",
-                description = "Keep the screen in its current orientation while reading.",
+                title = stringResource(R.string.settings_lock_rotation),
+                description = stringResource(R.string.settings_lock_rotation_desc),
                 checked = lockRotation,
                 onCheckedChange = { viewModel.setMangaLockRotation(it) }
             )
@@ -1375,8 +1443,8 @@ private fun ReaderSettingsPage(
                 thickness = 0.5.dp
             )
             SettingsToggle(
-                title = "Fullscreen",
-                description = "Hide the status bar and navigation buttons while reading.",
+                title = stringResource(R.string.settings_fullscreen),
+                description = stringResource(R.string.settings_fullscreen_desc),
                 checked = fullscreen,
                 onCheckedChange = { viewModel.setMangaFullscreen(it) }
             )
@@ -1386,8 +1454,8 @@ private fun ReaderSettingsPage(
                 thickness = 0.5.dp
             )
             SettingsToggle(
-                title = "Next Chapter Button",
-                description = "Shows a button to jump to the next chapter when you reach the end of the current one.",
+                title = stringResource(R.string.settings_next_chapter_button),
+                description = stringResource(R.string.settings_next_chapter_button_desc),
                 checked = autoAdvance,
                 onCheckedChange = { viewModel.setMangaAutoAdvance(it) }
             )
@@ -1397,12 +1465,12 @@ private fun ReaderSettingsPage(
     if (showMangaExtPicker) {
         AlertDialog(
             onDismissRequest = { showMangaExtPicker = false },
-            title = { Text("Default Extension") },
+            title = { Text(stringResource(R.string.settings_default_extension)) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     if (installedMangaExtensions.isEmpty()) {
                         Text(
-                            text = "No manga extensions installed. Install one from Extensions, then pick it here.",
+                            text = stringResource(R.string.settings_no_manga_extensions),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1442,7 +1510,91 @@ private fun ReaderSettingsPage(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { showMangaExtPicker = false }) { Text("Cancel") } }
+            confirmButton = { TextButton(onClick = { showMangaExtPicker = false }) { Text(stringResource(R.string.common_cancel)) } }
+        )
+    }
+
+    if (showExternalExtPicker) {
+        AlertDialog(
+            onDismissRequest = { showExternalExtPicker = false },
+            title = { Text(stringResource(R.string.settings_x_default_external_extension)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    if (externalExtensions.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.settings_x_no_external_extensions_installed),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    externalExtensions.forEach { ext ->
+                        val isSelected = ext.pkgName == defaultExternalMangaExtension
+                        TextButton(
+                            onClick = { viewModel.setDefaultExternalMangaExtension(ext.pkgName); showExternalExtPicker = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = null,
+                                    colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        ext.name,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                    Text(
+                                        "${ext.pkgName}  •  v${ext.versionName}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showExternalExtPicker = false }) { Text(stringResource(R.string.common_cancel)) } }
+        )
+    }
+
+    if (showExternalLangPicker && defaultExternalMangaExtension != null) {
+        val pkg = defaultExternalMangaExtension!!
+        val languages = remember(pkg, externalExtensions) { viewModel.externalExtensionLanguages(pkg) }
+        AlertDialog(
+            onDismissRequest = { showExternalLangPicker = false },
+            title = { Text(stringResource(R.string.settings_x_language)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    languages.forEach { language ->
+                        val isSelected = (mangaExtensionLanguages[pkg] ?: "en").equals(language, ignoreCase = true)
+                        TextButton(
+                            onClick = { viewModel.setMangaExtensionLanguage(pkg, language); showExternalLangPicker = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = null,
+                                    colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary)
+                                )
+                                Text(language, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showExternalLangPicker = false }) { Text(stringResource(R.string.common_cancel)) } }
         )
     }
 }
@@ -1462,12 +1614,12 @@ private fun CacheSettingsPage(
         videoCacheSize = viewModel.getVideoCacheSize(context)
     }
 
-    SettingsPageScaffold(title = "Cache Management", onBack = onBack) {
-        SectionHeader("STORAGE")
+    SettingsPageScaffold(title = stringResource(R.string.settings_group_cache), onBack = onBack) {
+        SectionHeader(stringResource(R.string.settings_section_storage))
         SettingsCard {
             CacheRow(
                 icon = Icons.Default.PlayArrow,
-                title = "Video Cache",
+                title = stringResource(R.string.settings_video_cache),
                 size = formatFileSize(videoCacheSize),
                 onClear = { showClearCacheConfirmation = "video" }
             )
@@ -1479,9 +1631,9 @@ private fun CacheSettingsPage(
         if (isVideo) {
             AlertDialog(
                 onDismissRequest = { showClearCacheConfirmation = null },
-                title = { Text("Clear Video Cache") },
+                title = { Text(stringResource(R.string.settings_clear_video_cache)) },
                 text = {
-                    Text("This will clear all video cache and temporary data. Your playback positions will be preserved.")
+                    Text(stringResource(R.string.settings_clear_video_cache_msg))
                 },
                 confirmButton = {
                     Button(
@@ -1489,12 +1641,12 @@ private fun CacheSettingsPage(
                             viewModel.clearNonEssentialCaches(context)
                             videoCacheSize = 0L
                             showClearCacheConfirmation = null
-                            context.toast("Cache cleared")
+                            context.toast(context.getString(R.string.settings_cache_cleared))
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) { Text("Clear") }
+                    ) { Text(stringResource(R.string.common_clear)) }
                 },
-                dismissButton = { TextButton(onClick = { showClearCacheConfirmation = null }) { Text("Cancel") } }
+                dismissButton = { TextButton(onClick = { showClearCacheConfirmation = null }) { Text(stringResource(R.string.common_cancel)) } }
             )
         }
     }
@@ -1531,7 +1683,7 @@ private fun CacheRow(
                 containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.9f)
             ),
             shape = RoundedCornerShape(10.dp)
-        ) { Text("Clear") }
+        ) { Text(stringResource(R.string.common_clear)) }
     }
 }
 
@@ -1544,15 +1696,21 @@ private fun ExtensionsSettingsPage(
 ) {
     val extViewModel: ExtensionsViewModel = viewModel()
     var selectedRepoUrl by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val mangaManager = remember { MangaExtensionManager.get(context) }
 
     SettingsPageScaffold(
-        title = "Extensions",
+        title = stringResource(R.string.settings_group_extensions),
         onBack = onBack,
         scrollable = false,
         navigationIcon = if (selectedRepoUrl != null) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowBack,
         actions = {
-            IconButton(onClick = { extViewModel.checkForUpdatesNow() }) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+            IconButton(onClick = {
+                extViewModel.checkForUpdatesNow()
+                mangaManager.refresh()
+                mangaManager.fetchAvailable()
+            }) {
+                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.settings_refresh))
             }
         }
     ) {
@@ -1582,8 +1740,8 @@ private fun AboutSettingsPage(
     }
     val currentVersion = packageInfo.versionName ?: ""
 
-    SettingsPageScaffold(title = "About", onBack = onBack) {
-        SectionHeader("APP")
+    SettingsPageScaffold(title = stringResource(R.string.settings_group_about), onBack = onBack) {
+        SectionHeader(stringResource(R.string.settings_section_app))
         SettingsCard {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -1599,7 +1757,7 @@ private fun AboutSettingsPage(
                 ) {
                     AsyncImage(
                         model = appIconDrawable(appIcon),
-                        contentDescription = "App",
+                        contentDescription = stringResource(R.string.settings_a11y_app),
                         modifier = Modifier.size(40.dp).clip(CircleShape)
                     )
                 }
@@ -1607,7 +1765,7 @@ private fun AboutSettingsPage(
                     Text("Tensei", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                     @Suppress("DEPRECATION")
                     Text(
-                        "v$currentVersion (${packageInfo.versionCode})",
+                        stringResource(R.string.settings_version, currentVersion, packageInfo.versionCode),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
@@ -1615,22 +1773,22 @@ private fun AboutSettingsPage(
             }
         }
 
-        SectionHeader("UPDATES")
+        SectionHeader(stringResource(R.string.settings_section_updates))
         SettingsCard {
             val release = updateState.release
             val isChecking = updateState.isChecking
             val isDownloading = updateState.isDownloading
             val error = updateState.error
             val statusText = when {
-                isChecking -> "Checking..."
-                isDownloading -> "Downloading ${(updateState.downloadProgress * 100).toInt()}%"
+                isChecking -> stringResource(R.string.settings_update_checking)
+                isDownloading -> stringResource(R.string.settings_update_downloading, (updateState.downloadProgress * 100).toInt())
                 error != null -> error
                 release != null -> {
                     val tag = release.tagName.removePrefix("v")
-                    if (compareVersions(tag, currentVersion) > 0) "Update available: v$tag"
-                    else "Up to date (v$currentVersion)"
+                    if (compareVersions(tag, currentVersion) > 0) stringResource(R.string.settings_update_available, tag)
+                    else stringResource(R.string.settings_update_uptodate, currentVersion)
                 }
-                else -> "Tap to check for updates"
+                else -> stringResource(R.string.settings_update_tap)
             }
             val hasUpdate = release != null && compareVersions(
                 release.tagName.removePrefix("v"), currentVersion
@@ -1657,7 +1815,7 @@ private fun AboutSettingsPage(
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Check for Updates", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.settings_check_updates), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                     Text(statusText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                 }
                 if (isChecking) {
@@ -1676,7 +1834,7 @@ private fun AboutSettingsPage(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            "${(updateState.downloadProgress * 100).toInt()}%",
+                            stringResource(R.string.settings_value_percent, (updateState.downloadProgress * 100).toInt()),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -1690,7 +1848,7 @@ private fun AboutSettingsPage(
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Text(
-                            if (hasUpdate) "Update" else "Check",
+                            if (hasUpdate) stringResource(R.string.settings_update_action) else stringResource(R.string.settings_check_action),
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
@@ -1699,11 +1857,11 @@ private fun AboutSettingsPage(
             Spacer(modifier = Modifier.height(2.dp))
         }
 
-        SectionHeader("AUTOMATION")
+        SectionHeader(stringResource(R.string.settings_section_automation))
         SettingsCard {
             SettingsToggle(
-                title = "Check for Updates on Start",
-                description = "Automatically check for new versions when opening the app",
+                title = stringResource(R.string.settings_check_updates_start),
+                description = stringResource(R.string.settings_check_updates_start_desc),
                 checked = checkOnStart,
                 onCheckedChange = { viewModel.setCheckUpdatesOnStart(it) }
             )
@@ -1712,14 +1870,14 @@ private fun AboutSettingsPage(
         val autoUpdateExts by viewModel.autoUpdateExtensions.collectAsState()
         SettingsCard {
             SettingsToggle(
-                title = "Auto-Update Extensions",
-                description = "On app start, ask permission then automatically install extension updates",
+                title = stringResource(R.string.settings_auto_update_exts),
+                description = stringResource(R.string.settings_auto_update_exts_desc),
                 checked = autoUpdateExts,
                 onCheckedChange = { viewModel.setAutoUpdateExtensions(it) }
             )
         }
 
-        SectionHeader("LINKS")
+        SectionHeader(stringResource(R.string.settings_section_links))
         SettingsCard {
             val githubUrl = com.blissless.tensei.network.Endpoints.GitHub.TENSEI_REPO
             Row(
@@ -1752,11 +1910,11 @@ private fun AboutSettingsPage(
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("GitHub Repository", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.settings_github_repo), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
                     Text(githubUrl, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
                 }
                 Text(
-                    "Open",
+                    stringResource(R.string.settings_open),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary

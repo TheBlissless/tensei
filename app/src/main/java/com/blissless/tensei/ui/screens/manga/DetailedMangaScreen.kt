@@ -122,6 +122,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -132,6 +133,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
+import com.blissless.tensei.R
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.data.models.MangaChapter
 import com.blissless.tensei.data.models.MangaCharacterNode
@@ -146,6 +148,7 @@ import com.blissless.tensei.ui.screens.details.SynopsisCard
 import com.blissless.tensei.ui.screens.details.TagsCard
 import com.blissless.tensei.ui.screens.details.easeOut
 import com.blissless.tensei.ui.screens.details.formatDate
+import com.blissless.tensei.util.LocaleDate
 import com.blissless.tensei.ui.theme.StatusLabels
 import com.blissless.tensei.ui.theme.statusAccentFor
 import com.blissless.tensei.ui.theme.statusColor
@@ -168,6 +171,8 @@ import com.blissless.tensei.viewmodel.updateMangaScore
 import com.blissless.tensei.viewmodel.updateMangaProgress
 import com.blissless.tensei.viewmodel.removeMangaTracking
 import com.blissless.tensei.viewmodel.selectedExtensionAuthority
+import com.blissless.tensei.viewmodel.mangaSourceMethod
+import com.blissless.tensei.viewmodel.defaultExternalMangaExtension
 import com.blissless.tensei.viewmodel.mangaCurrentlyReading
 import com.blissless.tensei.viewmodel.mangaPlanningToRead
 import com.blissless.tensei.viewmodel.mangaCompleted
@@ -223,6 +228,8 @@ fun DetailedMangaScreen(
     val isLoading by viewModel.isLoadingManga.collectAsState()
     val isLoadingChapters by viewModel.isLoadingMangaChapters.collectAsState()
     val selectedExtension by viewModel.selectedExtensionAuthority.collectAsState()
+    val mangaSourceMethod by viewModel.mangaSourceMethod.collectAsState()
+    val defaultExternalMangaExtension by viewModel.defaultExternalMangaExtension.collectAsState()
     val favoritedMangaIds by viewModel.favoritedMangaIds.collectAsState()
     // Reactive favorite state from AniList (overrides the static isFavorite parameter)
     val isMangaFavorited = manga.id in favoritedMangaIds
@@ -272,7 +279,7 @@ fun DetailedMangaScreen(
     val dismissSlideOffset = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(manga.id, selectedExtension) {
+    LaunchedEffect(manga.id, selectedExtension, mangaSourceMethod, defaultExternalMangaExtension) {
         viewModel.fetchMangaDetail(manga.id, manga.malId)
         viewModel.loadMangaChapters(manga.id, manga.title)
     }
@@ -344,12 +351,12 @@ fun DetailedMangaScreen(
     }
 
     val statusDisplay = when (displayData.status) {
-        "RELEASING" -> "Publishing"
-        "FINISHED" -> "Finished"
-        "NOT_YET_RELEASED" -> "Not Yet Published"
-        "CANCELLED" -> "Cancelled"
-        "HIATUS" -> "Hiatus"
-        else -> displayData.status ?: "Unknown"
+        "RELEASING" -> stringResource(R.string.manga_detail_status_publishing)
+        "FINISHED" -> stringResource(R.string.manga_detail_status_finished)
+        "NOT_YET_RELEASED" -> stringResource(R.string.manga_detail_status_not_yet_published)
+        "CANCELLED" -> stringResource(R.string.manga_detail_status_cancelled)
+        "HIATUS" -> stringResource(R.string.manga_detail_status_hiatus)
+        else -> displayData.status ?: stringResource(R.string.manga_detail_unknown)
     }
 
     // The Information card's Status cell shows the user's tracking status, not the series
@@ -358,14 +365,14 @@ fun DetailedMangaScreen(
     val userStatusDisplay = statusToCheck?.let { MangaStatusLabels[it] ?: it }
 
     val formatDisplay = when (displayData.format) {
-        "MANGA" -> "Manga"
-        "NOVEL" -> "Light Novel"
-        "ONE_SHOT" -> "One Shot"
-        "DOUJIN" -> "Doujin"
-        "MANHWA" -> "Manhwa"
-        "MANHUA" -> "Manhua"
-        "OEL" -> "OEL Manga"
-        else -> displayData.format ?: "Unknown"
+        "MANGA" -> stringResource(R.string.manga_detail_format_manga)
+        "NOVEL" -> stringResource(R.string.manga_detail_format_light_novel)
+        "ONE_SHOT" -> stringResource(R.string.manga_detail_format_one_shot)
+        "DOUJIN" -> stringResource(R.string.manga_detail_format_doujin)
+        "MANHWA" -> stringResource(R.string.manga_detail_format_manhwa)
+        "MANHUA" -> stringResource(R.string.manga_detail_format_manhua)
+        "OEL" -> stringResource(R.string.manga_detail_format_oel_manga)
+        else -> displayData.format ?: stringResource(R.string.manga_detail_unknown)
     }
 
     val windowInfo = LocalWindowInfo.current
@@ -516,7 +523,7 @@ fun DetailedMangaScreen(
                     .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                     .zIndex(10f)
             ) {
-                Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.Share, contentDescription = stringResource(R.string.manga_detail_share), tint = Color.White, modifier = Modifier.size(24.dp))
             }
 
             // Close button
@@ -531,7 +538,7 @@ fun DetailedMangaScreen(
             ) {
                 Icon(
                     if (stackDepth > 2) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = if (stackDepth > 2) "Close" else "Back",
+                    contentDescription = if (stackDepth > 2) stringResource(R.string.manga_detail_close) else stringResource(R.string.common_back),
                     tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
@@ -694,7 +701,7 @@ fun DetailedMangaScreen(
                                 val chapterCount = resolvedChapterCount
                                 if (chapterCount != null) {
                                     Text("\u2022", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                    Text("$chapterCount ch.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(stringResource(R.string.manga_detail_chapters_short, chapterCount), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 if (displayData.year == null && displayData.format == null && resolvedChapterCount == null && isLoading) {
                                     SkeletonTextLine(width = 96.dp, height = 11.dp)
@@ -727,7 +734,7 @@ fun DetailedMangaScreen(
                                 Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    if (liveProgress > 0) "Read Now" else "Start Reading",
+                                    if (liveProgress > 0) stringResource(R.string.manga_detail_read_now) else stringResource(R.string.manga_detail_start_reading),
                                     fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge
                                 )
                             }
@@ -764,7 +771,7 @@ fun DetailedMangaScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(
-                                        "Add to List",
+                                        stringResource(R.string.manga_detail_add_to_list),
                                         style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
@@ -827,7 +834,7 @@ fun DetailedMangaScreen(
                                     ) {
                                         Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Change", fontWeight = FontWeight.SemiBold)
+                                        Text(stringResource(R.string.manga_detail_change), fontWeight = FontWeight.SemiBold)
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     OutlinedButton(
@@ -845,7 +852,7 @@ fun DetailedMangaScreen(
                                     ) {
                                         Icon(
                                             Icons.Default.Star,
-                                            contentDescription = "Rate",
+                                            contentDescription = stringResource(R.string.manga_detail_rate),
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -879,7 +886,7 @@ fun DetailedMangaScreen(
                                     ) {
                                         Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Add to List", fontWeight = FontWeight.SemiBold)
+                                        Text(stringResource(R.string.manga_detail_add_to_list), fontWeight = FontWeight.SemiBold)
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     OutlinedButton(
@@ -990,12 +997,12 @@ fun DetailedMangaScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text("Relations", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text("Connected series", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
+                                        Text(stringResource(R.string.manga_detail_relations), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(stringResource(R.string.manga_detail_connected_series), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
                                     }
                                     Spacer(modifier = Modifier.weight(1f))
                                     TextButton(onClick = onViewAllRelations) {
-                                        Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                        Text(stringResource(R.string.manga_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                     }
                                 }
                                 HorizontalDivider(
@@ -1053,12 +1060,12 @@ fun DetailedMangaScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text("Recommendations", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text("You might also enjoy", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
+                                        Text(stringResource(R.string.manga_detail_recommendations), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(stringResource(R.string.manga_detail_you_might_also_enjoy), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
                                     }
                                     Spacer(modifier = Modifier.weight(1f))
                                     TextButton(onClick = onViewAllRecommendations) {
-                                        Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                        Text(stringResource(R.string.manga_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                     }
                                 }
                                 HorizontalDivider(
@@ -1177,12 +1184,12 @@ fun DetailedMangaScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text("Characters", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text("Appearing characters", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
+                                        Text(stringResource(R.string.manga_detail_characters), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(stringResource(R.string.manga_detail_appearing_characters), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
                                     }
                                     Spacer(modifier = Modifier.weight(1f))
                                     TextButton(onClick = onViewAllCharacters) {
-                                        Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                        Text(stringResource(R.string.manga_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                     }
                                 }
                                 HorizontalDivider(
@@ -1262,7 +1269,7 @@ fun DetailedMangaScreen(
                                                 }
                                             }
                                             Spacer(modifier = Modifier.height(6.dp))
-                                            Text(character.name?.full ?: "Unknown", style = MaterialTheme.typography.labelSmall,
+                                            Text(character.name?.full ?: stringResource(R.string.manga_detail_unknown), style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                                 color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.height(28.dp))
                                         }
@@ -1301,12 +1308,12 @@ fun DetailedMangaScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text("Staff", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text("Production crew", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
+                                        Text(stringResource(R.string.manga_detail_staff), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(stringResource(R.string.manga_detail_production_crew), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
                                     }
                                     Spacer(modifier = Modifier.weight(1f))
                                     TextButton(onClick = onViewAllStaff) {
-                                        Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                        Text(stringResource(R.string.manga_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                     }
                                 }
                                 HorizontalDivider(
@@ -1388,7 +1395,7 @@ fun DetailedMangaScreen(
                                                     }
                                                 }
                                                 Spacer(modifier = Modifier.height(6.dp))
-                                                Text(staffNode.name?.full ?: "Unknown", style = MaterialTheme.typography.labelSmall,
+                                                Text(staffNode.name?.full ?: stringResource(R.string.manga_detail_unknown), style = MaterialTheme.typography.labelSmall,
                                                     fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                                     color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.height(28.dp))
                                                 staffEdge.role?.let { role ->
@@ -1436,8 +1443,8 @@ fun DetailedMangaScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text("Rankings", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text("Community performance", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
+                                        Text(stringResource(R.string.manga_detail_rankings), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(stringResource(R.string.manga_detail_community_performance), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
                                     }
                                 }
                                 HorizontalDivider(
@@ -1447,29 +1454,29 @@ fun DetailedMangaScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 rankings.forEachIndexed { index, ranking ->
                                     val rankingTypeLabel = when (ranking.type) {
-                                        "RATED" -> "Highest Rated"
-                                        "POPULAR" -> "Most Popular"
-                                        else -> ranking.type ?: "Ranking"
+                                        "RATED" -> stringResource(R.string.manga_detail_highest_rated)
+                                        "POPULAR" -> stringResource(R.string.manga_detail_most_popular)
+                                        else -> ranking.type ?: stringResource(R.string.manga_detail_ranking)
                                     }
                                     val rawContext = ranking.context?.trim()?.uppercase()
                                     val rankingContextLabel = when {
-                                        rawContext?.contains("ALL TIME") == true -> "All Time"
+                                        rawContext?.contains("ALL TIME") == true -> stringResource(R.string.manga_detail_all_time)
                                         rawContext?.startsWith("SEASON") == true ->
-                                            rawContext.removePrefix("SEASON").trim().ifBlank { "Seasonal" }
+                                            rawContext.removePrefix("SEASON").trim().ifBlank { stringResource(R.string.manga_detail_seasonal) }
                                                 .replaceFirstChar { it.uppercaseChar() }
                                         rawContext?.startsWith("YEAR") == true ->
-                                            rawContext.removePrefix("YEAR").trim().ifBlank { "This Year" }
+                                            rawContext.removePrefix("YEAR").trim().ifBlank { stringResource(R.string.manga_detail_this_year) }
                                         rawContext?.startsWith("DECADE") == true ->
-                                            rawContext.removePrefix("DECADE").trim().ifBlank { "This Decade" }
+                                            rawContext.removePrefix("DECADE").trim().ifBlank { stringResource(R.string.manga_detail_this_decade) }
                                         rawContext?.startsWith("WEEK") == true ->
-                                            rawContext.removePrefix("WEEK").trim().ifBlank { "This Week" }
-                                        ranking.allTime == true -> "All Time"
+                                            rawContext.removePrefix("WEEK").trim().ifBlank { stringResource(R.string.manga_detail_this_week) }
+                                        ranking.allTime == true -> stringResource(R.string.manga_detail_all_time)
                                         ranking.season != null && ranking.year != null ->
                                             "${ranking.season.lowercase().replaceFirstChar { it.uppercaseChar() }} ${ranking.year}"
                                         ranking.year != null -> ranking.year.toString()
                                         ranking.season != null -> ranking.season.lowercase().replaceFirstChar { it.uppercaseChar() }
                                         !rawContext.isNullOrBlank() -> rawContext.lowercase().replaceFirstChar { it.uppercaseChar() }
-                                        else -> "Seasonal"
+                                        else -> stringResource(R.string.manga_detail_seasonal)
                                     }
                                     val isAllTime = ranking.allTime == true
                                     val allTimeAccent = tenseiColors.rating
@@ -1572,12 +1579,12 @@ fun DetailedMangaScreen(
                 }
                 tag.rank?.let { rank ->
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("Rank: $rank%", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.manga_detail_rank_percent, rank), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(16.dp))
-                val description = tag.description ?: "No description available."
+                val description = tag.description ?: stringResource(R.string.manga_detail_no_description)
                 Text(anilistAnnotated(description, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.primary), style = MaterialTheme.typography.bodyMedium, lineHeight = 24.sp)
             }
         }
@@ -1622,16 +1629,16 @@ fun DetailedMangaScreen(
         val removeFavoriteTitle = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showRemoveFavoriteDialog = false },
-            title = { Text("Remove Favorite") },
-            text = { Text("Remove $removeFavoriteTitle from your favorites?") },
+            title = { Text(stringResource(R.string.manga_detail_remove_favorite_title)) },
+            text = { Text(stringResource(R.string.manga_detail_remove_favorite_message, removeFavoriteTitle)) },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     showRemoveFavoriteDialog = false
                     toggleFavorite()
-                }) { Text("Remove") }
+                }) { Text(stringResource(R.string.manga_detail_remove)) }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showRemoveFavoriteDialog = false }) { Text("Cancel") }
+                androidx.compose.material3.TextButton(onClick = { showRemoveFavoriteDialog = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -1660,6 +1667,18 @@ private fun MangaInfoCard(
     chaptersCount: Int?,
     isLoading: Boolean = false,
 ) {
+    val locale = LocaleDate.localeOf(LocalContext.current)
+    val popularityLabel = stringResource(R.string.manga_detail_popularity)
+    val scoreLabel = stringResource(R.string.manga_detail_score)
+    val favoritesLabel = stringResource(R.string.manga_detail_favorites)
+    val volumesLabel = stringResource(R.string.manga_detail_volumes)
+    val formatLabel = stringResource(R.string.manga_detail_format)
+    val statusLabel = stringResource(R.string.manga_detail_status)
+    val sourceLabel = stringResource(R.string.manga_detail_source)
+    val authorLabel = stringResource(R.string.manga_detail_author)
+    val chaptersLabel = stringResource(R.string.manga_detail_chapters)
+    val startedLabel = stringResource(R.string.manga_detail_started)
+    val endedLabel = stringResource(R.string.manga_detail_ended)
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         shape = RoundedCornerShape(20.dp),
@@ -1678,8 +1697,8 @@ private fun MangaInfoCard(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text("Information", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    Text("Overview & details", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
+                    Text(stringResource(R.string.manga_detail_information), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.manga_detail_overview_details), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
                 }
             }
             HorizontalDivider(
@@ -1690,9 +1709,9 @@ private fun MangaInfoCard(
 
             // Hero stats: Popularity / Score / Favorites
             val heroStats = buildList {
-                displayData.popularity?.takeIf { it > 0 }?.let { add("Popularity" to formatNumber(it)) }
-                displayData.averageScore?.takeIf { it > 0 }?.let { add("Score" to String.format(Locale.US, "%.1f", it / 10.0)) }
-                displayData.favourites?.takeIf { it > 0 }?.let { add("Favorites" to formatNumber(it)) }
+                displayData.popularity?.takeIf { it > 0 }?.let { add(popularityLabel to formatNumber(it)) }
+                displayData.averageScore?.takeIf { it > 0 }?.let { add(scoreLabel to String.format(Locale.US, "%.1f", it / 10.0)) }
+                displayData.favourites?.takeIf { it > 0 }?.let { add(favoritesLabel to formatNumber(it)) }
             }
 
             if (heroStats.isNotEmpty()) {
@@ -1704,15 +1723,15 @@ private fun MangaInfoCard(
                 ) {
                     heroStats.forEachIndexed { index, (label, value) ->
                         val accent = when (label) {
-                            "Score" -> tenseiColors.rating
-                            "Volumes" -> MaterialTheme.colorScheme.tertiary
-                            "Popularity" -> MaterialTheme.colorScheme.primary
-                            "Favorites" -> Color(0xFFEC4899)
+                            scoreLabel -> tenseiColors.rating
+                            volumesLabel -> MaterialTheme.colorScheme.tertiary
+                            popularityLabel -> MaterialTheme.colorScheme.primary
+                            favoritesLabel -> Color(0xFFEC4899)
                             else -> MaterialTheme.colorScheme.primary
                         }
                         val icon = when (label) {
-                            "Score" -> Icons.Default.Star
-                            "Favorites" -> Icons.Default.Favorite
+                            scoreLabel -> Icons.Default.Star
+                            favoritesLabel -> Icons.Default.Favorite
                             else -> null
                         }
                         Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1745,37 +1764,37 @@ if (heroStats.isEmpty() && isLoading) {
                 // Bento spec grid
                 val specs = buildList {
                 displayData.format?.let {
-                    add(SpecEntry(label = "Format", value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Category))
+                    add(SpecEntry(label = formatLabel, value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Category))
                 }
                 userStatusDisplay?.let {
-                    add(SpecEntry(label = "Status", value = it, icon = Icons.Default.PlayArrow))
+                    add(SpecEntry(label = statusLabel, value = it, icon = Icons.Default.PlayArrow))
                 }
                 displayData.source?.let {
-                    add(SpecEntry(label = "Source", value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Description))
+                    add(SpecEntry(label = sourceLabel, value = it.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }, icon = Icons.Default.Description))
                 }
                 displayData.authorNames()?.let {
                     // Authors get a full row â€” author lists are long and get
                     // squeezed into a truncated half-width cell otherwise.
-                    add(SpecEntry(label = "Author", value = it, icon = Icons.Default.Person, fullSpan = true))
+                    add(SpecEntry(label = authorLabel, value = it, icon = Icons.Default.Person, fullSpan = true))
                 }
                 if (chaptersCount != null) {
-                    add(SpecEntry(label = "Chapters", value = chaptersCount.toString()))
+                    add(SpecEntry(label = chaptersLabel, value = chaptersCount.toString()))
                 }
                 displayData.volumes?.let {
-                    add(SpecEntry(label = "Volumes", value = it.toString()))
+                    add(SpecEntry(label = volumesLabel, value = it.toString()))
                 }
                 val startedDate = displayData.startDate
                 if (startedDate != null) {
-                    add(SpecEntry(label = "Started", value = formatDate(startedDate)))
+                    add(SpecEntry(label = startedLabel, value = formatDate(startedDate, locale)))
                 } else displayData.year?.let {
-                    add(SpecEntry(label = "Started", value = it.toString()))
+                    add(SpecEntry(label = startedLabel, value = it.toString()))
                 }
                 if (displayData.status != "RELEASING" && displayData.status != "NOT_YET_RELEASED") {
                     val endedDate = displayData.endDate
                     if (endedDate != null) {
-                        add(SpecEntry(label = "Ended", value = formatDate(endedDate)))
+                        add(SpecEntry(label = endedLabel, value = formatDate(endedDate, locale)))
                     } else displayData.endYear?.let {
-                        add(SpecEntry(label = "Ended", value = it.toString()))
+                        add(SpecEntry(label = endedLabel, value = it.toString()))
                     }
                 }
             }

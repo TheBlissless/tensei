@@ -12,8 +12,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.tenseiColors
 
 /**
@@ -43,7 +45,7 @@ fun LocalSyncDialog(
         containerColor = Color(0xFF1A1A1A),
         title = {
             Text(
-                "Sync Local Changes",
+                stringResource(R.string.comp_local_sync_title),
                 color = Color.White,
                 style = MaterialTheme.typography.headlineSmall
             )
@@ -51,14 +53,14 @@ fun LocalSyncDialog(
         text = {
             Column {
                 Text(
-                    "You have $localAnimeCount anime tracked offline.",
+                    stringResource(R.string.comp_local_sync_message, localAnimeCount),
                     color = Color.White.copy(alpha = 0.8f),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    "Choose how to sync:",
+                    stringResource(R.string.comp_local_sync_choose),
                     color = Color.White,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
@@ -66,39 +68,39 @@ fun LocalSyncDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    "1. Discard Local Changes",
+                    stringResource(R.string.comp_local_sync_discard_title),
                     color = tenseiColors.destructive,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    "Remove all offline changes. AniList data will remain unchanged.",
+                    stringResource(R.string.comp_local_sync_discard_desc),
                     color = Color.White.copy(alpha = 0.6f),
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    "2. Add New Anime Only",
+                    stringResource(R.string.comp_local_sync_add_title),
                     color = Color(0xFF4CAF50),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    "Add new anime from offline to AniList. Won't overwrite existing entries.",
+                    stringResource(R.string.comp_local_sync_add_desc),
                     color = Color.White.copy(alpha = 0.6f),
                     style = MaterialTheme.typography.bodySmall
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    "3. Overwrite AniList",
+                    stringResource(R.string.comp_local_sync_overwrite_title),
                     color = Color(0xFF2196F3),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    "Replace all matching anime on AniList with your offline changes.",
+                    stringResource(R.string.comp_local_sync_overwrite_desc),
                     color = Color.White.copy(alpha = 0.6f),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -106,17 +108,17 @@ fun LocalSyncDialog(
         },
         confirmButton = {
             TextButton(onClick = onDiscard) {
-                Text("Discard", color = tenseiColors.destructive)
+                Text(stringResource(R.string.comp_discard), color = tenseiColors.destructive)
             }
         },
         dismissButton = {
             Row {
                 TextButton(onClick = onAddNewOnly) {
-                    Text("Add New Only", color = Color(0xFF4CAF50))
+                    Text(stringResource(R.string.comp_add_new_only), color = Color(0xFF4CAF50))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 TextButton(onClick = onOverwrite) {
-                    Text("Overwrite", color = Color(0xFF2196F3))
+                    Text(stringResource(R.string.comp_overwrite), color = Color(0xFF2196F3))
                 }
             }
         }

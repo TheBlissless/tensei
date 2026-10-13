@@ -148,6 +148,14 @@ class ExtensionDetector(private val context: Context) {
         }
         val features = pkgInfo.reqFeatures.orEmpty().map { it.name }.toSet()
         val metaData = pkgInfo.applicationInfo?.metaData
+        // Mihon-style manga extensions declare the manga feature/source class but not the
+        // anime feature — never surface them as anime extensions.
+        if (EXTENSION_FEATURE in features &&
+            ANIME_EXTENSION_FEATURE !in features &&
+            metaData?.containsKey(METADATA_ANIME_SOURCE_CLASS) != true
+        ) {
+            return false
+        }
         if (ANIME_EXTENSION_FEATURE in features ||
                 metaData?.containsKey(METADATA_ANIME_SOURCE_CLASS) == true ||
                 metaData?.containsKey(METADATA_SOURCE_FACTORY) == true) {

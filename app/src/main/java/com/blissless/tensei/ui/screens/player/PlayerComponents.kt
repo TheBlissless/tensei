@@ -50,8 +50,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.blissless.tensei.R
 
 /**
  * Reusable UI components for the Player screen.
@@ -93,7 +95,7 @@ internal fun StreamErrorOverlay(
                 modifier = Modifier.size(32.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Stream Error", color = Color.White, style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.player_stream_error), color = Color.White, style = MaterialTheme.typography.titleMedium)
             Text(errorMessage, color = Color.Gray, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -103,7 +105,7 @@ internal fun StreamErrorOverlay(
                     onClick = onTryNextServer,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Try Next Server")
+                    Text(stringResource(R.string.player_try_next_server))
                 }
             }
         }
@@ -158,7 +160,7 @@ internal fun VolumeOverlay(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.VolumeUp,
-                contentDescription = "Volume",
+                contentDescription = stringResource(R.string.player_volume),
                 tint = accentColor,
                 modifier = Modifier.size(22.dp)
             )
@@ -219,7 +221,7 @@ internal fun BrightnessOverlay(
         ) {
             Icon(
                 imageVector = Icons.Default.BrightnessHigh,
-                contentDescription = "Brightness",
+                contentDescription = stringResource(R.string.player_brightness),
                 tint = accentColor,
                 modifier = Modifier.size(22.dp)
             )
@@ -285,7 +287,7 @@ internal fun SkipButtonsOverlay(
             if (showSkipOpening) {
                 SkipIconButton(
                     icon = Icons.Default.FastForward,
-                    label = "Skip\nOpening",
+                    label = stringResource(R.string.player_skip_opening),
                     backgroundColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
                     iconTint = androidx.compose.ui.graphics.Color.White,
                     isCompact = isCompact,
@@ -295,7 +297,7 @@ internal fun SkipButtonsOverlay(
             if (showSkipEnding) {
                 SkipIconButton(
                     icon = androidx.compose.material.icons.Icons.Default.SkipNext,
-                    label = if (isLatestEpisode || !creditsAtEnd) "Skip\nEnding" else "Next\nEpisode",
+                    label = if (isLatestEpisode || !creditsAtEnd) stringResource(R.string.player_skip_ending) else stringResource(R.string.player_next_episode_short),
                     backgroundColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f),
                     iconTint = androidx.compose.ui.graphics.Color.White,
                     isCompact = isCompact,
@@ -345,7 +347,7 @@ internal fun AutoplayFullscreenRow(
                 horizontalArrangement = Arrangement.spacedBy(if (isCompact) 2.dp else 8.dp)
             ) {
                 Text(
-                    text = "Autoplay",
+                    text = stringResource(R.string.player_autoplay),
                     color = Color.White,
                     style = MaterialTheme.typography.labelSmall
                 )
@@ -379,7 +381,7 @@ internal fun AutoplayFullscreenRow(
             ) {
                 Icon(
                     imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                    contentDescription = if (isFullscreen) "Exit fullscreen" else "Enter fullscreen",
+                    contentDescription = if (isFullscreen) stringResource(R.string.player_content_desc_exit_fullscreen) else stringResource(R.string.player_content_desc_enter_fullscreen),
                     tint = Color.White,
                     modifier = Modifier.size(if (isCompact) 10.dp else 18.dp)
                 )
@@ -421,7 +423,7 @@ internal fun PlaybackSpeedSelector(
             ) {
                 Icon(
                     imageVector = Icons.Default.Speed,
-                    contentDescription = "Playback speed",
+                    contentDescription = stringResource(R.string.player_playback_speed),
                     tint = Color.White,
                     modifier = Modifier.size(if (isCompact) 14.dp else 18.dp)
                 )
@@ -482,7 +484,7 @@ internal fun ResizeButton(
         ) {
             Icon(
                 Icons.Default.AspectRatio,
-                "Change aspect ratio",
+                stringResource(R.string.player_change_aspect_ratio),
                 tint = Color.White,
                 modifier = Modifier.size(if (isCompact) 14.dp else 18.dp)
             )
@@ -536,7 +538,7 @@ internal fun PlayerSettingsButton(
             ) {
                 Icon(
                     Icons.Default.Settings,
-                    "Player Settings",
+                    stringResource(R.string.player_player_settings),
                     tint = Color.White,
                     modifier = Modifier.size(if (isCompact) 14.dp else 18.dp)
                 )
@@ -554,7 +556,7 @@ internal fun PlayerSettingsButton(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Swipe for Volume (${if (swipeSwap) "Right" else "Left"})", color = Color.White)
+                        Text(stringResource(R.string.player_swipe_for_volume, stringResource(if (swipeSwap) R.string.player_side_right else R.string.player_side_left)), color = Color.White)
                         Switch(
                             checked = swipeVolume,
                             onCheckedChange = onSwipeVolumeChange,
@@ -571,7 +573,7 @@ internal fun PlayerSettingsButton(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Swipe for Brightness (${if (swipeSwap) "Left" else "Right"})", color = Color.White)
+                        Text(stringResource(R.string.player_swipe_for_brightness, stringResource(if (swipeSwap) R.string.player_side_left else R.string.player_side_right)), color = Color.White)
                         Switch(
                             checked = swipeBrightness,
                             onCheckedChange = onSwipeBrightnessChange,
@@ -588,7 +590,7 @@ internal fun PlayerSettingsButton(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Swap Sides", color = Color.White)
+                        Text(stringResource(R.string.player_swap_sides), color = Color.White)
                         Switch(
                             checked = swipeSwap,
                             onCheckedChange = onSwipeSwapChange,
@@ -606,7 +608,7 @@ internal fun PlayerSettingsButton(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Picture-in-Picture", color = Color.White)
+                            Text(stringResource(R.string.player_picture_in_picture), color = Color.White)
                             Switch(
                                 checked = supportsPiP,
                                 onCheckedChange = onPiPToggle,
@@ -651,7 +653,7 @@ internal fun SkipIndicatorOverlay(
             ) {
                 Icon(
                     if (isForward) Icons.Default.FastForward else Icons.Default.FastRewind,
-                    if (isForward) "Forward" else "Rewind",
+                    if (isForward) stringResource(R.string.player_forward) else stringResource(R.string.player_rewind),
                     tint = Color.White,
                     modifier = Modifier.size(32.dp)
                 )

@@ -84,6 +84,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -95,6 +96,7 @@ import androidx.media3.common.util.UnstableApi
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.LocalAnimeEntry
@@ -130,14 +132,14 @@ val ALL_GENRES = listOf(
 val ALL_FORMATS = listOf("TV", "TV_SHORT", "MOVIE", "OVA", "ONA", "SPECIAL", "MUSIC")
 val ALL_STATUSES = listOf("FINISHED", "RELEASING", "NOT_YET_RELEASED", "CANCELLED", "HIATUS")
 val ALL_SORTS = listOf(
-    "POPULARITY_DESC" to "Popularity",
-    "SCORE_DESC" to "Score",
-    "TRENDING_DESC" to "Trending",
-    "UPDATED_AT_DESC" to "Recently Updated",
-    "START_DATE_DESC" to "Release Date",
-    "FAVOURITES_DESC" to "Favorites",
-    "EPISODES_DESC" to "Episode Count",
-    "TITLE_ROMAJI" to "Title"
+    "POPULARITY_DESC" to R.string.search_sort_popularity,
+    "SCORE_DESC" to R.string.search_sort_score,
+    "TRENDING_DESC" to R.string.search_sort_trending,
+    "UPDATED_AT_DESC" to R.string.search_sort_updated,
+    "START_DATE_DESC" to R.string.search_sort_release_date,
+    "FAVOURITES_DESC" to R.string.search_sort_favorites,
+    "EPISODES_DESC" to R.string.search_sort_episode_count,
+    "TITLE_ROMAJI" to R.string.search_sort_title
 )
 
 data class SearchFilters(
@@ -538,12 +540,12 @@ fun SearchScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { keyboardController?.hide(); onClose() }) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_close), tint = Color.White, modifier = Modifier.size(28.dp))
                 }
-                Text("Search", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(R.string.search_title), color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.weight(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("anime" to "Anime", "manga" to "Manga", "both" to "Both").forEach { (value, label) ->
+                    listOf("anime" to stringResource(R.string.search_tab_anime), "manga" to stringResource(R.string.search_tab_manga), "both" to stringResource(R.string.search_tab_both)).forEach { (value, label) ->
                         FilterChip(
                             selected = searchType == value,
                             onClick = {
@@ -604,7 +606,7 @@ fun SearchScreen(
                         keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
                         decorationBox = { innerTextField ->
                             Box(contentAlignment = Alignment.CenterStart) {
-                                if (filters.query.isEmpty()) Text("Search anime...", color = Color.White.copy(alpha = 0.35f), fontSize = 16.sp)
+                                if (filters.query.isEmpty()) Text(stringResource(R.string.search_query_hint), color = Color.White.copy(alpha = 0.35f), fontSize = 16.sp)
                                 innerTextField()
                             }
                         }
@@ -623,7 +625,7 @@ fun SearchScreen(
                         },
                         modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.White.copy(alpha = if (filters.query.isNotEmpty()) 0.5f else 0f), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_clear), tint = Color.White.copy(alpha = if (filters.query.isNotEmpty()) 0.5f else 0f), modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -642,7 +644,7 @@ fun SearchScreen(
                 ) {
                     Icon(Icons.Default.FilterList, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Filters", color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.search_filters), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.titleSmall)
                     if (activeFilterCount > 0) {
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primary) {
@@ -652,7 +654,7 @@ fun SearchScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         if (showFilters) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
-                        contentDescription = "Toggle filters",
+                        contentDescription = stringResource(R.string.search_toggle_filters),
                         tint = Color.White.copy(alpha = 0.5f),
                         modifier = Modifier.size(20.dp)
                     )
@@ -660,7 +662,7 @@ fun SearchScreen(
                 Row {
                     if (activeFilterCount > 0) {
                         TextButton(onClick = { clearAllFilters() }, modifier = Modifier.height(32.dp)) {
-                            Text("Reset", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.search_reset), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                     Button(
@@ -675,7 +677,7 @@ fun SearchScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                         enabled = filters.query.isNotBlank() || activeFilterCount > 0
                     ) {
-                        Text("Search", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.search_action), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -693,14 +695,14 @@ fun SearchScreen(
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box(modifier = Modifier.weight(1f)) {
                             FilterRow(
-                                label = "Genres",
+                                label = stringResource(R.string.search_genres),
                                 count = filters.genres.size,
                                 onClick = { showGenreSheet = true }
                             )
                         }
                         Box(modifier = Modifier.weight(1f)) {
                             FilterRow(
-                                label = "Tags",
+                                label = stringResource(R.string.search_tags),
                                 count = filters.tags.size,
                                 onClick = { showTagSheet = true }
                             )
@@ -710,15 +712,15 @@ fun SearchScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        DropdownFilter("Format", filters.format, ALL_FORMATS, showFormatDropdown, { showFormatDropdown = !showFormatDropdown; showStatusDropdown = false; showSortDropdown = false }, { showFormatDropdown = false }, { filters = filters.copy(format = it) })
-                        DropdownFilter("Status", filters.status, ALL_STATUSES, showStatusDropdown, { showStatusDropdown = !showStatusDropdown; showFormatDropdown = false; showSortDropdown = false }, { showStatusDropdown = false }, { filters = filters.copy(status = it) })
+                        DropdownFilter(stringResource(R.string.search_format), filters.format, ALL_FORMATS, showFormatDropdown, { showFormatDropdown = !showFormatDropdown; showStatusDropdown = false; showSortDropdown = false }, { showFormatDropdown = false }, { filters = filters.copy(format = it) })
+                        DropdownFilter(stringResource(R.string.search_status), filters.status, ALL_STATUSES, showStatusDropdown, { showStatusDropdown = !showStatusDropdown; showFormatDropdown = false; showSortDropdown = false }, { showStatusDropdown = false }, { filters = filters.copy(status = it) })
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Year", color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall)
+                            Text(stringResource(R.string.search_year), color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall)
                             BasicTextField(
                                 value = filters.seasonYear,
                                 onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 4) filters = filters.copy(seasonYear = it) },
@@ -728,14 +730,14 @@ fun SearchScreen(
                                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                 decorationBox = { innerTextField ->
                                     Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxSize()) {
-                                        if (filters.seasonYear.isEmpty()) Text("e.g. 2024", color = Color.White.copy(alpha = 0.3f), fontSize = 13.sp)
+                                        if (filters.seasonYear.isEmpty()) Text(stringResource(R.string.search_year_hint), color = Color.White.copy(alpha = 0.3f), fontSize = 13.sp)
                                         innerTextField()
                                     }
                                 }
                             )
                         }
-                        DropdownFilter("Sort", ALL_SORTS.find { it.first == filters.sort }?.second ?: "Popularity", ALL_SORTS.map { it.second }, showSortDropdown, { showSortDropdown = !showSortDropdown; showFormatDropdown = false; showStatusDropdown = false }, { showSortDropdown = false }) { selectedLabel ->
-                            val pair = ALL_SORTS.find { it.second == selectedLabel } ?: ALL_SORTS.first()
+                        DropdownFilter(stringResource(R.string.search_sort), ALL_SORTS.find { it.first == filters.sort }?.let { stringResource(it.second) } ?: stringResource(R.string.search_sort_popularity), ALL_SORTS.map { stringResource(it.second) }, showSortDropdown, { showSortDropdown = !showSortDropdown; showFormatDropdown = false; showStatusDropdown = false }, { showSortDropdown = false }) { selectedLabel ->
+                            val pair = ALL_SORTS.find { context.getString(it.second) == selectedLabel } ?: ALL_SORTS.first()
                             filters = filters.copy(sort = pair.first)
                         }
                     }
@@ -751,8 +753,8 @@ if (isSearching) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 128.dp)) {
                         Icon(Icons.Default.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(48.dp))
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("No results found", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.titleMedium)
-                        Text("Try adjusting your search", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.search_no_results), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.search_try_adjusting), color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             } else if (!hasSearched) {
@@ -761,14 +763,14 @@ if (isSearching) {
                         Icon(Icons.Default.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.15f), modifier = Modifier.size(48.dp))
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            if (searchType == "manga") "Discover Manga"
-                            else if (searchType == "both") "Discover Anime & Manga"
-                            else "Discover Anime",
+                            if (searchType == "manga") stringResource(R.string.search_discover_manga)
+                            else if (searchType == "both") stringResource(R.string.search_discover_both)
+                            else stringResource(R.string.search_discover_anime),
                             color = Color.White.copy(alpha = 0.35f),
                             style = MaterialTheme.typography.titleLarge
                         )
                         Spacer(modifier = Modifier.height(2.dp))
-                        Text("Search by name or use filters above", color = Color.White.copy(alpha = 0.25f), style = MaterialTheme.typography.bodySmall)
+                        Text(stringResource(R.string.search_hint), color = Color.White.copy(alpha = 0.25f), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             } else if (searchType == "manga") {
@@ -803,7 +805,7 @@ if (isSearching) {
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                                 } else {
                                     TextButton(onClick = { loadMore() }) {
-                                        Text("Load More", color = MaterialTheme.colorScheme.primary)
+                                        Text(stringResource(R.string.search_load_more), color = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                     }
@@ -860,7 +862,7 @@ if (isSearching) {
                                     // whichever active type(s) still have more
                                     // results, skipping any exhausted side.
                                     TextButton(onClick = { loadMore() }) {
-                                        Text("Load More", color = MaterialTheme.colorScheme.primary)
+                                        Text(stringResource(R.string.search_load_more), color = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                     }
@@ -898,7 +900,7 @@ if (isSearching) {
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                                 } else {
                                     TextButton(onClick = { loadMore() }) {
-                                        Text("Load More", color = MaterialTheme.colorScheme.primary)
+                                        Text(stringResource(R.string.search_load_more), color = MaterialTheme.colorScheme.primary)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                     }
@@ -965,7 +967,7 @@ if (isSearching) {
                         val detailedData = viewModel.fetchDetailedAnimeData(relation.id)
                         if (detailedData != null) {
                             selectedAnime = ExploreAnime(id = relation.id, title = detailedData.title, titleEnglish = detailedData.titleEnglish, cover = detailedData.cover, banner = detailedData.banner, episodes = detailedData.episodes, latestEpisode = detailedData.latestEpisode, averageScore = detailedData.averageScore, genres = detailedData.genres, year = detailedData.year, format = detailedData.format)
-                        } else context.toast("Anime not found")
+                        } else context.toast(context.getString(R.string.search_anime_not_found))
                     }
                 }
             },
@@ -987,7 +989,7 @@ if (isSearching) {
                         val detailedData = viewModel.fetchDetailedAnimeData(rec.id)
                         if (detailedData != null) {
                             selectedAnime = ExploreAnime(id = rec.id, title = detailedData.title, titleEnglish = detailedData.titleEnglish, cover = detailedData.cover, banner = detailedData.banner, episodes = detailedData.episodes, latestEpisode = detailedData.latestEpisode, averageScore = detailedData.averageScore, genres = detailedData.genres, year = detailedData.year, format = detailedData.format)
-                        } else context.toast("Anime not found")
+                        } else context.toast(context.getString(R.string.search_anime_not_found))
                     }
                 }
             },
@@ -1109,11 +1111,11 @@ Text(
                 }
                 if (anime == null && mangaChapters != null) {
                     if (format != null || year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                    Text("$mangaChapters ch.", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Text(stringResource(R.string.search_chapter_count, mangaChapters), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
                 if (anime != null && anime.episodes > 0 && format?.uppercase() != "MOVIE") {
                     if (year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                    Text("${anime.episodes} eps", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.search_episode_count, anime.episodes), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -1276,7 +1278,7 @@ private fun MediaSearchResultCard(
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(
-                            text = if (isAnime) "Anime" else "Manga",
+                            text = if (isAnime) stringResource(R.string.search_tab_anime) else stringResource(R.string.search_tab_manga),
                             color = Color.White,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold
@@ -1299,11 +1301,11 @@ private fun MediaSearchResultCard(
                 }
                 if (!isAnime && manga?.chapters != null) {
                     if (format != null || year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                    Text("${manga.chapters} ch.", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Text(stringResource(R.string.search_chapter_count, manga.chapters), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 }
                 if (isAnime && anime != null && anime.episodes > 0 && format?.uppercase() != "MOVIE") {
                     if (year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                    Text("${anime.episodes} eps", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
+                    Text(stringResource(R.string.search_episode_count, anime.episodes), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
@@ -1362,10 +1364,10 @@ private fun MultiSelectSheet(
                     modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Select Genres", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.search_select_genres), color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.weight(1f))
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White.copy(alpha = 0.6f))
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_close), tint = Color.White.copy(alpha = 0.6f))
                     }
                 }
                 BasicTextField(
@@ -1377,7 +1379,7 @@ private fun MultiSelectSheet(
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     decorationBox = { innerTextField ->
                         Box(contentAlignment = Alignment.CenterStart) {
-                            if (searchQuery.isEmpty()) Text("Search...", color = Color.White.copy(alpha = 0.3f), fontSize = 14.sp)
+                            if (searchQuery.isEmpty()) Text(stringResource(R.string.search_placeholder_short), color = Color.White.copy(alpha = 0.3f), fontSize = 14.sp)
                             innerTextField()
                         }
                     }
@@ -1385,7 +1387,7 @@ private fun MultiSelectSheet(
                 Spacer(modifier = Modifier.height(8.dp))
                 if (filtered.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No matches", color = Color.White.copy(alpha = 0.3f))
+                        Text(stringResource(R.string.search_no_matches), color = Color.White.copy(alpha = 0.3f))
                     }
                 } else {
                     Column(
@@ -1449,10 +1451,10 @@ private fun TagSelectSheet(
                     modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Select Tags", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.search_select_tags), color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.weight(1f))
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White.copy(alpha = 0.6f))
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_close), tint = Color.White.copy(alpha = 0.6f))
                     }
                 }
                 BasicTextField(
@@ -1464,7 +1466,7 @@ private fun TagSelectSheet(
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     decorationBox = { innerTextField ->
                         Box(contentAlignment = Alignment.CenterStart) {
-                            if (searchQuery.isEmpty()) Text("Search tags...", color = Color.White.copy(alpha = 0.3f), fontSize = 14.sp)
+                            if (searchQuery.isEmpty()) Text(stringResource(R.string.search_tags_hint), color = Color.White.copy(alpha = 0.3f), fontSize = 14.sp)
                             innerTextField()
                         }
                     }
@@ -1472,12 +1474,12 @@ private fun TagSelectSheet(
                 Spacer(modifier = Modifier.height(8.dp))
                 if (filtered.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No tags match", color = Color.White.copy(alpha = 0.3f))
+                        Text(stringResource(R.string.search_no_tags_match), color = Color.White.copy(alpha = 0.3f))
                     }
                 } else {
                     val selectedCount = selected.size
                     Text(
-                        "${filtered.size} tags${if (selectedCount > 0) " • $selectedCount selected" else ""}",
+                        stringResource(R.string.search_tags_count, filtered.size) + (if (selectedCount > 0) stringResource(R.string.search_tags_selected, selectedCount) else ""),
                         color = Color.White.copy(alpha = 0.4f),
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 20.dp)
@@ -1536,12 +1538,12 @@ private fun RowScope.DropdownFilter(
                     modifier = Modifier.padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(currentValue ?: "Any", color = if (currentValue != null) Color.White else Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    Text(currentValue ?: stringResource(R.string.search_any), color = if (currentValue != null) Color.White else Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
                 }
             }
             DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-                DropdownMenuItem(text = { Text("Any") }, onClick = { onSelect(null); onDismiss() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.search_any)) }, onClick = { onSelect(null); onDismiss() })
                 options.forEach { option ->
                     DropdownMenuItem(
                         text = { Text(option.replace("_", " ").replaceFirstChar { it.uppercase() }) },

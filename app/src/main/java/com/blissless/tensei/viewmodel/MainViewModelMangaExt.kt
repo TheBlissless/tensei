@@ -6,9 +6,15 @@ import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
 import com.blissless.tensei.api.myanimelist.MalMangaListEntry
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.manga.MangaDexManager
 import com.blissless.tensei.data.manga.MangaRepository
 import com.blissless.tensei.data.manga.MangaTrackManager
+import com.blissless.tensei.extensions.manga.MangaExtensionManager
+import com.blissless.tensei.extensions.manga.MangaSourceApi
+import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.model.SChapter
+import eu.kanade.tachiyomi.source.model.SManga
 import com.blissless.tensei.data.models.MangaActivityNode
 import com.blissless.tensei.data.models.MangaChapter
 import com.blissless.tensei.data.models.MangaDetail
@@ -80,6 +86,27 @@ val MainViewModel.installedExtensions: StateFlow<List<InstalledExtension>> get()
 
 private val _selectedExtensionAuthority = MutableStateFlow<String?>(null)
 val MainViewModel.selectedExtensionAuthority: StateFlow<String?> get() = _selectedExtensionAuthority.asStateFlow()
+
+// ─── External (Mihon) extension preferences exposed to the UI ──────────────
+
+val MainViewModel.mangaSourceMethod: StateFlow<String> get() = userPreferences.mangaSourceMethod
+val MainViewModel.defaultExternalMangaExtension: StateFlow<String?> get() = userPreferences.defaultExternalMangaExtension
+val MainViewModel.mangaExtensionLanguages: StateFlow<Map<String, String>> get() = userPreferences.mangaExtensionLanguages
+
+fun MainViewModel.setMangaSourceMethod(method: String) {
+    userPreferences.setMangaSourceMethod(method)
+    _mangaTotalChapters.value = 0
+    mangaTrackManager?.resetTotalChaptersForReleasing()
+    loadLocalMangaTracking()
+}
+
+fun MainViewModel.setDefaultExternalMangaExtension(pkgName: String?) {
+    userPreferences.setDefaultExternalMangaExtension(pkgName)
+}
+
+fun MainViewModel.setMangaExtensionLanguage(pkgName: String, language: String) {
+    userPreferences.setMangaExtensionLanguage(pkgName, language)
+}
 
 /**
  * Discover installed manga extensions. Detects by package name pattern
@@ -337,6 +364,14 @@ private val _mangaChapterImagesError = MutableStateFlow<String?>(null)
 val MainViewModel.mangaChapterImagesError: StateFlow<String?> get() = _mangaChapterImagesError.asStateFlow()
 
 /**
+ * Headers to attach to chapter image requests from a manga extension source
+ * (User-Agent + source Referer, taken from the source's own HttpSource.headers).
+ * Null for the built-in scrape path, which falls back to a URL-derived Referer.
+ */
+private val _mangaImageHeaders = MutableStateFlow<okhttp3.Headers?>(null)
+val MainViewModel.mangaImageHeaders: StateFlow<okhttp3.Headers?> get() = _mangaImageHeaders.asStateFlow()
+
+/**
  * Cached image URL lists keyed by chapterId. Populated by [loadChapterImages] on success and
  * by [prefetchMangaChapterImages] (which scrapes the NEXT chapter while the reader is near the
  * end of the current one). Serving from this cache makes chapter transitions â€” including
@@ -351,6 +386,13 @@ private val _prefetchingChapterIds = mutableSetOf<String>()
  *  most recent load can write to [MainViewModel.mangaChapterImages] â€” otherwise a slower,
  *  stale fetch from a previous chapter (rapid next/prev taps) would overwrite the new one. */
 private var chapterImagesJob: Job? = null
+
+// ─── External (Mihon) manga extension state ───────────────────────────────
+// Set when mangaSourceMethod == "external". Maps the AniList manga id to the
+// resolved source + its SManga handle (needed to rebuild the chapter list), and
+// the routing chapterId to the source + SChapter used to fetch pages.
+private val _externalMangaCache = mutableMapOf<Int, Pair<Source, SManga>>()
+private val _externalChapterCache = mutableMapOf<String, Pair<Source, SChapter>>()
 
 fun MainViewModel.clearMangaChapterImagesCache() {
     chapterImagesJob?.cancel()
@@ -788,6 +830,10 @@ suspend fun MainViewModel.fetchMangaAllRecommendations(mangaId: Int, malId: Int?
  * from the chapter TITLE (not the URL) when scraping images, matching oni's contract.
  */
 suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
+    if (userPreferences.mangaSourceMethod.value == "external") {
+        loadMangaChaptersFromExternal(mangaId, title)
+        return
+    }
     _isLoadingMangaChapters.value = true
     _hasLoadedMangaChapters.value = false
     _mangaTotalChapters.value = 0
@@ -944,6 +990,160 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
 
 // â”€â”€â”€ Chapter Images â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// ─── External (Mihon) manga extension chapter loading ────────────────────────────────────
+
+/** Resolve the source to use for a package, honoring the per-extension language preference. */
+private fun MainViewModel.resolveExternalSource(pkgName: String): Source? {
+    val manager = MangaExtensionManager.getOrNull() ?: return null
+    val ext = manager.installed(pkgName) ?: return null
+    val sources = ext.sources
+    if (sources.isEmpty()) return null
+    val preferred = userPreferences.getMangaExtensionLanguage(pkgName)
+    if (!preferred.isNullOrBlank()) {
+        sources.firstOrNull { it.lang.equals(preferred, ignoreCase = true) }?.let { return it }
+    }
+    // Default to English when available (requirement), else the first source.
+    sources.firstOrNull { it.lang.equals("en", ignoreCase = true) }?.let { return it }
+    return sources.first()
+}
+
+/** Languages an installed external extension can serve (for the settings picker). */
+fun MainViewModel.externalExtensionLanguages(pkgName: String): List<String> {
+    val manager = MangaExtensionManager.getOrNull() ?: return emptyList()
+    val ext = manager.installed(pkgName) ?: return emptyList()
+    val langs = ext.sources.map { it.lang }.filter { it.isNotBlank() }.distinct()
+    return if (langs.isEmpty()) listOf(ext.lang) else langs.sorted()
+}
+
+private fun normalizeMangaTitle(title: String): String =
+    title.lowercase().filter { it.isLetterOrDigit() }
+
+/** Pick the search result whose title is the closest match to [title]. */
+private fun pickBestMangaMatch(title: String, results: List<SManga>): SManga? {
+    if (results.isEmpty()) return null
+    val target = normalizeMangaTitle(title)
+    return results.maxByOrNull { candidate ->
+        val name = normalizeMangaTitle(candidate.title)
+        when {
+            name == target -> 1000
+            name.startsWith(target) || target.startsWith(name) -> 500 - kotlin.math.abs(name.length - target.length)
+            name.contains(target) || target.contains(name) -> 250
+            else -> 0
+        }
+    }
+}
+
+private suspend fun MainViewModel.loadMangaChaptersFromExternal(mangaId: Int, title: String) {
+    _isLoadingMangaChapters.value = true
+    _hasLoadedMangaChapters.value = false
+    _mangaTotalChapters.value = 0
+    _mangaExtensionTitle.value = null
+    mangaTrackManager?.resetTotalChapters(mangaId)
+
+    val detail = _mangaDetail.value
+    val resolvedTitle = detail?.titleEnglish?.takeIf { it.isNotBlank() }
+        ?: detail?.title?.takeIf { it.isNotBlank() }
+        ?: title
+
+    val pkgName = userPreferences.defaultExternalMangaExtension.value
+    if (pkgName.isNullOrBlank()) {
+        android.util.Log.w("MangaChapters", "external: no default manga extension selected")
+        _mangaChapters.value = emptyList()
+        _hasLoadedMangaChapters.value = true
+        _isLoadingMangaChapters.value = false
+        return
+    }
+
+    val chapters = withContext(Dispatchers.IO) {
+        runCatching { fetchExternalMangaChapters(mangaId, pkgName, resolvedTitle) }
+            .onFailure { android.util.Log.e("MangaChapters", "external chapter load failed", it) }
+            .getOrDefault(emptyList())
+    }
+
+    _mangaChapters.value = chapters
+    val counted = countDistinctChapters(chapters.map { it.chapterNumber })
+    _mangaTotalChapters.value = counted
+    mangaTrackManager?.updateTotalChapters(mangaId, counted, detail?.volumes)
+    loadLocalMangaTracking()
+    _hasLoadedMangaChapters.value = true
+    _isLoadingMangaChapters.value = false
+}
+
+private suspend fun MainViewModel.fetchExternalMangaChapters(
+    mangaId: Int,
+    pkgName: String,
+    title: String,
+): List<MangaChapter> {
+    val source = resolveExternalSource(pkgName) ?: return emptyList()
+
+    var sManga: SManga? = null
+    var sChapters: List<SChapter> = emptyList()
+
+    // Prefer a search hit (gives the real source URL), then load details + chapters.
+    val searchResult = runCatching { MangaSourceApi.search(source, 1, title) }.getOrNull()
+    val match = searchResult?.let { pickBestMangaMatch(title, it.mangas) }
+    if (match != null) {
+        runCatching { MangaSourceApi.details(source, match) }.getOrNull()?.let { update ->
+            sManga = update.manga
+            sChapters = update.chapters
+        }
+    }
+
+    // Fall back to building an SManga from the title alone (some sources search poorly).
+    if (sChapters.isEmpty()) {
+        val fallback = SManga.create().apply {
+            this.title = title
+            url = "/"
+        }
+        runCatching { MangaSourceApi.details(source, fallback) }.getOrNull()?.let { update ->
+            sManga = update.manga
+            sChapters = update.chapters
+        }
+    }
+
+    val manga = sManga ?: return emptyList()
+    _externalMangaCache[mangaId] = source to manga
+
+    return sChapters
+        .sortedBy { it.chapter_number }
+        .mapIndexedNotNull { idx, ch ->
+            val number = if (ch.chapter_number > 0f) ch.chapter_number else (idx + 1).toFloat()
+            val chapterId = "ext_${mangaId}_${idx}_${ch.url.hashCode()}"
+            _externalChapterCache[chapterId] = source to ch
+            MangaChapter(
+                url = chapterId,
+                title = ch.name.takeIf { it.isNotBlank() } ?: "Chapter $number",
+                chapterId = chapterId,
+                chapterNumber = number,
+            )
+        }
+}
+
+/** Load page URLs for an external chapter from its cached SChapter handle. */
+private suspend fun MainViewModel.loadExternalChapterImages(chapterId: String) {
+    val pair = _externalChapterCache[chapterId]
+    if (pair == null) {
+        _mangaChapterImages.value = emptyList()
+        _mangaChapterImagesError.value = context.getString(R.string.runtime_manga_error_chapter_data_unavailable)
+        return
+    }
+    val (source, sChapter) = pair
+    val pages = runCatching { MangaSourceApi.pages(source, sChapter) }.getOrNull()
+    if (pages == null) {
+        _mangaChapterImages.value = emptyList()
+        _mangaChapterImagesError.value = context.getString(R.string.runtime_manga_error_load_failed)
+        return
+    }
+    val urls = MangaSourceApi.resolveImages(source, pages).filterNotNull()
+    if (urls.isEmpty()) {
+        _mangaChapterImages.value = emptyList()
+        _mangaChapterImagesError.value = context.getString(R.string.runtime_manga_error_no_pages)
+    } else {
+        _mangaChapterImagesCache.value = _mangaChapterImagesCache.value + (chapterId to urls)
+        _mangaChapterImages.value = urls
+    }
+}
+
 /**
  * Load the image URL list for a single chapter. Matches oni's exact flow:
  *
@@ -958,6 +1158,13 @@ suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
 fun MainViewModel.loadChapterImages(chapterId: String, useDataSaver: Boolean = false, mangaTitle: String? = null, chapterTitle: String? = null, mangaId: Int = 0) {
     chapterImagesJob?.cancel()
     chapterImagesJob = viewModelScope.launch {
+        // Attach the active extension source's headers (Referer/User-Agent) to the reader's
+        // image requests; null for the built-in scrape path. Looked up before the cache
+        // serve so cached chapter transitions keep the right headers.
+        _mangaImageHeaders.value = if (userPreferences.mangaSourceMethod.value == "external") {
+            _externalChapterCache[chapterId]?.let { (source, _) -> MangaSourceApi.headers(source) }
+        } else null
+
         // Serve from the prefetch cache first so chapter transitions (incl. auto-advance)
         // load instantly instead of waiting on a scrape round-trip.
         _mangaChapterImagesCache.value[chapterId]?.let { cached ->
@@ -968,6 +1175,11 @@ fun MainViewModel.loadChapterImages(chapterId: String, useDataSaver: Boolean = f
 
         _mangaChapterImages.value = null
         _mangaChapterImagesError.value = null
+
+        if (userPreferences.mangaSourceMethod.value == "external") {
+            loadExternalChapterImages(chapterId)
+            return@launch
+        }
 
         // Extract the chapter number from the chapter TITLE (matching oni's contract)
         // Title format: "Chapter 346" or "Chapter 346.2: Some Title" â†’ "346" or "346.2"
@@ -985,7 +1197,7 @@ fun MainViewModel.loadChapterImages(chapterId: String, useDataSaver: Boolean = f
         if (extTitle.isBlank()) {
             android.util.Log.w("MangaReader", "loadChapterImages: no manga title available")
             _mangaChapterImages.value = emptyList()
-            _mangaChapterImagesError.value = "Could not determine the manga title for the extension."
+            _mangaChapterImagesError.value = context.getString(R.string.runtime_manga_error_no_title)
             return@launch
         }
 
@@ -993,7 +1205,7 @@ fun MainViewModel.loadChapterImages(chapterId: String, useDataSaver: Boolean = f
         if (authority == null) {
             android.util.Log.w("MangaReader", "loadChapterImages: no extension selected")
             _mangaChapterImages.value = emptyList()
-            _mangaChapterImagesError.value = "No manga extension selected. Pick one in Settings â†’ Extensions to read this chapter."
+            _mangaChapterImagesError.value = context.getString(R.string.runtime_manga_error_no_extension)
             return@launch
         }
 
@@ -1003,10 +1215,10 @@ fun MainViewModel.loadChapterImages(chapterId: String, useDataSaver: Boolean = f
 
         if (images == null) {
             _mangaChapterImages.value = emptyList()
-            _mangaChapterImagesError.value = "Failed to load chapter images. Check your connection and try again."
+            _mangaChapterImagesError.value = context.getString(R.string.runtime_manga_error_load_failed)
         } else if (images.isEmpty()) {
             _mangaChapterImages.value = emptyList()
-            _mangaChapterImagesError.value = "This chapter has no pages."
+            _mangaChapterImagesError.value = context.getString(R.string.runtime_manga_error_no_pages)
         } else {
             _mangaChapterImagesCache.value = _mangaChapterImagesCache.value + (chapterId to images)
             _mangaChapterImages.value = images
@@ -1026,6 +1238,16 @@ fun MainViewModel.prefetchMangaChapterImages(chapter: MangaChapter?, mangaTitle:
 
     viewModelScope.launch {
         try {
+            if (userPreferences.mangaSourceMethod.value == "external") {
+                val pair = _externalChapterCache[next.chapterId] ?: return@launch
+                val (source, sChapter) = pair
+                val pages = runCatching { MangaSourceApi.pages(source, sChapter) }.getOrNull() ?: return@launch
+                val urls = MangaSourceApi.resolveImages(source, pages).filterNotNull()
+                if (urls.isNotEmpty()) {
+                    _mangaChapterImagesCache.value = _mangaChapterImagesCache.value + (next.chapterId to urls)
+                }
+                return@launch
+            }
             val authority = _selectedExtensionAuthority.value
             if (authority == null) return@launch
             val extTitle = _mangaExtensionTitle.value
@@ -1052,6 +1274,7 @@ fun MainViewModel.prefetchMangaChapterImages(chapter: MangaChapter?, mangaTitle:
 fun MainViewModel.clearChapterImages() {
     _mangaChapterImages.value = null
     _mangaChapterImagesError.value = null
+    _mangaImageHeaders.value = null
 }
 
 // â”€â”€â”€ Tracking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

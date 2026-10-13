@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -68,6 +69,7 @@ import kotlin.math.absoluteValue
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.CharacterData
 import com.blissless.tensei.data.models.StaffData
 import com.blissless.tensei.ui.components.TenseiScrimChip
@@ -186,7 +188,7 @@ fun CharacterScreen(
                                     .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                                     .zIndex(10f)
                             ) {
-                                Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White, modifier = Modifier.size(24.dp))
+                                Icon(Icons.Default.Share, contentDescription = stringResource(R.string.lists_share), tint = Color.White, modifier = Modifier.size(24.dp))
                             }
                         }
                     }
@@ -297,7 +299,7 @@ fun CharacterScreen(
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         Text(
-                                            "Appears In",
+                                            stringResource(R.string.lists_appears_in),
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onBackground
@@ -440,7 +442,7 @@ fun StaffScreen(
         loadError = null
         staff = viewModel.fetchStaff(staffId)
         if (staff == null) {
-            loadError = "Failed to load staff data"
+            loadError = context.getString(R.string.lists_failed_to_load_staff_data)
         }
         isLoading = false
     }
@@ -528,7 +530,7 @@ fun StaffScreen(
                                     .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                                     .zIndex(10f)
                             ) {
-                                Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White, modifier = Modifier.size(24.dp))
+                                Icon(Icons.Default.Share, contentDescription = stringResource(R.string.lists_share), tint = Color.White, modifier = Modifier.size(24.dp))
                             }
                         }
                     }
@@ -641,7 +643,7 @@ fun StaffScreen(
                                 ) {
                                     Column(modifier = Modifier.padding(16.dp)) {
                                         Text(
-                                            "Worked On",
+                                            stringResource(R.string.lists_worked_on),
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onBackground
@@ -766,7 +768,7 @@ fun StaffScreen(
             } else {
                  Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = loadError ?: "Could not load staff data",
+                        text = loadError ?: stringResource(R.string.lists_could_not_load_staff_data),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -1,6 +1,7 @@
 package com.blissless.tensei.ui.screens.status
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -81,11 +82,13 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.ui.components.HomeAnimeCardBounds
@@ -105,22 +108,23 @@ import kotlin.math.absoluteValue
  * the ViewModels pass a sort argument, so preserving the incoming order *is*
  * "sort by last updated" without needing an `updatedAt` field on the models.
  */
-enum class SortOption(val label: String, val icon: ImageVector) {
-    LAST_UPDATED("Last Updated", Icons.Default.Update),
-    ALPHABETICAL_A_Z("A-Z", Icons.AutoMirrored.Filled.Sort),
-    ALPHABETICAL_Z_A("Z-A", Icons.AutoMirrored.Filled.Sort),
-    YEAR_NEWEST("Year \u2193", Icons.Default.DateRange),
-    YEAR_OLDEST("Year \u2191", Icons.Default.DateRange),
-    EPISODES_MOST("Eps \u2193", Icons.Default.PlayArrow),
-    EPISODES_LEAST("Eps \u2191", Icons.Default.PlayArrow),
-    SCORE_HIGH("Score \u2193", Icons.Default.Star),
-    SCORE_LOW("Score \u2191", Icons.Default.Star);
+enum class SortOption(@StringRes val labelRes: Int, val icon: ImageVector) {
+    LAST_UPDATED(R.string.lists_sort_last_updated, Icons.Default.Update),
+    ALPHABETICAL_A_Z(R.string.lists_sort_a_z, Icons.AutoMirrored.Filled.Sort),
+    ALPHABETICAL_Z_A(R.string.lists_sort_z_a, Icons.AutoMirrored.Filled.Sort),
+    YEAR_NEWEST(R.string.lists_sort_year_desc, Icons.Default.DateRange),
+    YEAR_OLDEST(R.string.lists_sort_year_asc, Icons.Default.DateRange),
+    EPISODES_MOST(R.string.lists_sort_eps_desc, Icons.Default.PlayArrow),
+    EPISODES_LEAST(R.string.lists_sort_eps_asc, Icons.Default.PlayArrow),
+    SCORE_HIGH(R.string.lists_sort_score_desc, Icons.Default.Star),
+    SCORE_LOW(R.string.lists_sort_score_asc, Icons.Default.Star);
 
     /** Label as shown in the sort sheet, with manga wording where it differs. */
-    fun displayLabel(isManga: Boolean): String = if (!isManga) label else when (this) {
-        EPISODES_MOST -> "Chapters \u2193"
-        EPISODES_LEAST -> "Chapters \u2191"
-        else -> label
+    @Composable
+    fun displayLabel(isManga: Boolean): String = if (!isManga) stringResource(labelRes) else when (this) {
+        EPISODES_MOST -> stringResource(R.string.lists_sort_chapters_desc)
+        EPISODES_LEAST -> stringResource(R.string.lists_sort_chapters_asc)
+        else -> stringResource(labelRes)
     }
 }
 
@@ -275,19 +279,19 @@ fun StatusListScreen(
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
+                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                             contentDescription = stringResource(R.string.lists_back),
+                             tint = MaterialTheme.colorScheme.onSurface
+                         )
                     }
                 },
                 actions = {
                     IconButton(onClick = { focusManager.clearFocus(); showSortSheet = true }) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Sort,
-                            contentDescription = "Sort",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                             imageVector = Icons.AutoMirrored.Filled.Sort,
+                             contentDescription = stringResource(R.string.lists_sort_by),
+                             tint = MaterialTheme.colorScheme.onSurfaceVariant
+                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -302,14 +306,14 @@ fun StatusListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Search in this list...") },
+                placeholder = { Text(stringResource(R.string.lists_search_in_this_list)) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Clear search"
-                            )
+                                 contentDescription = stringResource(R.string.lists_clear_search)
+                             )
                         }
                     }
                 },
@@ -339,7 +343,7 @@ fun StatusListScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = if (isManga) "No manga in this list" else "No anime in this list",
+                                 text = if (isManga) stringResource(R.string.lists_no_manga_in_this_list) else stringResource(R.string.lists_no_anime_in_this_list),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -505,12 +509,12 @@ fun StatusListScreen(
                 containerColor = MaterialTheme.colorScheme.surface
             ) {
                 Column(modifier = Modifier.padding(bottom = 32.dp)) {
-                    Text(
-                        "Sort by",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
-                    )
+                        Text(
+                             stringResource(R.string.lists_sort_by),
+                             style = MaterialTheme.typography.titleLarge,
+                             fontWeight = FontWeight.Bold,
+                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                         )
                     HorizontalDivider()
                     SortOption.entries.forEach { option ->
                         val isSelected = option == selectedSort
@@ -729,9 +733,9 @@ private fun StatusListAnimeCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.BookmarkAdd,
-                            contentDescription = "Change status",
-                            modifier = Modifier.size(18.dp)
-                        )
+                             contentDescription = stringResource(R.string.lists_change_status),
+                             modifier = Modifier.size(18.dp)
+                         )
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
@@ -746,10 +750,10 @@ private fun StatusListAnimeCard(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = "Info",
-                            modifier = Modifier.size(18.dp)
-                        )
+                             imageVector = Icons.Outlined.Info,
+                             contentDescription = stringResource(R.string.lists_info),
+                             modifier = Modifier.size(18.dp)
+                         )
                     }
                 }
             }
@@ -886,9 +890,9 @@ private fun StatusListMangaCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.BookmarkAdd,
-                            contentDescription = "Change status",
-                            modifier = Modifier.size(18.dp)
-                        )
+                             contentDescription = stringResource(R.string.lists_change_status),
+                             modifier = Modifier.size(18.dp)
+                         )
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
@@ -903,10 +907,10 @@ private fun StatusListMangaCard(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = "Info",
-                            modifier = Modifier.size(18.dp)
-                        )
+                             imageVector = Icons.Outlined.Info,
+                             contentDescription = stringResource(R.string.lists_info),
+                             modifier = Modifier.size(18.dp)
+                         )
                     }
                 }
             }

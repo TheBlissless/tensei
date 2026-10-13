@@ -12,8 +12,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.blissless.tensei.R
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -49,7 +51,7 @@ fun StreamErrorDialog(
         },
         title = {
             Text(
-                text = "Stream Error",
+                text = stringResource(R.string.comp_stream_error),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.error
             )
@@ -64,7 +66,7 @@ fun StreamErrorDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("OK", fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.comp_ok), fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = null

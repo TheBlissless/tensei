@@ -56,11 +56,13 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Sizes
@@ -263,24 +265,32 @@ fun ExploreAnimeCard(
 
     val resolvedStatusColor = statusColor(effectiveStatus)
 
-    val statusIndicatorColor = if (showStatusColors) resolvedStatusColor else Color.Transparent
+    val statusIndicatorColor = if (showStatusColors && effectiveHasStatus) resolvedStatusColor else Color.Transparent
 
     val displayScore = remember(anime.averageScore) {
         anime.averageScore?.let { it / 10.0 }
     }
 
-    val episodeText = remember(anime.latestEpisode, anime.episodes) {
-        when {
-            anime.latestEpisode != null && anime.latestEpisode > 0 -> "Ep ${anime.latestEpisode}"
-            anime.episodes > 0 -> "${anime.episodes} ${if (anime.episodes == 1) "ep" else "eps"}"
-            else -> ""
-        }
-    }
-
-    val buttonContainerColor = if (showStatusColors) {
+    // Single source of truth for the on-artwork button color. The play button and the
+    // status/bookmark button (when it carries no status tint) share it, so they read as a
+    // pair in every theme (OLED, white, dark, Material 3) instead of the no-status button
+    // falling back to the theme's outline tone.
+    val playButtonContainerColor = Color.Black.copy(alpha = 0.5f)
+    val buttonContainerColor = if (showStatusColors && effectiveHasStatus) {
         resolvedStatusColor.copy(alpha = 0.8f)
     } else {
-        Color.Black.copy(alpha = 0.6f)
+        playButtonContainerColor
+    }
+
+    val episodeText = remember(anime.latestEpisode, anime.episodes) {
+        when {
+            anime.latestEpisode != null && anime.latestEpisode > 0 -> context.getString(R.string.explore_episode_short, anime.latestEpisode)
+            anime.episodes > 0 -> context.getString(
+                if (anime.episodes == 1) R.string.explore_episode_count_one else R.string.explore_episode_count_other,
+                anime.episodes
+            )
+            else -> ""
+        }
     }
 
     Column(modifier = Modifier.width(Sizes.railPosterWidth)) {
@@ -400,7 +410,7 @@ fun ExploreAnimeCard(
                             ) { hasStatus ->
                                 Icon(
                                     imageVector = if (hasStatus) Icons.Filled.Bookmark else Icons.Outlined.BookmarkAdd,
-                                    contentDescription = if (hasStatus) "Remove from list" else "Add to planning",
+                                    contentDescription = if (hasStatus) stringResource(R.string.explore_remove_from_list) else stringResource(R.string.explore_add_to_planning),
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -413,13 +423,13 @@ fun ExploreAnimeCard(
                             modifier = Modifier.size(34.dp),
                             shape = RoundedCornerShape(4.dp),
                             colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                containerColor = Color.Black.copy(alpha = 0.5f),
+                                containerColor = playButtonContainerColor,
                                 contentColor = Color.White
                             )
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Play",
+                                contentDescription = stringResource(R.string.explore_play),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -432,7 +442,7 @@ fun ExploreAnimeCard(
             preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty() -> anime.titleEnglish
             anime.title.isNotEmpty() -> anime.title
             !anime.titleEnglish.isNullOrEmpty() -> anime.titleEnglish
-            else -> "Unknown"
+            else -> stringResource(R.string.explore_unknown)
         }
 
         RailCardTitle(title = displayTitle)

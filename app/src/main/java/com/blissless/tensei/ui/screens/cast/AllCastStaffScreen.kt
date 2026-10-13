@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.CharacterData
 import com.blissless.tensei.data.models.DetailedAnimeStaffEdge
 import com.blissless.tensei.ui.components.StaffEdgeJobText
@@ -110,14 +112,14 @@ fun AllCastScreen(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.common_back),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.Center)) {
                         Text(
-                            text = "Cast",
+                            text = stringResource(R.string.lists_cast),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -140,7 +142,7 @@ fun AllCastScreen(
                 } else if (characters.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "No characters found",
+                            text = stringResource(R.string.lists_no_characters_found),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -251,14 +253,14 @@ var staff by remember { mutableStateOf<List<DetailedAnimeStaffEdge>>(emptyList()
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.common_back),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.Center)) {
                         Text(
-                            text = "Staff",
+                            text = stringResource(R.string.lists_staff),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -281,7 +283,7 @@ var staff by remember { mutableStateOf<List<DetailedAnimeStaffEdge>>(emptyList()
                 } else if (staff.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "No staff found",
+                            text = stringResource(R.string.lists_no_staff_found),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reader_previous_chapter">Vorheriges Kapitel</string>
+    <string name="reader_next_chapter">Nächstes Kapitel</string>
+    <string name="reader_toggle_rotation_lock">Drehsperre umschalten</string>
+    <string name="reader_toggle_fullscreen">Vollbild umschalten</string>
+    <string name="reader_toggle_page_indicator">Seitenanzeige umschalten</string>
+    <string name="reader_no_extension_selected">Keine Erweiterung ausgewählt</string>
+    <string name="reader_no_extension_message">Wähle in den Einstellungen eine Standard-Manga-Erweiterung aus, um Kapitel für diesen Titel zu laden.</string>
+    <string name="reader_go_to_settings">Zu den Einstellungen</string>
+    <string name="reader_close">Schließen</string>
+    <string name="reader_mode_vertical">Vertikaler Scrollmodus</string>
+    <string name="reader_mode_ltr">Seitenmodus von links nach rechts</string>
+    <string name="reader_mode_rtl">Seitenmodus von rechts nach links</string>
+    <string name="reader_retry">Erneut versuchen</string>
+    <string name="reader_loading_chapter">Kapitel wird geladen…</string>
+    <string name="reader_page_number">Seite %1$d</string>
+    <string name="reader_loading_chapters">Kapitel werden geladen…</string>
+    <string name="reader_no_chapters_found">Keine Kapitel gefunden</string>
+    <string name="reader_chapters_load_error">Kapitel für diesen Manga konnten nicht geladen werden. Er ist möglicherweise auf der konfigurierten Quelle nicht verfügbar oder die Quelle ist nicht erreichbar.</string>
+    <string name="reader_no_chapters_match">Keine Kapitel entsprechen \"%1$s\"</string>
+    <string name="reader_chapters">Kapitel</string>
+    <string name="reader_read_count">%1$d von %2$d gelesen</string>
+    <string name="reader_chapter_short">Kap. %1$s</string>
+    <string name="reader_search_chapters">Kapitel suchen…</string>
+    <string name="reader_search">Suchen</string>
+    <string name="reader_clear">Löschen</string>
+    <string name="reader_group_chapters_read">%1$d Kapitel · %2$d gelesen</string>
+    <string name="reader_group_chapters">%1$d Kapitel</string>
+    <string name="reader_collapse">Einklappen</string>
+    <string name="reader_expand">Ausklappen</string>
+    <string name="reader_chapter_fallback">Kapitel %1$s</string>
+    <string name="reader_next">Weiter</string>
+
+    <string name="reader_characters_title">Charaktere</string>
+    <string name="reader_no_characters">Keine Charaktere gefunden</string>
+    <string name="reader_staff_title">Team</string>
+    <string name="reader_no_staff">Kein Team gefunden</string>
+    <string name="reader_relations_title">Verwandte Werke</string>
+    <string name="reader_no_relations">Keine verwandten Werke gefunden</string>
+    <string name="reader_recommendations_title">Empfehlungen</string>
+    <string name="reader_no_recommendations">Keine Empfehlungen gefunden</string>
+    <string name="reader_unknown">Unbekannt</string>
+</resources>

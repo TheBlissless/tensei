@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_manga_error_chapter_data_unavailable">Chapter data is no longer available. Reopen the chapter list and try again.</string>
+    <string name="runtime_manga_error_load_failed">Failed to load chapter images. Check your connection and try again.</string>
+    <string name="runtime_manga_error_no_pages">This chapter has no pages.</string>
+    <string name="runtime_manga_error_no_title">Could not determine the manga title for the extension.</string>
+    <string name="runtime_manga_error_no_extension">No manga extension selected. Pick one in Settings → Extensions to read this chapter.</string>
+
+    <string name="runtime_sync_channel_name">Cross-provider sync</string>
+    <string name="runtime_sync_notification_title">Syncing across providers</string>
+    <string name="runtime_sync_complete_title">Sync complete</string>
+    <string name="runtime_sync_start_ani_to_mal">Syncing AniList → MAL…</string>
+    <string name="runtime_sync_start_mal_to_ani">Syncing MAL → AniList…</string>
+    <string name="runtime_sync_done_ani_to_mal">Synced %1$d changes from AniList to MAL</string>
+    <string name="runtime_sync_done_mal_to_ani">Synced %1$d changes from MAL to AniList</string>
+    <string name="runtime_sync_unreachable_toast">Couldn\'t reach AniList to compare — sync skipped</string>
+
+    <string name="runtime_update_channel_name">Update Downloads</string>
+    <string name="runtime_update_channel_description">Update download progress</string>
+    <string name="runtime_update_title">Downloading update</string>
+    <string name="runtime_update_no_releases">No releases found</string>
+    <string name="runtime_update_up_to_date">Already up to date (%1$s)</string>
+    <string name="runtime_update_check_failed">Update check failed</string>
+    <string name="runtime_update_no_apk">No APK found for %1$s</string>
+    <string name="runtime_update_download_failed">Download failed</string>
+    <string name="runtime_update_installer_failed">Failed to open installer: %1$s</string>
+
+    <string name="runtime_mal_login_no_auth_code">MAL login failed: No auth code received</string>
+    <string name="runtime_mal_login_in_progress">Completing MAL login…</string>
+    <string name="runtime_mal_login_success">Successfully logged into MyAnimeList!</string>
+    <string name="runtime_mal_login_token_error">MAL login failed: Token exchange error</string>
+
+    <string name="runtime_failed_to_load_content">Failed to load content</string>
+    <string name="runtime_schedule_service_unavailable">Schedule service is currently unavailable</string>
+    <string name="runtime_refresh_cooldown">Please wait a moment before refreshing again</string>
+
+    <string name="runtime_source_manager_not_initialized">Source manager not initialized</string>
+    <string name="runtime_extension_package_not_found">Extension \'%1$s\' not found</string>
+    <string name="runtime_extension_anime_not_found">Could not find \'%1$s\' in extension</string>
+    <string name="runtime_extension_episode_not_found">Episode not found in extension</string>
+    <string name="runtime_extension_no_video_sources">No video sources found</string>
+    <string name="runtime_extension_unexpected_error">Unexpected error resolving the stream</string>
+
+    <string name="runtime_failed_to_load_hoster">Failed to load %1$s</string>
+    <string name="runtime_no_stream_episode">No stream available for Ep %1$d</string>
+    <string name="runtime_no_stream_episode_reason">No stream available for Ep %1$d: %2$s</string>
+    <string name="runtime_no_magnet_episode">No magnet available for Ep %1$d</string>
+    <string name="runtime_no_magnet_link_episode">No magnet link found for Ep %1$d</string>
+    <string name="runtime_torrent_metadata_timeout">Torrent metadata timed out — the torrent may have no seeders or your network may be unreachable.</string>
+
+    <string name="runtime_updated_extensions">Updated %1$d extension(s)</string>
+</resources>

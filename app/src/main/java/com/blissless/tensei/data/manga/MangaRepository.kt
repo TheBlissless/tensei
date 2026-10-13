@@ -128,7 +128,7 @@ class MangaRepository {
                 romance: Page(page: 1, perPage: 50) { media(genre: "Romance", sort: POPULARITY_DESC, type: MANGA, isAdult: false) { id idMal title { romaji english } coverImage { extraLarge large } bannerImage chapters volumes status averageScore genres seasonYear startDate { year month day } isAdult format } }
                 comedy: Page(page: 1, perPage: 50) { media(genre: "Comedy", sort: POPULARITY_DESC, type: MANGA, isAdult: false) { id idMal title { romaji english } coverImage { extraLarge large } bannerImage chapters volumes status averageScore genres seasonYear startDate { year month day } isAdult format } }
                 fantasy: Page(page: 1, perPage: 50) { media(genre: "Fantasy", sort: POPULARITY_DESC, type: MANGA, isAdult: false) { id idMal title { romaji english } coverImage { extraLarge large } bannerImage chapters volumes status averageScore genres seasonYear startDate { year month day } isAdult format } }
-                "sci-fi": Page(page: 1, perPage: 50) { media(genre: "Sci-Fi", sort: POPULARITY_DESC, type: MANGA, isAdult: false) { id idMal title { romaji english } coverImage { extraLarge large } bannerImage chapters volumes status averageScore genres seasonYear startDate { year month day } isAdult format } }
+                sciFi: Page(page: 1, perPage: 50) { media(genre: "Sci-Fi", sort: POPULARITY_DESC, type: MANGA, isAdult: false) { id idMal title { romaji english } coverImage { extraLarge large } bannerImage chapters volumes status averageScore genres seasonYear startDate { year month day } isAdult format } }
                 seinen: Page(page: 1, perPage: 50) { media(genre: "Seinen", sort: POPULARITY_DESC, type: MANGA, isAdult: false) { id idMal title { romaji english } coverImage { extraLarge large } bannerImage chapters volumes status averageScore genres seasonYear startDate { year month day } isAdult format } }
             }
         """.trimIndent()
@@ -151,7 +151,11 @@ class MangaRepository {
             for ((key, value) in data) {
                 val page = value.jsonObject["Page"]?.jsonObject ?: continue
                 val mediaArray = page["media"]?.jsonArray ?: continue
-                sections[key] = json.decodeFromJsonElement<List<MangaExploreMedia>>(mediaArray)
+                // GraphQL aliases cannot contain hyphens, so the Sci-Fi section is aliased
+                // as "sciFi". Restore the "sci-fi" key the UI and the individual-fetch
+                // fallback both expect.
+                val sectionKey = if (key == "sciFi") "sci-fi" else key
+                sections[sectionKey] = json.decodeFromJsonElement<List<MangaExploreMedia>>(mediaArray)
             }
             sections
         } catch (e: Exception) {

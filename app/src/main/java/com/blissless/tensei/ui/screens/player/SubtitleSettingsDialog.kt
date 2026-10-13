@@ -80,6 +80,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -95,11 +96,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.SubtitleSettings
 import com.blissless.tensei.ui.theme.Spacing
 import kotlin.math.roundToInt
-
-internal const val LOREM_IPSUM = "The quick brown fox jumps over the lazy dog.\nThis is a second line for testing."
 
 internal data class TemplateBg(val name: String, val colors: List<Color>)
 
@@ -403,7 +403,7 @@ private fun SubtitleSettingsContent(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = profiles.getOrNull(activeProfileIndex)?.profileName ?: "Profile",
+                                text = profiles.getOrNull(activeProfileIndex)?.profileName ?: stringResource(R.string.subtitle_profile),
                                 color = Color.White.copy(alpha = 0.9f),
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 13.sp
@@ -439,42 +439,42 @@ private fun SubtitleSettingsContent(
                     }
                 }
 
-                ToolbarIconButton(Icons.Default.Edit, "Rename") {
+                ToolbarIconButton(Icons.Default.Edit, stringResource(R.string.subtitle_rename)) {
                     renameText = profiles.getOrNull(activeProfileIndex)?.profileName ?: ""
                     showRenameDialog = true
                 }
-                ToolbarIconButton(if (showSaved) Icons.Default.Check else Icons.Default.Save, "Save") {
+                ToolbarIconButton(if (showSaved) Icons.Default.Check else Icons.Default.Save, stringResource(R.string.subtitle_save)) {
                     if (!showSaved) { commitDrag(); onSave(); hasChanges = false; showSaved = true }
                 }
-                ToolbarIconButton(Icons.Default.Close, "Close") {
+                ToolbarIconButton(Icons.Default.Close, stringResource(R.string.subtitle_close)) {
                     if (hasChanges) showCloseConfirm = true
                     else onDismiss()
                 }
-                ToolbarIconButton(Icons.Default.RestartAlt, "Reset") {
+                ToolbarIconButton(Icons.Default.RestartAlt, stringResource(R.string.subtitle_reset)) {
                     showResetConfirm = true
                 }
 
                 Spacer(Modifier.weight(1f))
 
-                BottomToolbarButton(Icons.Default.Palette, "Template", activePanel == Panel.Template) {
+                BottomToolbarButton(Icons.Default.Palette, stringResource(R.string.subtitle_template), activePanel == Panel.Template) {
                     activePanel = if (activePanel == Panel.Template) null else Panel.Template
                 }
-                BottomToolbarButton(Icons.Default.FormatSize, "Size", activePanel == Panel.TextSize) {
+                BottomToolbarButton(Icons.Default.FormatSize, stringResource(R.string.subtitle_size), activePanel == Panel.TextSize) {
                     activePanel = if (activePanel == Panel.TextSize) null else Panel.TextSize
                 }
-                BottomToolbarButton(Icons.Default.BorderColor, "Outline", activePanel == Panel.Outline) {
+                BottomToolbarButton(Icons.Default.BorderColor, stringResource(R.string.subtitle_outline), activePanel == Panel.Outline) {
                     activePanel = if (activePanel == Panel.Outline) null else Panel.Outline
                 }
-                BottomToolbarButton(Icons.Default.BlurOn, "Shadow", activePanel == Panel.Shadow) {
+                BottomToolbarButton(Icons.Default.BlurOn, stringResource(R.string.subtitle_shadow), activePanel == Panel.Shadow) {
                     activePanel = if (activePanel == Panel.Shadow) null else Panel.Shadow
                 }
-                BottomToolbarButton(Icons.Default.FormatColorFill, "BG", activePanel == Panel.Bg) {
+                BottomToolbarButton(Icons.Default.FormatColorFill, stringResource(R.string.subtitle_bg), activePanel == Panel.Bg) {
                     activePanel = if (activePanel == Panel.Bg) null else Panel.Bg
                 }
-                BottomToolbarButton(Icons.Default.FormatColorText, "Color", activePanel == Panel.FontColor) {
+                BottomToolbarButton(Icons.Default.FormatColorText, stringResource(R.string.subtitle_color), activePanel == Panel.FontColor) {
                     activePanel = if (activePanel == Panel.FontColor) null else Panel.FontColor
                 }
-                BottomToolbarButton(Icons.Default.Tune, "Font", activePanel == Panel.FontFamily) {
+                BottomToolbarButton(Icons.Default.Tune, stringResource(R.string.subtitle_font), activePanel == Panel.FontFamily) {
                     activePanel = if (activePanel == Panel.FontFamily) null else Panel.FontFamily
                 }
             }
@@ -582,24 +582,24 @@ private fun SubtitleSettingsContent(
     // Confirmation dialogs
     if (showCloseConfirm) {
         ConfirmationOverlay(
-            title = "Unsaved changes",
-            message = "You have unsaved changes. What would you like to do?",
-            confirmLabel = "Save & close",
+            title = stringResource(R.string.subtitle_unsaved_changes_title),
+            message = stringResource(R.string.subtitle_unsaved_changes_message),
+            confirmLabel = stringResource(R.string.subtitle_save_close),
             onConfirm = {
                 commitDrag(); onSave(); hasChanges = false; showCloseConfirm = false; onDismiss()
             },
-            dismissLabel = "Discard",
+            dismissLabel = stringResource(R.string.subtitle_discard),
             onDismiss = { showCloseConfirm = false; onDismiss() },
-            cancelLabel = "Cancel",
+            cancelLabel = stringResource(R.string.subtitle_cancel),
             onCancel = { showCloseConfirm = false }
         )
     }
 
     if (showResetConfirm) {
         ConfirmationOverlay(
-            title = "Reset settings?",
-            message = "Restore all subtitle settings to default?",
-            confirmLabel = "Reset",
+            title = stringResource(R.string.subtitle_reset_settings_title),
+            message = stringResource(R.string.subtitle_reset_settings_message),
+            confirmLabel = stringResource(R.string.subtitle_reset),
             onConfirm = {
                 fullSettings = Defaults.FULL_SETTINGS; showResetConfirm = false
             },
@@ -639,9 +639,9 @@ private enum class Panel {
 private fun ConfirmationOverlay(
     title: String,
     message: String,
-    confirmLabel: String = "Confirm",
+    confirmLabel: String = stringResource(R.string.subtitle_confirm),
     onConfirm: () -> Unit,
-    dismissLabel: String? = "Cancel",
+    dismissLabel: String? = stringResource(R.string.subtitle_cancel),
     onDismiss: () -> Unit,
     cancelLabel: String? = null,
     onCancel: (() -> Unit)? = null
@@ -733,7 +733,7 @@ private fun RenameOverlay(
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
                 Text(
-                    text = "Rename Profile",
+                    text = stringResource(R.string.subtitle_rename_profile_title),
                     color = Color.White,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold
@@ -742,7 +742,7 @@ private fun RenameOverlay(
                 OutlinedTextField(
                     value = currentName,
                     onValueChange = onNameChange,
-                    label = { Text("Profile name", color = Color.White.copy(alpha = 0.5f)) },
+                    label = { Text(stringResource(R.string.subtitle_profile_name), color = Color.White.copy(alpha = 0.5f)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     textStyle = TextStyle(color = Color.White),
@@ -760,7 +760,7 @@ private fun RenameOverlay(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                        Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                        Text(stringResource(R.string.subtitle_cancel), color = Color.White.copy(alpha = 0.6f))
                     }
                     Button(
                         onClick = onConfirm,
@@ -768,7 +768,7 @@ private fun RenameOverlay(
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                         shape = chipShape
                     ) {
-                        Text("Rename", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.subtitle_rename), fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -788,6 +788,7 @@ private fun SubtitlePreview(
     onDragEnd: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val previewSample = stringResource(R.string.subtitle_preview_sample)
     val textColor = if (settings.fontColor == 0x00000000L) Color.White else Color(settings.fontColor)
     val bgColor = Color(settings.backgroundColor)
     val outlineColor = Color(settings.outlineColor)
@@ -844,7 +845,7 @@ private fun SubtitlePreview(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
-                            text = LOREM_IPSUM,
+                            text = previewSample,
                             color = textColor,
                             fontSize = settings.fontSize.sp,
                             fontFamily = fontFamily,
@@ -863,7 +864,7 @@ private fun SubtitlePreview(
                                 )
                                 if (settings.enableShadow) {
                                     val shadowLayout = textMeasurer.measure(
-                                        text = AnnotatedString(LOREM_IPSUM),
+                                        text = AnnotatedString(previewSample),
                                         style = base.copy(color = shadowColor),
                                         constraints = Constraints(maxWidth = textWidth),
                                         maxLines = 2
@@ -872,7 +873,7 @@ private fun SubtitlePreview(
                                 }
                                 if (settings.enableOutline) {
                                     val outlineLayout = textMeasurer.measure(
-                                        text = AnnotatedString(LOREM_IPSUM),
+                                        text = AnnotatedString(previewSample),
                                         style = base.copy(
                                             color = outlineColor,
                                             drawStyle = Stroke(width = outlineWidthPx)
@@ -1017,7 +1018,7 @@ internal fun ImmediateColorPickerContent(
                     onColorChange(newColor)
                 }
             },
-            label = { Text("Hex", color = Color.White.copy(alpha = 0.5f)) },
+            label = { Text(stringResource(R.string.subtitle_hex), color = Color.White.copy(alpha = 0.5f)) },
             placeholder = { Text("RRGGBB", color = Color.White.copy(alpha = 0.2f)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
             modifier = Modifier.fillMaxWidth(),

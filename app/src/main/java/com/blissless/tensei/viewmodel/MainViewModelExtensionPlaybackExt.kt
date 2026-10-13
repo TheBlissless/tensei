@@ -3,6 +3,7 @@ package com.blissless.tensei.viewmodel
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.CachedExtensionStream
 import com.blissless.tensei.data.models.CachedHoster
@@ -85,7 +86,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
             val sm = sourceManager
             if (sm == null) {
                 Log.w(epTag, "playEpisodeWithExtension: sourceManager is null")
-                _lastExtensionPlaybackError.value = "Source manager not initialized"
+                _lastExtensionPlaybackError.value = context.getString(R.string.runtime_source_manager_not_initialized)
                 return@withContext null
             }
 
@@ -100,7 +101,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                 sourceWithExt = reloaded.find { it.extension.packageName == defaultPackage }
                 if (sourceWithExt == null) {
                     Log.e(epTag, "playEpisodeWithExtension: source $defaultPackage not found even after reload")
-                    _lastExtensionPlaybackError.value = "Extension '$defaultPackage' not found"
+                    _lastExtensionPlaybackError.value = context.getString(R.string.runtime_extension_package_not_found, defaultPackage)
                     return@withContext null
                 }
             }
@@ -172,7 +173,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
 
                 if (matchedSAnime == null) {
                     Log.w(epTag, "playEpisodeWithExtension: no matching anime found for ep $episodeNumber after searching all terms")
-                    _lastExtensionPlaybackError.value = "Could not find '${anime.title}' in extension"
+                    _lastExtensionPlaybackError.value = context.getString(R.string.runtime_extension_anime_not_found, anime.title)
                     return@withContext null
                 }
                 Log.i(epTag, "playEpisodeWithExtension: matched anime '${matchedSAnime.title}' (url=${matchedSAnime.url}) for ep $episodeNumber")
@@ -203,7 +204,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
                     ?: sEpisodes.getOrNull(episodeNumber - 1)
                 if (matched == null) {
                     Log.w(epTag, "playEpisodeWithExtension: episode $episodeNumber not found among ${sEpisodes.size} episodes")
-                    _lastExtensionPlaybackError.value = "Episode not found in extension"
+                    _lastExtensionPlaybackError.value = context.getString(R.string.runtime_extension_episode_not_found)
                     return@withContext null
                 }
                 matched
@@ -256,7 +257,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
 
             if (allVideos.isEmpty()) {
                 Log.w(epTag, "playEpisodeWithExtension: no videos found for ep $episodeNumber")
-                _lastExtensionPlaybackError.value = "No video sources found"
+                _lastExtensionPlaybackError.value = context.getString(R.string.runtime_extension_no_video_sources)
                 return@withContext null
             }
             allVideos.forEach { v ->
@@ -418,7 +419,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
             )
         } catch (e: Exception) {
             Log.e(epTag, "playEpisodeWithExtension: exception for ep $episodeNumber", e)
-            _lastExtensionPlaybackError.value = e.message?.takeIf { it.isNotBlank() } ?: "Unexpected error resolving the stream"
+            _lastExtensionPlaybackError.value = e.message?.takeIf { it.isNotBlank() } ?: context.getString(R.string.runtime_extension_unexpected_error)
             null
         }
     }

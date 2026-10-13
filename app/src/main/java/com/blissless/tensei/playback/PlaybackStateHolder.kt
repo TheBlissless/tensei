@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.EpisodeStreams
 import com.blissless.tensei.data.models.QualityOption
 import com.blissless.tensei.data.models.ServerInfo
@@ -217,14 +218,14 @@ class PlaybackStateHolder(
         val cachedEpisodes = viewModel.getCachedTmdbEpisodes(anime.id)
         if (cachedEpisodes != null) {
             val title = cachedEpisodes.find { it.episode == episode }?.title
-            if (!title.isNullOrEmpty()) return sanitizeEpisodeTitle(title) ?: "Episode $episode"
+            if (!title.isNullOrEmpty()) return sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
         }
         return try {
             val tmdbEpisodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format, animeEpisodes = anime.totalEpisodes.takeIf { it > 0 })
             val title = tmdbEpisodes.find { it.episode == episode }?.title
-            sanitizeEpisodeTitle(title) ?: "Episode $episode"
+            sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
         } catch (_: Exception) {
-            "Episode $episode"
+            context.getString(R.string.app_episode_number, episode)
         }
     }
 
@@ -303,7 +304,7 @@ class PlaybackStateHolder(
                 extensionVideoHeaders = result.videoHeaders
                 episodeTrigger++
             } else {
-                context.toast("Failed to load $hosterName")
+                context.toast(context.getString(R.string.runtime_failed_to_load_hoster, hosterName))
             }
             isLoadingStream = false
         }
@@ -321,7 +322,7 @@ class PlaybackStateHolder(
                 loadAndPlayEpisode(anime, episode)
             }
         } else {
-            currentEpisodeTitle = sanitizeEpisodeTitle(title) ?: "Episode $episode"
+            currentEpisodeTitle = sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
             loadAndPlayEpisode(anime, episode)
         }
     }
@@ -336,7 +337,7 @@ class PlaybackStateHolder(
             ?: result.videos.getOrNull(index)
             ?: return
         streamError = null
-        currentEpisodeTitle = sanitizeEpisodeTitle(result.episode?.name) ?: "Episode $currentEpisode"
+        currentEpisodeTitle = sanitizeEpisodeTitle(result.episode?.name) ?: context.getString(R.string.app_episode_number, currentEpisode)
         currentVideoUrl = result.url.ifEmpty { video.videoUrl }
         currentReferer = result.referer
         val preferredLang = viewModel.defaultSubtitleLang.value
@@ -437,7 +438,7 @@ class PlaybackStateHolder(
                         val filePath = engine.getFileSavePath(fileIndex)
                         if (filePath == null) {
                             android.util.Log.e("Playback", "  getFileSavePath returned null for fileIndex=$fileIndex")
-                            streamError = "Could not resolve torrent file path"
+                            streamError = context.getString(R.string.app_torrent_path_error)
                             isLoadingStream = false
                             return@launch
                         }
@@ -484,7 +485,7 @@ class PlaybackStateHolder(
 
                         currentVideoUrl = "http://127.0.0.1:$port/$fileName"
                         currentReferer = ""
-                        currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: "Episode $episode"
+                        currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: context.getString(R.string.app_episode_number, episode)
                         currentSubtitleTracks = extensionSubtitles
                         currentSubtitleUrl = pickTenseiSubtitleUrl(extensionSubtitles)
                         android.util.Log.i("Playback", "playTorrent: subtitles set: tracks=${extensionSubtitles.size} url=${currentSubtitleUrl?.take(80)}")
@@ -501,7 +502,7 @@ class PlaybackStateHolder(
                         android.util.Log.i("Playback", "=== playTorrent READY === url=$currentVideoUrl fileSize=$fileSize")
                     } catch (e: Exception) {
                         android.util.Log.e("Playback", "playTorrent: onMetadataReceived FAILED", e)
-                        streamError = "Failed to start streaming: ${e.message}"
+                        streamError = context.getString(R.string.app_stream_start_failed, e.message)
                         isLoadingStream = false
                     }
                 }
@@ -529,7 +530,7 @@ class PlaybackStateHolder(
         metadataTimeoutJob = scope.launch {
             delay(METADATA_TIMEOUT_MS)
             if (isLoadingStream && streamError == null) {
-                streamError = "Torrent metadata timed out — the torrent may have no seeders or your network may be unreachable."
+                streamError = context.getString(R.string.runtime_torrent_metadata_timeout)
                 isLoadingStream = false
                 engine.removeCurrentTorrent()
                 currentTorrentListener?.let { engine.removeListener(it) }
@@ -748,7 +749,7 @@ class PlaybackStateHolder(
                 if (streamResult != null) {
                     currentVideoUrl = streamResult.url
                     currentReferer = streamResult.headers["Referer"] ?: ""
-                    currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: "Episode $episode"
+                    currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: context.getString(R.string.app_episode_number, episode)
                     currentSubtitleTracks = streamResult.subtitles
                     currentSubtitleUrl = pickTenseiSubtitleUrl(streamResult.subtitles)
                     currentQualityOptions = emptyList()
@@ -769,15 +770,15 @@ class PlaybackStateHolder(
                     showPlayer = true
                     isLoadingStream = false
                 } else {
-                    streamError = "No stream available for Ep $episode"
+                    streamError = context.getString(R.string.runtime_no_stream_episode, episode)
                     isLoadingStream = false
-                    context.toast("No stream available for Ep $episode")
+                    context.toast(context.getString(R.string.runtime_no_stream_episode, episode))
                 }
             } else {
                 android.util.Log.e("Playback", "loadAndPlayEpisodeTensei: no magnet link found for Ep $episode")
-                streamError = "No magnet link found for Ep $episode"
+                streamError = context.getString(R.string.runtime_no_magnet_link_episode, episode)
                 isLoadingStream = false
-                context.toast("No magnet available for Ep $episode")
+                context.toast(context.getString(R.string.runtime_no_magnet_episode, episode))
             }
             if (isAutoRefresh) isAutoRefreshing = false
         }
@@ -815,7 +816,7 @@ class PlaybackStateHolder(
 
                 currentVideoUrl = playUrl
                 currentReferer = playHeaders["Referer"] ?: ""
-                currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: "Episode $episode"
+                currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: context.getString(R.string.app_episode_number, episode)
                 currentSubtitleTracks = playSubs
                 currentSubtitleUrl = pickTenseiSubtitleUrl(playSubs)
                 currentQualityOptions = emptyList()
@@ -841,7 +842,7 @@ class PlaybackStateHolder(
             } else {
                 val reason = viewModel.magnetExtensionClient?.lastStreamError()
                     ?.takeIf { it.isNotBlank() }
-                val msg = if (reason != null) "No stream available for Ep $episode: $reason" else "No stream available for Ep $episode"
+                val msg = if (reason != null) context.getString(R.string.runtime_no_stream_episode_reason, episode, reason) else context.getString(R.string.runtime_no_stream_episode, episode)
                 streamError = msg
                 isLoadingStream = false
                 context.toast(msg)
@@ -910,7 +911,7 @@ class PlaybackStateHolder(
             if (cached != null) {
                 currentEpisode = prevEp
                 savedPlaybackPosition = viewModel.getPlaybackPosition(currentAnime!!.id, prevEp)
-                currentEpisodeTitle = sanitizeEpisodeTitle(cached.episode?.name) ?: "Episode $prevEp"
+                currentEpisodeTitle = sanitizeEpisodeTitle(cached.episode?.name) ?: context.getString(R.string.app_episode_number, prevEp)
                 currentVideoUrl = cached.url
                 currentReferer = cached.referer
                 currentSubtitleUrl = cached.subtitleUrl
@@ -948,7 +949,7 @@ class PlaybackStateHolder(
                 cachedExtensionNext = null
                 currentEpisode = nextEp
                 savedPlaybackPosition = viewModel.getPlaybackPosition(currentAnime!!.id, nextEp)
-                currentEpisodeTitle = sanitizeEpisodeTitle(cached.episode?.name) ?: "Episode $nextEp"
+                currentEpisodeTitle = sanitizeEpisodeTitle(cached.episode?.name) ?: context.getString(R.string.app_episode_number, nextEp)
                 currentVideoUrl = cached.url
                 currentReferer = cached.referer
                 currentSubtitleUrl = cached.subtitleUrl

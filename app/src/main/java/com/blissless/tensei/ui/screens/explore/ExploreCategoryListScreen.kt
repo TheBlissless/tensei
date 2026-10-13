@@ -78,11 +78,13 @@ import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.MangaExploreMedia
 import com.blissless.tensei.ui.components.AnimeCardBounds
@@ -119,6 +121,7 @@ fun ExploreCategoryListScreen(
 ) {
     val iconTint = MaterialTheme.colorScheme.primary
     val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
 
     BackHandler(onBack = onBackClick)
 
@@ -162,7 +165,7 @@ fun ExploreCategoryListScreen(
 
     val displayMangaList = remember(mangaList, searchQuery, selectedSort) {
         fun titleOf(m: MangaExploreMedia): String =
-            (if (preferEnglishTitles && !m.title.english.isNullOrBlank()) m.title.english else m.title.romaji) ?: "Unknown"
+            (if (preferEnglishTitles && !m.title.english.isNullOrBlank()) m.title.english else m.title.romaji) ?: context.getString(R.string.explore_unknown)
         val filtered = if (searchQuery.isBlank()) mangaList
         else mangaList.filter { titleOf(it).contains(searchQuery, ignoreCase = true) }
         when (selectedSort) {
@@ -234,7 +237,7 @@ fun ExploreCategoryListScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = if (isManga) "${mangaList.size} manga" else "${animeList.size} anime",
+                                text = if (isManga) stringResource(R.string.explore_count_manga, mangaList.size) else stringResource(R.string.explore_count_anime, animeList.size),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -245,7 +248,7 @@ fun ExploreCategoryListScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.common_back),
                             tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -254,7 +257,7 @@ fun ExploreCategoryListScreen(
                     IconButton(onClick = { focusManager.clearFocus(); showSortSheet = true }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Sort,
-                            contentDescription = "Sort",
+                            contentDescription = stringResource(R.string.explore_sort),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -270,13 +273,13 @@ fun ExploreCategoryListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Search in this list...") },
+                placeholder = { Text(stringResource(R.string.explore_search_in_list)) },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Clear search"
+                                contentDescription = stringResource(R.string.explore_clear_search)
                             )
                         }
                     }
@@ -307,7 +310,7 @@ fun ExploreCategoryListScreen(
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = if (isManga) "No manga in this list" else "No anime in this list",
+                                text = if (isManga) stringResource(R.string.explore_no_manga_in_list) else stringResource(R.string.explore_no_anime_in_list),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -378,7 +381,7 @@ fun ExploreCategoryListScreen(
             ) {
                 Column(modifier = Modifier.padding(bottom = 32.dp)) {
                     Text(
-                        "Sort by",
+                        stringResource(R.string.explore_sort_by),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
@@ -499,13 +502,17 @@ private fun ExploreCategoryAnimeCard(
 ) {
     val context = LocalContext.current
     var cardBounds by remember { mutableStateOf<android.graphics.RectF?>(null) }
-    val listStatusColor = if (showStatusColors) statusColor(currentStatus) else Color.Transparent
     val hasStatus = currentStatus != null
+    // No status -> no top stripe; a null status would otherwise resolve to the theme outline.
+    val listStatusColor = if (showStatusColors && hasStatus) statusColor(currentStatus) else Color.Transparent
 
     val episodeText = remember(anime.latestEpisode, anime.episodes) {
         when {
-            anime.latestEpisode != null && anime.latestEpisode > 0 -> "Ep ${anime.latestEpisode}"
-            anime.episodes > 0 -> "${anime.episodes} ${if (anime.episodes == 1) "ep" else "eps"}"
+            anime.latestEpisode != null && anime.latestEpisode > 0 -> context.getString(R.string.explore_episode_short, anime.latestEpisode)
+            anime.episodes > 0 -> context.getString(
+                if (anime.episodes == 1) R.string.explore_episode_count_one else R.string.explore_episode_count_other,
+                anime.episodes
+            )
             else -> ""
         }
     }
@@ -607,7 +614,7 @@ private fun ExploreCategoryAnimeCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Info,
-                            contentDescription = "Info",
+                            contentDescription = stringResource(R.string.explore_info),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -643,7 +650,7 @@ private fun ExploreCategoryAnimeCard(
                     ) {
                         Icon(
                             imageVector = if (hasStatus) Icons.Filled.Bookmark else Icons.Outlined.BookmarkAdd,
-                            contentDescription = if (hasStatus) "In list" else "Add to list",
+                            contentDescription = if (hasStatus) stringResource(R.string.explore_in_list) else stringResource(R.string.explore_add_to_list),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -661,7 +668,7 @@ private fun ExploreCategoryAnimeCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.PlayArrow,
-                            contentDescription = "Open",
+                            contentDescription = stringResource(R.string.explore_open),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -696,7 +703,7 @@ private fun ExploreCategoryMangaCard(
 ) {
     val context = LocalContext.current
     val title = if (preferEnglishTitles && !manga.title.english.isNullOrBlank()) manga.title.english!!
-               else manga.title.romaji ?: "Unknown"
+               else manga.title.romaji ?: stringResource(R.string.explore_unknown)
     val coverUrl = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: manga.coverImage?.medium ?: ""
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -720,7 +727,7 @@ private fun ExploreCategoryMangaCard(
                     Box(
                         modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
-                    ) { Text("N/A", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    ) { Text(stringResource(R.string.explore_na), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 Box(
                     modifier = Modifier
@@ -736,7 +743,7 @@ private fun ExploreCategoryMangaCard(
                         color = Color.Black.copy(alpha = 0.7f)
                     ) {
                         Text(
-                            text = "Ch. $ch",
+                            text = stringResource(R.string.explore_chapter_short, ch),
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
@@ -780,7 +787,7 @@ private fun ExploreCategoryMangaCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.BookmarkAdd,
-                            contentDescription = "Add to list",
+                            contentDescription = stringResource(R.string.explore_add_to_list),
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -798,7 +805,7 @@ private fun ExploreCategoryMangaCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.PlayArrow,
-                            contentDescription = "Open",
+                            contentDescription = stringResource(R.string.explore_open),
                             modifier = Modifier.size(18.dp)
                         )
                     }

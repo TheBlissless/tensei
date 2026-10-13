@@ -57,12 +57,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.ui.components.AppIconCircle
 import com.blissless.tensei.ui.components.CarouselPageDots
@@ -309,7 +311,7 @@ fun FeaturedCarousel(
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val displayTitle = (if (preferEnglishTitles && currentAnime.titleEnglish != null) currentAnime.titleEnglish else currentAnime.title) ?: "Unknown"
+                    val displayTitle = (if (preferEnglishTitles && currentAnime.titleEnglish != null) currentAnime.titleEnglish else currentAnime.title) ?: stringResource(R.string.explore_unknown)
                     Text(
                         text = displayTitle,
                         color = Color.White,
@@ -344,9 +346,9 @@ fun FeaturedCarousel(
                             Text(text = " • ", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.bodyMedium)
                         }
                         val formatText = when (format?.uppercase()) {
-                            "MOVIE" -> "Movie"
-                            "ONA", "OVA", "TV" -> "Series"
-                            else -> "Series"
+                            "MOVIE" -> stringResource(R.string.explore_format_movie)
+                            "ONA", "OVA", "TV" -> stringResource(R.string.explore_format_series)
+                            else -> stringResource(R.string.explore_format_series)
                         }
                         Text(text = formatText, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
                     }
@@ -373,7 +375,7 @@ fun FeaturedCarousel(
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         if (isSaved) Icons.Default.Bookmark else Icons.Outlined.BookmarkAdd,
-                                        contentDescription = "Save",
+                                        contentDescription = stringResource(R.string.explore_save),
                                         tint = statusHue,
                                         modifier = Modifier.size(22.dp)
                                     )
@@ -395,12 +397,12 @@ fun FeaturedCarousel(
                         ) {
                             Icon(
                                 Icons.Outlined.PlayArrow,
-                                contentDescription = "Watch",
+                                contentDescription = stringResource(R.string.explore_watch),
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "Watch Now",
+                                stringResource(R.string.explore_watch_now),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1
@@ -419,7 +421,7 @@ fun FeaturedCarousel(
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         Icons.Outlined.Info,
-                                        contentDescription = "Info",
+                                        contentDescription = stringResource(R.string.explore_info),
                                         tint = Color.White,
                                         modifier = Modifier.size(22.dp)
                                     )

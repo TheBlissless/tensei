@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -142,6 +143,8 @@ import com.blissless.tensei.viewmodel.dismissMangaContinueReading
 import com.blissless.tensei.viewmodel.isMangaFavorited
 import com.blissless.tensei.viewmodel.clearMangaDetail
 import com.blissless.tensei.viewmodel.selectedExtensionAuthority
+import com.blissless.tensei.viewmodel.mangaSourceMethod
+import com.blissless.tensei.viewmodel.defaultExternalMangaExtension
 import com.blissless.tensei.viewmodel.setSupportsPiP
 import com.blissless.tensei.viewmodel.crossProviderCopyPrompt
 import com.blissless.tensei.viewmodel.applyCrossProviderCopy
@@ -234,7 +237,7 @@ class MainActivity : ComponentActivity() {
             this, requestCode, intent,
             android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
         )
-        val action = RemoteAction(icon, "Play/Pause", "Play or Pause", pendingIntent)
+        val action = RemoteAction(icon, getString(R.string.app_pip_play_pause_title), getString(R.string.app_pip_play_pause_description), pendingIntent)
         val builder = PictureInPictureParams.Builder()
             .setAspectRatio(Rational(16, 9))
             .setAutoEnterEnabled(autoEnter)
@@ -251,7 +254,7 @@ class MainActivity : ComponentActivity() {
                 setMetadata(
                     android.media.MediaMetadata.Builder()
                         .putString(android.media.MediaMetadata.METADATA_KEY_TITLE, "Tensei")
-                        .putString(android.media.MediaMetadata.METADATA_KEY_ARTIST, "Playing")
+                        .putString(android.media.MediaMetadata.METADATA_KEY_ARTIST, getString(R.string.app_pip_playing))
                         .build()
                 )
                 setPlaybackState(
@@ -342,7 +345,7 @@ class MainActivity : ComponentActivity() {
             this, requestCode, intent,
             android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
         )
-        val action = RemoteAction(icon, "Play/Pause", "Play or Pause", pendingIntent)
+        val action = RemoteAction(icon, getString(R.string.app_pip_play_pause_title), getString(R.string.app_pip_play_pause_description), pendingIntent)
         val params = PictureInPictureParams.Builder()
             .setAspectRatio(Rational(16, 9))
             .setActions(listOf(action))
@@ -628,6 +631,10 @@ fun MainScreen(
     val dropped by viewModel.dropped.collectAsState()
 
     val selectedMangaExtension by viewModel.selectedExtensionAuthority.collectAsState()
+    val mangaSourceMethod by viewModel.mangaSourceMethod.collectAsState()
+    val defaultExternalMangaExtension by viewModel.defaultExternalMangaExtension.collectAsState()
+    val hasMangaSource = selectedMangaExtension != null ||
+        (mangaSourceMethod == "external" && !defaultExternalMangaExtension.isNullOrBlank())
 
     val forwardSkipSeconds by viewModel.forwardSkipSeconds.collectAsState(initial = 10)
     val backwardSkipSeconds by viewModel.backwardSkipSeconds.collectAsState(initial = 10)
@@ -872,7 +879,7 @@ fun MainScreen(
                 )
                 overlayState = OverlayState.ExploreAnimeDialog(anime = newAnime, firstAnime = newAnime, isFirstOpen = false)
             } else {
-                context.toast("Anime not found")
+                context.toast(context.getString(R.string.app_anime_not_found))
             }
         }
     }
@@ -903,7 +910,7 @@ fun MainScreen(
             return
         }
         streamError = null
-        currentEpisodeTitle = sanitizeEpisodeTitle(result.episode?.name) ?: "Episode $currentEpisode"
+        currentEpisodeTitle = sanitizeEpisodeTitle(result.episode?.name) ?: context.getString(R.string.app_episode_number, currentEpisode)
         currentVideoUrl = result.url.ifEmpty { video.videoUrl }
         currentReferer = result.referer
         val preferredLang = viewModel.defaultSubtitleLang.value
@@ -912,7 +919,7 @@ fun MainScreen(
         currentSubtitleUrl = sortedTracks.firstOrNull()?.url
         sortedTracks.forEachIndexed { _, _ -> }
         extensionName = result.source?.name ?: ""
-        currentServerName = result.hosters?.firstOrNull()?.hosterName ?: extensionName.ifEmpty { "Extension" }
+        currentServerName = result.hosters?.firstOrNull()?.hosterName ?: extensionName.ifEmpty { context.getString(R.string.app_extension_fallback) }
         val hasDubHoster = result.hosters?.any { it.hosterName.contains("dub", ignoreCase = true) } == true
         currentCategory = if (hasDubHoster || result.videoTitle.contains("dub", ignoreCase = true)) "dub" else "sub"
         actualCategory = currentCategory
@@ -1014,7 +1021,7 @@ fun MainScreen(
                         engine.startDownload(fileIndex)
                         val port = server.start()
                         val filePath = engine.getFileSavePath(fileIndex)
-                        if (filePath == null) { streamError = "Could not resolve torrent file path"; isLoadingStream = false; return@launch }
+                        if (filePath == null) { streamError = context.getString(R.string.app_torrent_path_error); isLoadingStream = false; return@launch }
                         val saveDirPath = engine.saveDir.absolutePath + File.separator
                         val fileName = if (filePath.startsWith(saveDirPath)) filePath.removePrefix(saveDirPath) else filePath.substringAfterLast(File.separator)
 
@@ -1034,7 +1041,7 @@ fun MainScreen(
 
                         currentVideoUrl = "http://127.0.0.1:$port/$fileName"
                         currentReferer = ""
-                        currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: "Episode $episode"
+                        currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: context.getString(R.string.app_episode_number, episode)
                         currentSubtitleTracks = extensionSubtitles
                         currentSubtitleUrl = pickTenseiSubtitleUrl(extensionSubtitles)
                         currentQualityOptions = emptyList()
@@ -1046,7 +1053,7 @@ fun MainScreen(
                         showPlayer = true
                         isLoadingStream = false
                     } catch (e: Exception) {
-                        streamError = "Failed to start streaming: ${e.message}"
+                        streamError = context.getString(R.string.app_stream_start_failed, e.message)
                         isLoadingStream = false
                     }
                 }
@@ -1113,7 +1120,7 @@ fun MainScreen(
 
                     currentVideoUrl = playUrl
                     currentReferer = playHeaders["Referer"] ?: ""
-                    currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: "Episode $episode"
+                    currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: context.getString(R.string.app_episode_number, episode)
                     currentSubtitleTracks = playSubs
                     currentSubtitleUrl = pickTenseiSubtitleUrl(playSubs)
                     currentQualityOptions = emptyList()
@@ -1141,14 +1148,14 @@ fun MainScreen(
                     showPlayer = true
                     isLoadingStream = false
                 } else {
-                    streamError = "No stream available for Ep $episode"
+                    streamError = context.getString(R.string.app_no_stream_available, episode)
                     isLoadingStream = false
-                    context.toast("No stream available for Ep $episode")
+                    context.toast(context.getString(R.string.app_no_stream_available, episode))
                 }
             } else {
-                streamError = "No Tensei link found for Ep $episode"
+                streamError = context.getString(R.string.app_no_tensei_link_found, episode)
                 isLoadingStream = false
-                context.toast("No Tensei link available for Ep $episode")
+                context.toast(context.getString(R.string.app_no_tensei_link_available, episode))
             }
             if (isAutoRefresh) isAutoRefreshing = false
         }
@@ -1187,7 +1194,7 @@ fun MainScreen(
 
                 currentVideoUrl = playUrl
                 currentReferer = playHeaders["Referer"] ?: ""
-                currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: "Episode $episode"
+                currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: context.getString(R.string.app_episode_number, episode)
                 currentSubtitleTracks = playSubs
                 currentSubtitleUrl = pickTenseiSubtitleUrl(playSubs)
                 currentQualityOptions = emptyList()
@@ -1213,7 +1220,7 @@ fun MainScreen(
             } else {
                 val reason = viewModel.magnetExtensionClient?.lastStreamError()
                     ?.takeIf { it.isNotBlank() }
-                val msg = if (reason != null) "No stream available for Ep $episode: $reason" else "No stream available for Ep $episode"
+                val msg = if (reason != null) context.getString(R.string.app_no_stream_available_reason, episode, reason) else context.getString(R.string.app_no_stream_available, episode)
                 streamError = msg
                 isLoadingStream = false
                 context.toast(msg)
@@ -1256,7 +1263,7 @@ fun MainScreen(
                     playExtensionVideo(result, 0)
                 } else {
                     val reason = viewModel.lastExtensionPlaybackError()?.takeIf { it.isNotBlank() }
-                    val msg = if (reason != null) "Extension failed for Ep $episode: $reason" else "Extension failed for Ep $episode"
+                    val msg = if (reason != null) context.getString(R.string.app_extension_failed_reason, episode, reason) else context.getString(R.string.app_extension_failed, episode)
                     streamError = msg
                     context.toast(msg)
                 }
@@ -1330,13 +1337,13 @@ fun MainScreen(
         val cachedEpisodes = viewModel.getCachedTmdbEpisodes(anime.id)
         if (cachedEpisodes != null) {
             val title = cachedEpisodes.find { it.episode == episode }?.title
-            if (!title.isNullOrEmpty()) return sanitizeEpisodeTitle(title) ?: "Episode $episode"
+            if (!title.isNullOrEmpty()) return sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
         }
         return try {
             val tmdbEpisodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format, animeEpisodes = anime.totalEpisodes.takeIf { it > 0 })
             val title = tmdbEpisodes.find { it.episode == episode }?.title
-            sanitizeEpisodeTitle(title) ?: "Episode $episode"
-        } catch (_: Exception) { "Episode $episode" }
+            sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
+        } catch (_: Exception) { context.getString(R.string.app_episode_number, episode) }
     }
 
     fun fetchAndCacheEpisode(ep: Int) {
@@ -1418,7 +1425,7 @@ fun MainScreen(
                 extensionVideoHeaders = result.videoHeaders
                 episodeTrigger++
             } else {
-                context.toast("Failed to load $hosterName")
+                context.toast(context.getString(R.string.app_failed_to_load_hoster, hosterName))
             }
             isLoadingStream = false
         }
@@ -1519,7 +1526,7 @@ fun MainScreen(
                 loadAndPlayEpisode(anime, episode)
             }
         } else {
-            currentEpisodeTitle = sanitizeEpisodeTitle(title) ?: "Episode $episode"
+            currentEpisodeTitle = sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
             loadAndPlayEpisode(anime, episode)
         }
     }
@@ -1660,14 +1667,14 @@ fun MainScreen(
                                         previousStates = exploreDialog.previousStates + exploreDialog
                                     )
                                 } else {
-                                    context.toast("Anime not found - ID: ${relation.id}")
+                                    context.toast(context.getString(R.string.app_anime_not_found_id, relation.id))
                                 }
                             } catch (e: Exception) {
-                                context.toast("Error: ${e.message}")
+                                context.toast(context.getString(R.string.app_error, e.message))
                             }
                         }
                     } catch (e: Exception) {
-                        context.toast("Error: ${e.message}")
+                        context.toast(context.getString(R.string.app_error, e.message))
                     }
                 }
             },
@@ -1712,10 +1719,10 @@ fun MainScreen(
                                     previousStates = exploreDialog.previousStates + exploreDialog
                                 )
                             } else {
-                                context.toast("Anime not found")
+                                context.toast(context.getString(R.string.app_anime_not_found))
                             }
                         } catch (e: Exception) {
-                            context.toast("Error: ${e.message}")
+                            context.toast(context.getString(R.string.app_error, e.message))
                         }
                     }
                 }
@@ -1855,14 +1862,14 @@ fun MainScreen(
                                         malId = detailedData.malId
                                     )
                                 } else {
-                                    context.toast("Anime not found")
+                                    context.toast(context.getString(R.string.app_anime_not_found))
                                 }
                             } catch (_: Exception) {
-                                context.toast("Anime not found")
+                                context.toast(context.getString(R.string.app_anime_not_found))
                             }
                         }
                     } catch (_: Exception) {
-                        context.toast("Anime not found")
+                        context.toast(context.getString(R.string.app_anime_not_found))
                     }
                 }
             },
@@ -1906,10 +1913,10 @@ fun MainScreen(
                                 )
                                 showDetailedAnimeScreen = true
                             } else {
-                                context.toast("Anime not found")
+                                context.toast(context.getString(R.string.app_anime_not_found))
                             }
                         } catch (_: Exception) {
-                            context.toast("Anime not found")
+                            context.toast(context.getString(R.string.app_anime_not_found))
                         }
                     }
                 }
@@ -2004,10 +2011,10 @@ fun MainScreen(
                                 showMangaDetailScreen = false
                                 showDetailedAnimeScreen = true
                             } else {
-                                context.toast("Anime not found")
+                                context.toast(context.getString(R.string.app_anime_not_found))
                             }
                         } catch (_: Exception) {
-                            context.toast("Anime not found")
+                            context.toast(context.getString(R.string.app_anime_not_found))
                         }
                     }
                 } else {
@@ -2124,7 +2131,7 @@ fun MainScreen(
             pendingMangaAfterSettings = null
             val resume = pendingMangaResumeAfterSettings
             pendingMangaResumeAfterSettings = false
-            if (selectedMangaExtension == null) {
+            if (!hasMangaSource) {
                 showMangaNoExtensionDialog = true
             } else {
                 mangaAutoShowChapters = !resume
@@ -2150,26 +2157,26 @@ fun MainScreen(
     if (showMangaNoExtensionDialog) {
         AlertDialog(
             onDismissRequest = { showMangaNoExtensionDialog = false; pendingMangaAfterSettings = null; pendingMangaResumeAfterSettings = false },
-            title = { Text("No Extension Selected") },
-            text = { Text("Select a default manga extension in Settings to load chapters for this title.") },
+            title = { Text(stringResource(R.string.app_no_extension_title)) },
+            text = { Text(stringResource(R.string.app_no_manga_extension_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     showMangaNoExtensionDialog = false
                     showSettings = true
                     pendingSettingsGroup = "reader"
                 }) {
-                    Text("Go to Settings")
+                    Text(stringResource(R.string.app_go_to_settings))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showMangaNoExtensionDialog = false; pendingMangaAfterSettings = null; pendingMangaResumeAfterSettings = false }) {
-                    Text("Close")
+                    Text(stringResource(R.string.app_close))
                 }
             }
         )
     }
 
-    if (showMangaReader && currentManga != null && selectedMangaExtension == null) {
+    if (showMangaReader && currentManga != null && !hasMangaSource) {
         // No default manga extension: never compose the reader here (composing it for even one
         // frame caused a flash — reader pops up then instantly closes). Surface the simple
         // no-extension dialog over whatever is behind instead.
@@ -2307,10 +2314,10 @@ fun MainScreen(
                                 showMangaDetailScreen = false
                                 showDetailedAnimeScreen = true
                             } else {
-                                context.toast("Anime not found")
+                                context.toast(context.getString(R.string.app_anime_not_found))
                             }
                         } catch (_: Exception) {
-                            context.toast("Anime not found")
+                            context.toast(context.getString(R.string.app_anime_not_found))
                         }
                     }
                 } else {
@@ -2382,7 +2389,7 @@ fun MainScreen(
                                 previousStates = characterDialog.previousStates + characterDialog
                             )
                         } else {
-                            context.toast("Anime not found")
+                            context.toast(context.getString(R.string.app_anime_not_found))
                         }
                     }
                 } else {
@@ -2448,7 +2455,7 @@ fun MainScreen(
                                 previousStates = staffDialog.previousStates + staffDialog
                             )
                         } else {
-                            context.toast("Anime not found")
+                            context.toast(context.getString(R.string.app_anime_not_found))
                         }
                     }
                 } else {
@@ -2564,7 +2571,7 @@ fun MainScreen(
                                 previousStates = allRelationsDialog.previousStates + allRelationsDialog
                             )
                         } else {
-                            context.toast("Anime not found")
+                            context.toast(context.getString(R.string.app_anime_not_found))
                         }
                     }
                 } else {
@@ -2636,7 +2643,7 @@ fun MainScreen(
                                 previousStates = allRecommendationsDialog.previousStates + allRecommendationsDialog
                             )
                         } else {
-                            context.toast("Anime not found")
+                            context.toast(context.getString(R.string.app_anime_not_found))
                         }
                     }
                 }
@@ -2647,9 +2654,9 @@ fun MainScreen(
     if (showNoExtDialog) {
         AlertDialog(
             onDismissRequest = { showNoExtDialog = false; pendingAnimeAfterSettings = null },
-            title = { Text("No Extension Selected") },
+            title = { Text(stringResource(R.string.app_no_extension_title)) },
             text = {
-                Text("Select a default extension in Settings to load episodes for this title.")
+                Text(stringResource(R.string.app_no_extension_message))
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -2658,12 +2665,12 @@ fun MainScreen(
                     showSettings = true
                     pendingSettingsGroup = if (extUiState.extensions.isEmpty()) "extensions" else "stream"
                 }) {
-                    Text("Go to Settings")
+                    Text(stringResource(R.string.app_go_to_settings))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showNoExtDialog = false; pendingAnimeAfterSettings = null }) {
-                    Text("Close")
+                    Text(stringResource(R.string.app_close))
                 }
             }
         )
@@ -3000,7 +3007,7 @@ fun MainScreen(
                                 openMangaDetail(
                                     com.blissless.tensei.data.models.MangaMedia(
                                         id = manga.id,
-                                        title = manga.title.romaji ?: manga.title.english ?: "Unknown",
+                                        title = manga.title.romaji ?: manga.title.english ?: context.getString(R.string.app_unknown),
                                         titleEnglish = manga.title.english,
                                         cover = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: "",
                                         totalChapters = manga.chapters ?: 0,
@@ -3013,7 +3020,7 @@ fun MainScreen(
                                 mangaAutoShowChapters = true
                                 mangaDetailStack = mangaDetailStack + com.blissless.tensei.data.models.MangaMedia(
                                     id = manga.id,
-                                    title = manga.title.romaji ?: manga.title.english ?: "Unknown",
+                                    title = manga.title.romaji ?: manga.title.english ?: context.getString(R.string.app_unknown),
                                     titleEnglish = manga.title.english,
                                     cover = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: "",
                                     totalChapters = manga.chapters ?: 0,
@@ -3067,7 +3074,7 @@ fun MainScreen(
                                         )
                             overlayState = OverlayState.ExploreAnimeDialog(anime = newAnime, firstAnime = newAnime, isFirstOpen = false)
                                     } else {
-                                        context.toast("Anime not found")
+                                        context.toast(context.getString(R.string.app_anime_not_found))
                                     }
                                 }
                             },
@@ -3093,7 +3100,7 @@ fun MainScreen(
                             onProfileClick = { showUserProfilePage = true },
                             playbackPositions = playbackPositions,
                             onMangaClick = { manga ->
-                                if (selectedMangaExtension == null) {
+                                if (!hasMangaSource) {
                                     pendingMangaAfterSettings = manga
                                     pendingMangaResumeAfterSettings = false
                                     showMangaNoExtensionDialog = true
@@ -3109,7 +3116,7 @@ fun MainScreen(
                                 openMangaDetail(manga)
                             },
                             onMangaContinueReadingClick = { manga ->
-                                if (selectedMangaExtension == null) {
+                                if (!hasMangaSource) {
                                     pendingMangaAfterSettings = manga
                                     pendingMangaResumeAfterSettings = true
                                     showMangaNoExtensionDialog = true
@@ -3175,7 +3182,7 @@ fun MainScreen(
                                 openMangaDetail(
                                     com.blissless.tensei.data.models.MangaMedia(
                                         id = manga.id,
-                                        title = manga.title.romaji ?: manga.title.english ?: "Unknown",
+                                        title = manga.title.romaji ?: manga.title.english ?: context.getString(R.string.app_unknown),
                                         titleEnglish = manga.title.english,
                                         cover = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: "",
                                         totalChapters = manga.chapters ?: 0,
@@ -3199,11 +3206,12 @@ fun MainScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator()
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("Loading stream...", color = Color.White)
-                            if (currentServerAttempt != null) {
+                            Text(stringResource(R.string.app_loading_stream), color = Color.White)
+                            val serverAttempt = currentServerAttempt
+                            if (serverAttempt != null) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = if (currentServerAttemptIsFallback) "Trying $currentServerAttempt (fallback)..." else "Trying $currentServerAttempt...",
+                                    text = if (currentServerAttemptIsFallback) stringResource(R.string.app_trying_server_fallback, serverAttempt) else stringResource(R.string.app_trying_server, serverAttempt),
                                     color = Color.Yellow,
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -3216,7 +3224,7 @@ fun MainScreen(
                                     loadingJob = null
                                 }
                             ) {
-                                Text("Cancel")
+                                Text(stringResource(R.string.common_cancel))
                             }
                         }
                     }
@@ -3239,7 +3247,7 @@ fun MainScreen(
                             val nextEp = anime.progress + 1
                             val released = anime.latestEpisode ?: anime.totalEpisodes
                             if (anime.latestEpisode != null && nextEp > released) {
-                                context.toast("Episode not aired yet")
+                                context.toast(context.getString(R.string.app_episode_not_aired))
                             } else {
                                 onPlayEpisode(anime, nextEp, null)
                             }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="schedule_wait_toggling">Please wait before toggling again</string>
+    <string name="schedule_title">Airing Schedule</string>
+    <string name="schedule_search_content_description">Search the schedule</string>
+    <string name="schedule_subtitle_aired_upcoming">%1$d aired · %2$d upcoming</string>
+    <string name="schedule_subtitle_upcoming">%1$d upcoming</string>
+    <string name="schedule_day_count_airing">%1$d airing</string>
+    <string name="schedule_day_count_none">none</string>
+    <string name="schedule_empty_title">No airing anime</string>
+    <string name="schedule_empty_for_day">for this day</string>
+    <string name="schedule_empty_found">found</string>
+    <string name="schedule_swipe_refresh">Swipe down to refresh</string>
+    <string name="schedule_today">TODAY</string>
+    <string name="schedule_episode">Ep %1$d</string>
+    <string name="schedule_aired_ago">Aired %1$s ago</string>
+    <string name="schedule_airing_in">in %1$s</string>
+    <string name="schedule_anime_not_found">Anime not found - ID: %1$d</string>
+    <string name="schedule_error">Error: %1$s</string>
+</resources>

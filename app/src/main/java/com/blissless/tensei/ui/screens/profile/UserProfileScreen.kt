@@ -78,7 +78,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import com.blissless.tensei.util.LocaleDate
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -86,6 +89,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.api.myanimelist.LoginProvider
 import com.blissless.tensei.data.models.UserAnimeStats
 import com.blissless.tensei.ui.components.SectionHeaderSkeleton
@@ -283,8 +287,8 @@ fun UserProfileScreen(
                     val nums =
                         Regex("\\d+").findAll(prog).map { it.value.toIntOrNull() }.filterNotNull().toList()
                     when {
-                        nums.size >= 2 && nums[1] > nums[0] -> "episode ${nums[0]}-${nums[1]}"
-                        nums.isNotEmpty() -> "episode ${nums[0]}"
+                        nums.size >= 2 && nums[1] > nums[0] -> context.getString(R.string.profile_episode_range, nums[0], nums[1])
+                        nums.isNotEmpty() -> context.getString(R.string.profile_episode, nums[0])
                         else -> prog.lowercase()
                     }
                 }
@@ -296,7 +300,7 @@ fun UserProfileScreen(
                     title = activity.mediaTitle,
                     titleEnglish = activity.mediaTitleEnglish,
                     cover = activity.mediaCover,
-                    date = formatTimestamp(activity.createdAt)
+                    date = formatTimestamp(activity.createdAt, LocaleDate.localeOf(context))
                 )
             }
             HistoryData(entries, statuses, progress)
@@ -320,9 +324,9 @@ fun UserProfileScreen(
     ) {
         TenseiTopBar(
             title = when (selectedSection) {
-                UserProfileSection.ABOUT_ME -> "About Me"
-                UserProfileSection.FAVORITES -> "Favorites"
-                UserProfileSection.HISTORY -> "History"
+                UserProfileSection.ABOUT_ME -> stringResource(R.string.profile_about_me)
+                UserProfileSection.FAVORITES -> stringResource(R.string.profile_favorites)
+                UserProfileSection.HISTORY -> stringResource(R.string.profile_history)
             },
             leadingIcon = Icons.AutoMirrored.Rounded.ArrowBack,
             onLeadingClick = onBack,
@@ -336,11 +340,11 @@ fun UserProfileScreen(
                             type = "text/plain"
                             putExtra(Intent.EXTRA_TEXT, userSiteUrl)
                         }
-                        context.startActivity(Intent.createChooser(shareIntent, "Share Profile"))
+                        context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.profile_share_profile)))
                     }) {
                         Icon(
                             Icons.Default.Share,
-                            contentDescription = "Share profile",
+                            contentDescription = stringResource(R.string.profile_share_profile_desc),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -363,7 +367,7 @@ fun UserProfileScreen(
                 UserProfileSection.ABOUT_ME -> if (aboutLoading) {
                     ProfileAboutSkeleton()
                 } else AboutMeContent(
-                    username = userName ?: "User",
+                    username = userName ?: stringResource(R.string.profile_user),
                     userAvatar = userAvatar, userBanner = userBanner,
                     userBio = userBio,
                     userCreatedAt = userCreatedAt, userStats = userStats,
@@ -410,9 +414,9 @@ fun UserProfileScreen(
                             MangaMedia(
                                 id = manga.id,
                                 title = if (preferEnglishTitles) {
-                                    manga.title?.english ?: manga.title?.romaji ?: "Unknown"
+                                    manga.title?.english ?: manga.title?.romaji ?: context.getString(R.string.profile_unknown)
                                 } else {
-                                    manga.title?.romaji ?: manga.title?.english ?: "Unknown"
+                                    manga.title?.romaji ?: manga.title?.english ?: context.getString(R.string.profile_unknown)
                                 },
                                 titleEnglish = manga.title?.english,
                                 cover = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: "",
@@ -447,9 +451,9 @@ fun UserProfileScreen(
                                 MangaMedia(
                                     id = media.id,
                                     title = if (preferEnglishTitles) {
-                                        media.title?.english ?: media.title?.romaji ?: "Unknown"
+                                        media.title?.english ?: media.title?.romaji ?: context.getString(R.string.profile_unknown)
                                     } else {
-                                        media.title?.romaji ?: media.title?.english ?: "Unknown"
+                                        media.title?.romaji ?: media.title?.english ?: context.getString(R.string.profile_unknown)
                                     },
                                     titleEnglish = media.title?.english,
                                     cover = media.coverImage?.extraLarge ?: media.coverImage?.large ?: "",
@@ -483,18 +487,18 @@ fun UserProfileScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             UserProfileNavButton(
-                icon = Icons.Default.Person, title = "About Me",
+                icon = Icons.Default.Person, title = stringResource(R.string.profile_about_me),
                 isSelected = selectedSection == UserProfileSection.ABOUT_ME,
                 onClick = { selectedSection = UserProfileSection.ABOUT_ME }
             )
             UserProfileNavButton(
-                icon = Icons.Default.Favorite, title = "Favorites",
+                icon = Icons.Default.Favorite, title = stringResource(R.string.profile_favorites),
                 isSelected = selectedSection == UserProfileSection.FAVORITES,
                 onClick = { selectedSection = UserProfileSection.FAVORITES },
                 badge = favorites.size + mangaFavorites.size
             )
             UserProfileNavButton(
-                icon = Icons.Default.History, title = "History",
+                icon = Icons.Default.History, title = stringResource(R.string.profile_history),
                 isSelected = selectedSection == UserProfileSection.HISTORY,
                 onClick = { selectedSection = UserProfileSection.HISTORY },
                 badge = history.size + mangaActivity.size
@@ -789,7 +793,7 @@ private fun AboutMeContent(
             Box {
                 userAvatar?.let { avatarUrl ->
                     AsyncImage(
-                        model = avatarUrl, contentDescription = "Avatar",
+                        model = avatarUrl, contentDescription = stringResource(R.string.profile_avatar),
                         modifier = Modifier
                             .size(96.dp)
                             .clip(RoundedCornerShape(48.dp))
@@ -824,7 +828,7 @@ private fun AboutMeContent(
             userCreatedAt?.let { timestamp ->
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "Joined ${formatDate(timestamp)}",
+                    stringResource(R.string.profile_joined, formatDate(timestamp, LocaleDate.localeOf(LocalContext.current))),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -834,7 +838,7 @@ private fun AboutMeContent(
 
             if (userStats != null || animeLibrary.any { it.count > 0 }) {
                 Text(
-                    "Anime",
+                    stringResource(R.string.profile_anime),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
@@ -849,15 +853,15 @@ private fun AboutMeContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Box(Modifier.weight(1f)) {
-                            StatCard(value = userStats.count.toString(), label = "Anime", color = MaterialTheme.colorScheme.primary)
+                            StatCard(value = userStats.count.toString(), label = stringResource(R.string.profile_anime), color = MaterialTheme.colorScheme.primary)
                         }
                         Box(Modifier.weight(1f)) {
-                            StatCard(value = formatEpisodes(userStats.episodesWatched), label = "Episodes", color = MaterialTheme.colorScheme.tertiary)
+                            StatCard(value = formatEpisodes(userStats.episodesWatched), label = stringResource(R.string.profile_episodes), color = MaterialTheme.colorScheme.tertiary)
                         }
                         Box(Modifier.weight(1f)) {
                             StatCard(
                                 value = userStats.meanScore?.let { "%.1f".format(it / 10.0) } ?: "-",
-                                label = "Mean", color = MaterialTheme.colorScheme.secondary
+                                label = stringResource(R.string.profile_mean), color = MaterialTheme.colorScheme.secondary
                             )
                         }
                     }
@@ -873,8 +877,16 @@ private fun AboutMeContent(
                             modifier = Modifier.fillMaxWidth().padding(12.dp),
                             horizontalArrangement = Arrangement.Center
                         ) {
+                            val minutesWatched = userStats.minutesWatched
+                            val watchedHours = minutesWatched / 60
+                            val watchedDays = watchedHours / 24
+                            val watchedText = when {
+                                watchedDays > 0 -> stringResource(R.string.profile_days, watchedDays)
+                                watchedHours > 0 -> stringResource(R.string.profile_hours, watchedHours)
+                                else -> stringResource(R.string.profile_min, minutesWatched)
+                            }
                             Text(
-                                "Total: ${formatMinutesWatched(userStats.minutesWatched)}",
+                                stringResource(R.string.profile_total, watchedText),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -883,14 +895,14 @@ private fun AboutMeContent(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
-                LibrarySection(title = "Anime Library", statuses = animeLibrary, labels = StatusLabels, colors = themeStatusColors())
+                LibrarySection(title = stringResource(R.string.profile_anime_library), statuses = animeLibrary, labels = StatusLabels, colors = themeStatusColors())
             }
 
             val mangaTotal = mangaLibrary.sumOf { it.count }
             if (mangaTotal > 0) {
                 Spacer(modifier = Modifier.height(20.dp))
 
-                LibrarySection(title = "Manga Library", statuses = mangaLibrary, labels = MangaStatusLabels, colors = themeStatusColors())
+                LibrarySection(title = stringResource(R.string.profile_manga_library), statuses = mangaLibrary, labels = MangaStatusLabels, colors = themeStatusColors())
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -902,7 +914,7 @@ private fun AboutMeContent(
                     Box(modifier = Modifier.fillMaxSize().clickable { showFullscreenAvatar = false })
                     userAvatar?.let { avatarUrl ->
                         AsyncImage(
-                            model = avatarUrl, contentDescription = "Avatar",
+                            model = avatarUrl, contentDescription = stringResource(R.string.profile_avatar),
                             contentScale = ContentScale.Fit,
                             modifier = Modifier.fillMaxSize().padding(16.dp)
                         )
@@ -1024,20 +1036,8 @@ private fun formatEpisodes(episodes: Int): String = when {
     else -> episodes.toString()
 }
 
-private fun formatMinutesWatched(minutes: Int): String {
-    val hours = minutes / 60
-    val days = hours / 24
-    return when {
-        days > 0 -> "$days days"
-        hours > 0 -> "$hours hours"
-        else -> "$minutes min"
-    }
-}
-
-private fun formatDate(timestamp: Long): String {
-    val sdf = SimpleDateFormat("d MMMM, yyyy", Locale.forLanguageTag("de-DE"))
-    return sdf.format(Date(timestamp * 1000))
-}
+private fun formatDate(timestamp: Long, locale: Locale): String =
+    LocaleDate.formatLong(timestamp * 1000L, locale)
 
 @Composable
 private fun FavoritesContent(
@@ -1058,7 +1058,7 @@ private fun FavoritesContent(
                     modifier = Modifier.size(48.dp)
                 )
                 Spacer(Modifier.height(8.dp))
-                Text("No favorites yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.profile_no_favorites), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     } else {
@@ -1075,7 +1075,7 @@ private fun FavoritesContent(
             if (favorites.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     ProfileSectionHeader(
-                        title = "Anime",
+                        title = stringResource(R.string.profile_anime),
                         icon = Icons.Rounded.Movie,
                         count = favorites.size,
                         expanded = animeExpanded,
@@ -1098,7 +1098,7 @@ private fun FavoritesContent(
             if (mangaFavorites.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     ProfileSectionHeader(
-                        title = "Manga",
+                        title = stringResource(R.string.profile_manga),
                         icon = Icons.Rounded.MenuBook,
                         count = mangaFavorites.size,
                         expanded = mangaExpanded,
@@ -1161,16 +1161,16 @@ private fun FavoriteItem(
     if (showRemoveDialog && onRemove != null) {
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
-            title = { Text("Remove Favorite") },
-            text = { Text("Remove ${anime.title} from your favorites?") },
+            title = { Text(stringResource(R.string.profile_remove_favorite_title)) },
+            text = { Text(stringResource(R.string.profile_remove_favorite_message, anime.title)) },
             confirmButton = {
                 TextButton(onClick = { showRemoveDialog = false; onRemove() }) {
-                    Text("Remove")
+                    Text(stringResource(R.string.profile_remove))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRemoveDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.profile_cancel))
                 }
             }
         )
@@ -1223,7 +1223,7 @@ private fun FavoriteItem(
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showRemoveDialog = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Favorite, "Remove from favorites", tint = tenseiColors.favorite, modifier = Modifier.size(15.dp))
+                    Icon(Icons.Filled.Favorite, stringResource(R.string.profile_remove_from_favorites), tint = tenseiColors.favorite, modifier = Modifier.size(15.dp))
                 }
             }
         }
@@ -1293,7 +1293,7 @@ private fun HistoryContent(
                     modifier = Modifier.size(48.dp)
                 )
                 Spacer(Modifier.height(8.dp))
-                Text("No history", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.profile_no_history), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     } else {
@@ -1312,7 +1312,7 @@ private fun HistoryContent(
             if (history.isNotEmpty()) {
                 item {
                     ProfileSectionHeader(
-                        title = "Anime",
+                        title = stringResource(R.string.profile_anime),
                         icon = Icons.Rounded.Movie,
                         count = history.size,
                         expanded = animeExpanded,
@@ -1337,7 +1337,7 @@ private fun HistoryContent(
             if (mangaHistory.isNotEmpty()) {
                 item {
                     ProfileSectionHeader(
-                        title = "Manga",
+                        title = stringResource(R.string.profile_manga),
                         icon = Icons.Rounded.MenuBook,
                         count = mangaHistory.size,
                         expanded = mangaExpanded,
@@ -1365,16 +1365,16 @@ private fun HistoryItem(
 ) {
     val (statusIcon, statusColor, statusLabel) = when {
         status?.contains("completed", ignoreCase = true) == true || status?.contains("finished", ignoreCase = true) == true ->
-            Triple(Icons.Default.Check, statusColor("COMPLETED"), "Completed")
+            Triple(Icons.Default.Check, statusColor("COMPLETED"), stringResource(R.string.profile_completed))
         status?.contains("paused", ignoreCase = true) == true || status?.contains("hold", ignoreCase = true) == true ->
-            Triple(Icons.Default.Pause, statusColor("PAUSED"), "On Hold")
+            Triple(Icons.Default.Pause, statusColor("PAUSED"), stringResource(R.string.profile_on_hold))
         status?.contains("dropped", ignoreCase = true) == true ->
-            Triple(Icons.Default.Delete, statusColor("DROPPED"), "Dropped")
+            Triple(Icons.Default.Delete, statusColor("DROPPED"), stringResource(R.string.profile_dropped))
         status?.contains("plan", ignoreCase = true) == true ->
-            Triple(Icons.Default.Bookmark, statusColor("PLANNING"), "Planning to Watch")
+            Triple(Icons.Default.Bookmark, statusColor("PLANNING"), stringResource(R.string.profile_planning_to_watch))
         status?.contains("watching", ignoreCase = true) == true || status?.contains("watched", ignoreCase = true) == true ||
             status?.contains("repeating", ignoreCase = true) == true || status?.contains("rewatched", ignoreCase = true) == true ->
-            Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), "Watched")
+            Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), stringResource(R.string.profile_watched))
         else -> Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), status ?: "")
     }
 
@@ -1444,31 +1444,31 @@ private fun MangaFavoriteItem(
 
     if (showRemoveDialog && onRemove != null) {
         val title = if (preferEnglishTitles) {
-            manga.title?.english ?: manga.title?.romaji ?: "Unknown"
+            manga.title?.english ?: manga.title?.romaji ?: stringResource(R.string.profile_unknown)
         } else {
-            manga.title?.romaji ?: manga.title?.english ?: "Unknown"
+            manga.title?.romaji ?: manga.title?.english ?: stringResource(R.string.profile_unknown)
         }
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
-            title = { Text("Remove Favorite") },
-            text = { Text("Remove $title from your favorites?") },
+            title = { Text(stringResource(R.string.profile_remove_favorite_title)) },
+            text = { Text(stringResource(R.string.profile_remove_favorite_message, title)) },
             confirmButton = {
                 TextButton(onClick = { showRemoveDialog = false; onRemove() }) {
-                    Text("Remove")
+                    Text(stringResource(R.string.profile_remove))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRemoveDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.profile_cancel))
                 }
             }
         )
     }
 
     val displayTitle = if (preferEnglishTitles) {
-        manga.title?.english ?: manga.title?.romaji ?: "Unknown"
+        manga.title?.english ?: manga.title?.romaji ?: stringResource(R.string.profile_unknown)
     } else {
-        manga.title?.romaji ?: manga.title?.english ?: "Unknown"
+        manga.title?.romaji ?: manga.title?.english ?: stringResource(R.string.profile_unknown)
     }
     val startYear = manga.startDate?.year
     val format = manga.format
@@ -1477,16 +1477,16 @@ private fun MangaFavoriteItem(
     if (showRemoveDialog && onRemove != null) {
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
-            title = { Text("Remove Favorite") },
-            text = { Text("Remove $displayTitle from your favorites?") },
+            title = { Text(stringResource(R.string.profile_remove_favorite_title)) },
+            text = { Text(stringResource(R.string.profile_remove_favorite_message, displayTitle)) },
             confirmButton = {
                 TextButton(onClick = { showRemoveDialog = false; onRemove() }) {
-                    Text("Remove")
+                    Text(stringResource(R.string.profile_remove))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRemoveDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.profile_cancel))
                 }
             }
         )
@@ -1540,7 +1540,7 @@ private fun MangaFavoriteItem(
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showRemoveDialog = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Filled.Favorite, "Remove from favorites", tint = tenseiColors.favorite, modifier = Modifier.size(15.dp))
+                    Icon(Icons.Filled.Favorite, stringResource(R.string.profile_remove_from_favorites), tint = tenseiColors.favorite, modifier = Modifier.size(15.dp))
                 }
             }
         }
@@ -1564,29 +1564,39 @@ private fun MangaActivityItem(
 ) {
     val media = node.media
     val displayTitle = if (preferEnglishTitles) {
-        media?.title?.english ?: media?.title?.romaji ?: "Unknown"
+        media?.title?.english ?: media?.title?.romaji ?: stringResource(R.string.profile_unknown)
     } else {
-        media?.title?.romaji ?: media?.title?.english ?: "Unknown"
+        media?.title?.romaji ?: media?.title?.english ?: stringResource(R.string.profile_unknown)
     }
 
     val status = node.status ?: ""
     val (statusIcon, statusColor, statusLabel) = when {
         status.contains("completed", ignoreCase = true) || status.contains("finished", ignoreCase = true) ->
-            Triple(Icons.Default.Check, statusColor("COMPLETED"), "Completed")
+            Triple(Icons.Default.Check, statusColor("COMPLETED"), stringResource(R.string.profile_completed))
         status.contains("paused", ignoreCase = true) || status.contains("hold", ignoreCase = true) ->
-            Triple(Icons.Default.Pause, statusColor("PAUSED"), "On Hold")
+            Triple(Icons.Default.Pause, statusColor("PAUSED"), stringResource(R.string.profile_on_hold))
         status.contains("dropped", ignoreCase = true) ->
-            Triple(Icons.Default.Delete, statusColor("DROPPED"), "Dropped")
+            Triple(Icons.Default.Delete, statusColor("DROPPED"), stringResource(R.string.profile_dropped))
         status.contains("plan", ignoreCase = true) ->
-            Triple(Icons.Default.Bookmark, statusColor("PLANNING"), "Planning to Read")
+            Triple(Icons.Default.Bookmark, statusColor("PLANNING"), stringResource(R.string.profile_planning_to_read))
         status.contains("reading", ignoreCase = true) || status.contains("read", ignoreCase = true) ||
             status.contains("current", ignoreCase = true) || status.contains("repeating", ignoreCase = true) ||
             status.contains("reread", ignoreCase = true) ->
-            Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), "Read")
+            Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), stringResource(R.string.profile_read))
         else -> Triple(Icons.Default.PlayArrow, statusColor("CURRENT"), status)
     }
 
-    val progressSuffix = formatMangaProgress(node.progress)
+    val progress = node.progress
+    val progressSuffix = if (progress.isNullOrBlank()) {
+        null
+    } else {
+        val nums = Regex("\\d+").findAll(progress).map { it.value.toIntOrNull() }.filterNotNull().toList()
+        when {
+            nums.size >= 2 && nums[1] > nums[0] -> stringResource(R.string.profile_chapter_range, nums[0], nums[1])
+            nums.isNotEmpty() -> stringResource(R.string.profile_chapter, nums[0])
+            else -> stringResource(R.string.profile_chapter_progress, progress)
+        }
+    }
     val statusText = if (progressSuffix != null) "$statusLabel $progressSuffix" else statusLabel
 
     Card(
@@ -1624,7 +1634,7 @@ private fun MangaActivityItem(
                     Text(statusText, color = statusColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
                 }
                 Text(
-                    formatTimestamp(node.createdAt),
+                    formatTimestamp(node.createdAt, LocaleDate.localeOf(LocalContext.current)),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -1639,31 +1649,6 @@ private fun MangaActivityItem(
     }
 }
 
-private fun formatMangaProgress(progress: String?): String? {
-    if (progress.isNullOrBlank()) return null
-    val nums = Regex("\\d+").findAll(progress).map { it.value.toIntOrNull() }.filterNotNull().toList()
-    return when {
-        nums.size >= 2 && nums[1] > nums[0] -> "chapter ${nums[0]}-${nums[1]}"
-        nums.isNotEmpty() -> "chapter ${nums[0]}"
-        else -> "chapter $progress"
-    }
-}
-
-private fun ordinal(n: Int): String {
-    val suffix = when {
-        n % 100 in 11..13 -> "th"
-        n % 10 == 1 -> "st"
-        n % 10 == 2 -> "nd"
-        n % 10 == 3 -> "rd"
-        else -> "th"
-    }
-    return "$n$suffix"
-}
-
-private fun formatTimestamp(timestamp: Long): String {
-    val date = Date(timestamp * 1000)
-    val day = SimpleDateFormat("d", Locale.getDefault()).format(date).toInt()
-    val rest = SimpleDateFormat("MMMM, yyyy - HH:mm", Locale.getDefault()).format(date)
-    return "${ordinal(day)} $rest"
-}
+private fun formatTimestamp(timestamp: Long, locale: Locale): String =
+    LocaleDate.formatLongWithTime(timestamp * 1000L, locale)
 

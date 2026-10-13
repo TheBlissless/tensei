@@ -1,5 +1,6 @@
 package com.blissless.tensei.ui.components
 
+import android.content.Context
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -60,12 +61,14 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.ContinueWatchingEntry
 import com.blissless.tensei.data.models.TmdbEpisode
@@ -312,7 +315,11 @@ fun HomeAnimeCard(
                 else -> "${anime.progress}"
             }
         }
-        "COMPLETED" -> { if (total > 0) "$total ${if (total == 1) "ep" else "eps"}" else "${anime.progress} ${if (anime.progress == 1) "ep" else "eps"}" }
+        "COMPLETED" -> {
+            val count = if (total > 0) total else anime.progress
+            val unit = stringResource(if (count == 1) R.string.comp_home_ep_unit_single else R.string.comp_home_ep_unit_plural)
+            "$count $unit"
+        }
         "PAUSED", "DROPPED" -> {
             when {
                 total > 0 && released < total -> "${anime.progress} / $released / $total"
@@ -395,7 +402,7 @@ fun HomeAnimeCard(
 
                     TenseiOverlayAction(
                         icon = Icons.Outlined.Info,
-                        contentDescription = "Anime info",
+                        contentDescription = stringResource(R.string.comp_anime_info),
                         onClick = {
                             onInfoClick(cardBounds?.let { HomeAnimeCardBounds(anime.id, anime.cover, it) })
                         },
@@ -425,7 +432,7 @@ fun HomeAnimeCard(
             preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty() -> anime.titleEnglish
             anime.title.isNotEmpty() -> anime.title
             !anime.titleEnglish.isNullOrEmpty() -> anime.titleEnglish
-            else -> "Unknown"
+            else -> stringResource(R.string.comp_unknown)
         }
         RailCardTitle(title = displayTitle)
     }
@@ -498,7 +505,7 @@ fun ContinueWatchingCard(
         preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty() -> anime.titleEnglish
         anime.title.isNotEmpty() -> anime.title
         !anime.titleEnglish.isNullOrEmpty() -> anime.titleEnglish
-        else -> "Unknown"
+        else -> stringResource(R.string.comp_unknown)
     }
 
     Card(
@@ -536,10 +543,10 @@ fun ContinueWatchingCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    TenseiScrimChip(text = "Ep. $nextEpisode")
+                    TenseiScrimChip(text = stringResource(R.string.comp_ep_short, nextEpisode))
                     TenseiOverlayAction(
                         icon = Icons.Default.PlayArrow,
-                        contentDescription = "Resume",
+                        contentDescription = stringResource(R.string.comp_resume),
                         onClick = onPlayClick,
                         size = 34.dp,
                     )
@@ -565,7 +572,7 @@ fun ContinueWatchingCard(
 
                     if (remainingMs > 0 && savedDuration > 0L) {
                         Text(
-                            text = formatTimeRemaining(remainingMs),
+                            text = formatTimeRemaining(context, remainingMs),
                             style = TenseiType.cardMeta,
                             color = Color.White.copy(alpha = 0.72f)
                         )
@@ -645,7 +652,7 @@ fun ContinueWatchingEpisodeCard(
         preferEnglishTitles && !entry.animeTitleEnglish.isNullOrEmpty() -> entry.animeTitleEnglish
         entry.animeTitle.isNotEmpty() -> entry.animeTitle
         !entry.animeTitleEnglish.isNullOrEmpty() -> entry.animeTitleEnglish
-        else -> "Unknown"
+        else -> stringResource(R.string.comp_unknown)
     }
 
     val progressColor = if (disableMaterialColors) Color.White else MaterialTheme.colorScheme.primary
@@ -653,9 +660,9 @@ fun ContinueWatchingEpisodeCard(
     // Same label slot as the Manga card: how far along the episode is, with a
     // percent fallback for entries whose duration was never recorded.
     val progressLabel = if (remainingMs > 0 && savedDuration > 0L) {
-        formatTimeRemaining(remainingMs)
+        formatTimeRemaining(context, remainingMs)
     } else {
-        "${(progressPercent * 100).toInt()}% watched"
+        stringResource(R.string.comp_watched_percent, (progressPercent * 100).toInt())
     }
 
     Card(
@@ -698,10 +705,10 @@ fun ContinueWatchingEpisodeCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    TenseiScrimChip(text = "Ep. ${entry.episode}")
+                    TenseiScrimChip(text = stringResource(R.string.comp_ep_short, entry.episode))
                     TenseiCircleAction(
                         icon = Icons.Default.Close,
-                        contentDescription = "Remove from continue watching",
+                        contentDescription = stringResource(R.string.comp_remove_from_continue_watching),
                         onClick = onDismissClick,
                         size = Sizes.continueCardDismissSize,
                         containerColor = Color.Black.copy(alpha = 0.5f),
@@ -755,11 +762,11 @@ fun ContinueWatchingEpisodeCard(
     }
 }
 
-private fun formatTimeRemaining(ms: Long): String {
+private fun formatTimeRemaining(context: Context, ms: Long): String {
     val totalSec = (ms / 1000).coerceAtLeast(0)
     val min = totalSec / 60
     val sec = totalSec % 60
-    return "${min}:${sec.toString().padStart(2, '0')} remaining"
+    return context.getString(R.string.comp_time_remaining, "${min}:${sec.toString().padStart(2, '0')}")
 }
 
 /**

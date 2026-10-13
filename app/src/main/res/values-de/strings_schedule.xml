@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="schedule_wait_toggling">Bitte warte, bevor du erneut umschaltest</string>
+    <string name="schedule_title">Ausstrahlungsplan</string>
+    <string name="schedule_search_content_description">Zeitplan durchsuchen</string>
+    <string name="schedule_subtitle_aired_upcoming">%1$d ausgestrahlt · %2$d anstehend</string>
+    <string name="schedule_subtitle_upcoming">%1$d anstehend</string>
+    <string name="schedule_day_count_airing">%1$d laufen</string>
+    <string name="schedule_day_count_none">keine</string>
+    <string name="schedule_empty_title">Keine laufenden Animes</string>
+    <string name="schedule_empty_for_day">für diesen Tag</string>
+    <string name="schedule_empty_found">gefunden</string>
+    <string name="schedule_swipe_refresh">Zum Aktualisieren nach unten wischen</string>
+    <string name="schedule_today">HEUTE</string>
+    <string name="schedule_episode">Folge %1$d</string>
+    <string name="schedule_aired_ago">Vor %1$s ausgestrahlt</string>
+    <string name="schedule_airing_in">in %1$s</string>
+    <string name="schedule_anime_not_found">Anime nicht gefunden - ID: %1$d</string>
+    <string name="schedule_error">Fehler: %1$s</string>
+</resources>

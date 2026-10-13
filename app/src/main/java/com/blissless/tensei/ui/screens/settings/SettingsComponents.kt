@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -101,20 +102,20 @@ internal fun SettingsLandingPage(
             leading = {
                 AsyncImage(
                     model = appIconDrawable(appIcon),
-                    contentDescription = "App",
+                    contentDescription = stringResource(R.string.settings_a11y_app),
                     modifier = Modifier.size(40.dp).clip(CircleShape)
                 )
             },
             title = {
                 Column {
                     Text(
-                        "Settings",
+                        stringResource(R.string.settings_title),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = scheme.onBackground
                     )
                     Text(
-                        "Customize your experience",
+                        stringResource(R.string.settings_subtitle),
                         style = MaterialTheme.typography.bodySmall,
                         color = scheme.onSurfaceVariant.copy(alpha = 0.7f),
                         maxLines = 1,
@@ -247,7 +248,7 @@ internal fun SettingsHeaderBar(
             IconButton(onClick = onBack) {
                 Icon(
                     imageVector = navigationIcon,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.common_back),
                     tint = scheme.onSurface
                 )
             }

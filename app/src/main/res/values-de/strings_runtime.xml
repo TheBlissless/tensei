@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_manga_error_chapter_data_unavailable">Kapiteldaten sind nicht mehr verfügbar. Öffne die Kapitelliste erneut und versuche es noch einmal.</string>
+    <string name="runtime_manga_error_load_failed">Kapitelbilder konnten nicht geladen werden. Überprüfe deine Verbindung und versuche es erneut.</string>
+    <string name="runtime_manga_error_no_pages">Dieses Kapitel hat keine Seiten.</string>
+    <string name="runtime_manga_error_no_title">Der Manga-Titel für die Erweiterung konnte nicht ermittelt werden.</string>
+    <string name="runtime_manga_error_no_extension">Keine Manga-Erweiterung ausgewählt. Wähle unter Einstellungen → Erweiterungen eine aus, um dieses Kapitel zu lesen.</string>
+
+    <string name="runtime_sync_channel_name">Anbieterübergreifende Synchronisierung</string>
+    <string name="runtime_sync_notification_title">Synchronisierung über Anbieter hinweg</string>
+    <string name="runtime_sync_complete_title">Synchronisierung abgeschlossen</string>
+    <string name="runtime_sync_start_ani_to_mal">AniList → MAL wird synchronisiert…</string>
+    <string name="runtime_sync_start_mal_to_ani">MAL → AniList wird synchronisiert…</string>
+    <string name="runtime_sync_done_ani_to_mal">%1$d Änderungen von AniList nach MAL synchronisiert</string>
+    <string name="runtime_sync_done_mal_to_ani">%1$d Änderungen von MAL nach AniList synchronisiert</string>
+    <string name="runtime_sync_unreachable_toast">AniList war zum Vergleich nicht erreichbar – Synchronisierung übersprungen</string>
+
+    <string name="runtime_update_channel_name">Update-Downloads</string>
+    <string name="runtime_update_channel_description">Fortschritt des Update-Downloads</string>
+    <string name="runtime_update_title">Update wird heruntergeladen</string>
+    <string name="runtime_update_no_releases">Keine Releases gefunden</string>
+    <string name="runtime_update_up_to_date">Bereits aktuell (%1$s)</string>
+    <string name="runtime_update_check_failed">Updateprüfung fehlgeschlagen</string>
+    <string name="runtime_update_no_apk">Keine APK für %1$s gefunden</string>
+    <string name="runtime_update_download_failed">Download fehlgeschlagen</string>
+    <string name="runtime_update_installer_failed">Installer konnte nicht geöffnet werden: %1$s</string>
+
+    <string name="runtime_mal_login_no_auth_code">MAL-Anmeldung fehlgeschlagen: Kein Autorisierungscode empfangen</string>
+    <string name="runtime_mal_login_in_progress">MAL-Anmeldung wird abgeschlossen…</string>
+    <string name="runtime_mal_login_success">Erfolgreich bei MyAnimeList angemeldet!</string>
+    <string name="runtime_mal_login_token_error">MAL-Anmeldung fehlgeschlagen: Fehler beim Token-Austausch</string>
+
+    <string name="runtime_failed_to_load_content">Inhalt konnte nicht geladen werden</string>
+    <string name="runtime_schedule_service_unavailable">Der Zeitplan-Dienst ist derzeit nicht verfügbar</string>
+    <string name="runtime_refresh_cooldown">Bitte warte einen Moment, bevor du erneut aktualisierst</string>
+
+    <string name="runtime_source_manager_not_initialized">Quellenverwaltung nicht initialisiert</string>
+    <string name="runtime_extension_package_not_found">Erweiterung „%1$s" nicht gefunden</string>
+    <string name="runtime_extension_anime_not_found">„%1$s" wurde in der Erweiterung nicht gefunden</string>
+    <string name="runtime_extension_episode_not_found">Episode nicht in der Erweiterung gefunden</string>
+    <string name="runtime_extension_no_video_sources">Keine Videoquellen gefunden</string>
+    <string name="runtime_extension_unexpected_error">Unerwarteter Fehler beim Auflösen des Streams</string>
+
+    <string name="runtime_failed_to_load_hoster">%1$s konnte nicht geladen werden</string>
+    <string name="runtime_no_stream_episode">Kein Stream für Folge %1$d verfügbar</string>
+    <string name="runtime_no_stream_episode_reason">Kein Stream für Folge %1$d verfügbar: %2$s</string>
+    <string name="runtime_no_magnet_episode">Kein Magnet-Link für Folge %1$d verfügbar</string>
+    <string name="runtime_no_magnet_link_episode">Kein Magnet-Link für Folge %1$d gefunden</string>
+    <string name="runtime_torrent_metadata_timeout">Metadaten des Torrents sind abgelaufen – der Torrent hat möglicherweise keine Seeder oder dein Netzwerk ist nicht erreichbar.</string>
+
+    <string name="runtime_updated_extensions">%1$d Erweiterung(en) aktualisiert</string>
+</resources>

@@ -53,11 +53,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.blissless.tensei.R
 import com.blissless.tensei.util.toast
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,9 +82,9 @@ fun ExtensionBrowserScreen(
     if (showRemoveDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveDialog = false },
-            title = { Text("Remove repo?") },
+            title = { Text(stringResource(R.string.extensions_remove_repo_dialog_title)) },
             text = {
-                Text("This will remove ${repoState.repo?.name ?: repoState.url} from your repos.")
+                Text(stringResource(R.string.extensions_remove_repo_browser_msg, repoState.repo?.name ?: repoState.url))
             },
             confirmButton = {
                 TextButton(
@@ -92,12 +94,12 @@ fun ExtensionBrowserScreen(
                         onBack()
                     }
                 ) {
-                    Text("Remove", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.extensions_remove), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showRemoveDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -140,7 +142,7 @@ fun ExtensionBrowserScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
@@ -150,15 +152,15 @@ fun ExtensionBrowserScreen(
                             val clipboard =
                                 ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             clipboard.setPrimaryClip(
-                                ClipData.newPlainText("Repo URL", repoState.url)
+                                ClipData.newPlainText(ctx.getString(R.string.extensions_repo_url), repoState.url)
                             )
-                            ctx.toast("URL copied")
+                            ctx.toast(ctx.getString(R.string.extensions_url_copied))
                         }
                     ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy URL")
+                        Icon(Icons.Default.ContentCopy, contentDescription = stringResource(R.string.extensions_copy_url))
                     }
                     IconButton(onClick = { showRemoveDialog = true }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Remove repo")
+                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.extensions_remove_repo))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -173,7 +175,7 @@ fun ExtensionBrowserScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
-                placeholder = { Text("Filter extensions...") },
+                placeholder = { Text(stringResource(R.string.extensions_filter)) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 8.dp),
@@ -188,14 +190,14 @@ fun ExtensionBrowserScreen(
                 leadingIcon = {
                     Icon(
                         Icons.Default.Search,
-                        contentDescription = "Search",
+                        contentDescription = stringResource(R.string.extensions_search),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear")
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.extensions_clear))
                         }
                     }
                 }
@@ -240,8 +242,8 @@ fun ExtensionBrowserScreen(
                             )
                         }
                         Text(
-                            text = if (searchQuery.isNotBlank()) "No matching extensions"
-                            else "No extensions available",
+                            text = if (searchQuery.isNotBlank()) stringResource(R.string.extensions_no_matching)
+                            else stringResource(R.string.extensions_no_extensions_available),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
@@ -352,7 +354,11 @@ private fun ExtensionBrowserItem(
                         shape = RoundedCornerShape(6.dp)
                     ) {
                         Text(
-                            text = repoExtension.type.label,
+                            text = when (repoExtension.type) {
+                                ExtensionType.STREAM -> stringResource(R.string.settings_stream_group)
+                                ExtensionType.TORRENT -> stringResource(R.string.settings_stream_torrent)
+                                else -> repoExtension.type.label
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = typeColor,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
@@ -381,7 +387,11 @@ private fun ExtensionBrowserItem(
                 }
                 if (repoExtension.sources.isNotEmpty()) {
                     Text(
-                        text = "${repoExtension.sources.size} source(s)",
+                        text = if (repoExtension.sources.size == 1) {
+                            stringResource(R.string.extensions_source_count_one)
+                        } else {
+                            stringResource(R.string.extensions_source_count_many, repoExtension.sources.size)
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
@@ -389,11 +399,10 @@ private fun ExtensionBrowserItem(
             }
             if (repoExtension.version.isNotBlank() || repoExtension.code > 0L) {
                 Text(
-                    text = when {
-                        repoExtension.version.isNotBlank() && repoExtension.code > 0L ->
-                            "v${repoExtension.version} (code ${repoExtension.code})"
-                        repoExtension.version.isNotBlank() -> "v${repoExtension.version}"
-                        else -> "code ${repoExtension.code}"
+                    text = buildString {
+                        if (repoExtension.version.isNotBlank()) append("v${repoExtension.version}")
+                        if (repoExtension.version.isNotBlank() && repoExtension.code > 0L) append(" ")
+                        if (repoExtension.code > 0L) append("(${repoExtension.code})")
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
@@ -402,7 +411,7 @@ private fun ExtensionBrowserItem(
             }
             if (installedVersion != null) {
                 Text(
-                    text = "Installed $installedVersion",
+                    text = stringResource(R.string.extensions_installed_version, installedVersion),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                 )
@@ -416,7 +425,7 @@ private fun ExtensionBrowserItem(
             ) {
                 Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Update", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.extensions_update), style = MaterialTheme.typography.labelMedium)
             }
         } else if (isInstalled) {
             Row(
@@ -430,7 +439,7 @@ private fun ExtensionBrowserItem(
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                 )
                 Text(
-                    text = "Installed",
+                    text = stringResource(R.string.extensions_installed),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
@@ -442,7 +451,7 @@ private fun ExtensionBrowserItem(
             ) {
                 Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Install", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.extensions_install), style = MaterialTheme.typography.labelMedium)
             }
         }
     }

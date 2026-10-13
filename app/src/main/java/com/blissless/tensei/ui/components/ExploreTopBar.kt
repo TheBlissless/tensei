@@ -23,9 +23,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
 
@@ -107,7 +109,7 @@ fun AppIconCircle(
         Box(contentAlignment = Alignment.Center) {
             AsyncImage(
                 model = appIconDrawable(appIcon),
-                contentDescription = "App",
+                contentDescription = stringResource(R.string.explore_app),
                 modifier = Modifier
                     .size(size * 0.8f)
                     .clip(CircleShape),
@@ -121,7 +123,7 @@ fun AppIconCircle(
 fun SearchCircleAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    contentDescription: String = "Search",
+    contentDescription: String = stringResource(R.string.explore_search),
     size: Dp = Sizes.iconButton,
     containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     contentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,

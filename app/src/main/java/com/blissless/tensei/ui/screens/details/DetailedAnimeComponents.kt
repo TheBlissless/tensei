@@ -44,12 +44,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.blissless.tensei.util.LocaleDate
+import java.util.Locale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.components.DetailSpecGridSkeleton
 import com.blissless.tensei.ui.components.DetailStatStripSkeleton
 import com.blissless.tensei.ui.components.anilistAnnotated
@@ -84,19 +88,8 @@ internal fun ordinalSuffix(day: Int): String = when {
  * The month name follows the device locale (a German device still shows
  * "1st Oktober"), while the day always carries the English ordinal suffix.
  */
-internal fun formatDate(dateStr: String): String {
-    return try {
-        val parts = dateStr.split("-")
-        if (parts.size == 3) {
-            val date = LocalDate.of(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
-            val day = date.dayOfMonth
-            val month = date.format(DateTimeFormatter.ofPattern("MMMM"))
-            "$day${ordinalSuffix(day)} $month ${date.year}"
-        } else dateStr
-    } catch (_: Exception) {
-        dateStr
-    }
-}
+internal fun formatDate(dateStr: String, locale: Locale): String =
+    LocaleDate.formatIsoDate(dateStr, locale)
 
 internal fun easeOut(t: Float): Float {
     val t1 = t - 1f
@@ -258,7 +251,7 @@ internal fun WatchNowButton(
             ) {
                 Icon(Icons.Default.PlayArrow, null, Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Watch Now", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.anime_detail_watch_now), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelLarge)
             }
         }
     }
@@ -315,13 +308,13 @@ internal fun TrailerCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        "Trailer",
+                        stringResource(R.string.anime_detail_trailer),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Watch the trailer",
+                        stringResource(R.string.anime_detail_watch_the_trailer),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         letterSpacing = 0.5.sp
@@ -341,7 +334,7 @@ internal fun TrailerCard(
             ) {
                 AsyncImage(
                     model = trailerThumbnail ?: "",
-                    contentDescription = "Trailer Thumbnail",
+                    contentDescription = stringResource(R.string.anime_detail_trailer_thumbnail),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -362,14 +355,14 @@ internal fun TrailerCard(
                     ) {
                         Icon(
                             Icons.Default.PlayArrow,
-                            contentDescription = "Play Trailer",
+                            contentDescription = stringResource(R.string.anime_detail_play_trailer),
                             modifier = Modifier.size(34.dp)
                         )
                     }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Watch on YouTube", style = MaterialTheme.typography.bodySmall,
+            Text(stringResource(R.string.anime_detail_watch_on_youtube), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -392,19 +385,19 @@ internal fun NoDefaultExtensionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("No Extension Selected") },
-        text = { Text("Select a default extension in Settings to load episodes for this title.") },
+        title = { Text(stringResource(R.string.anime_detail_no_extension_selected)) },
+        text = { Text(stringResource(R.string.anime_detail_no_extension_message)) },
         confirmButton = {
             TextButton(onClick = {
                 onDismiss()
                 onGoToSettings()
             }) {
-                Text("Go to Settings")
+                Text(stringResource(R.string.anime_detail_go_to_settings))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(stringResource(R.string.anime_detail_close))
             }
         }
     )
@@ -429,6 +422,7 @@ internal fun InfoCard(
     userStatusDisplay: String?,
     isLoading: Boolean = false,
 ) {
+    val locale = LocaleDate.localeOf(LocalContext.current)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -460,13 +454,13 @@ internal fun InfoCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        "Information",
+                        stringResource(R.string.anime_detail_information),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Overview & details",
+                        stringResource(R.string.anime_detail_overview_details),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         letterSpacing = 0.5.sp
@@ -493,10 +487,10 @@ internal fun InfoCard(
             val durationMin = displayData.duration?.takeIf { it > 0 }
             val scoreValue = displayData.averageScore?.takeIf { it > 0 }
 
-            val heroStats = listOfNotNull<Pair<String, String>>(
-                epDisplay?.let { "Episodes" to it },
-                scoreValue?.let { "Score" to String.format(java.util.Locale.US, "%.1f", it / 10.0) },
-                durationMin?.let { "Duration" to "${it}m" },
+            val heroStats = listOfNotNull<Pair<Int, String>>(
+                epDisplay?.let { R.string.anime_detail_episodes to it },
+                scoreValue?.let { R.string.anime_detail_score to String.format(java.util.Locale.US, "%.1f", it / 10.0) },
+                durationMin?.let { R.string.anime_detail_duration to "${it}m" },
             )
 
             if (heroStats.isNotEmpty()) {
@@ -508,20 +502,20 @@ internal fun InfoCard(
                         .padding(vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    heroStats.forEachIndexed { index, (label, value) ->
-                        val accent = when (label) {
-                            "Episodes" -> MaterialTheme.colorScheme.primary
-                            "Duration" -> MaterialTheme.colorScheme.tertiary
-                            "Score"    -> tenseiColors.rating
-                            else       -> MaterialTheme.colorScheme.primary
+                    heroStats.forEachIndexed { index, (labelRes, value) ->
+                        val accent = when (labelRes) {
+                            R.string.anime_detail_episodes -> MaterialTheme.colorScheme.primary
+                            R.string.anime_detail_duration -> MaterialTheme.colorScheme.tertiary
+                            R.string.anime_detail_score    -> tenseiColors.rating
+                            else                           -> MaterialTheme.colorScheme.primary
                         }
-                        val icon = when (label) {
-                            "Score" -> Icons.Default.Star
-                            else    -> null
+                        val icon = when (labelRes) {
+                            R.string.anime_detail_score -> Icons.Default.Star
+                            else                        -> null
                         }
                         HeroStatCell(
                             value = value,
-                            label = label,
+                            label = stringResource(labelRes),
                             accent = accent,
                             icon = icon,
                             modifier = Modifier.weight(1f)
@@ -547,11 +541,18 @@ internal fun InfoCard(
             }
 
             // ----- Bento spec grid (2-column, responsive full-span rows) -----
+            val labelFormat = stringResource(R.string.anime_detail_format)
+            val labelStatus = stringResource(R.string.anime_detail_status)
+            val labelSeason = stringResource(R.string.anime_detail_season)
+            val labelSource = stringResource(R.string.anime_detail_source)
+            val labelStudio = stringResource(R.string.anime_detail_studio)
+            val labelStarted = stringResource(R.string.anime_detail_started)
+            val labelEnded = stringResource(R.string.anime_detail_ended)
             val specs = buildList {
                 displayData.format?.let {
                     add(
                         SpecEntry(
-                            label = "Format",
+                            label = labelFormat,
                             value = it.replace("_", " ")
                                 .lowercase()
                                 .replaceFirstChar { c -> c.uppercase() },
@@ -562,7 +563,7 @@ internal fun InfoCard(
 userStatusDisplay?.let {
         add(
             SpecEntry(
-                label = "Status",
+                label = labelStatus,
                 value = it,
                 icon = Icons.Default.PlayCircle
             )
@@ -571,7 +572,7 @@ userStatusDisplay?.let {
     if (displayData.season != null && displayData.year != null) {
                     add(
                         SpecEntry(
-                            label = "Season",
+                            label = labelSeason,
                             value = "${displayData.season.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }} ${displayData.year}"
                         )
                     )
@@ -579,7 +580,7 @@ userStatusDisplay?.let {
                 displayData.source?.let {
                     add(
                         SpecEntry(
-                            label = "Source",
+                            label = labelSource,
                             value = it.replace("_", " ")
                                 .lowercase()
                                 .replaceFirstChar { c -> c.uppercase() },
@@ -594,7 +595,7 @@ userStatusDisplay?.let {
                     if (studio.isNotEmpty()) {
                         add(
                             SpecEntry(
-                                label = "Studio",
+                                label = labelStudio,
                                 value = studio,
                                 icon = Icons.Default.Group,
                                 fullSpan = true
@@ -603,11 +604,11 @@ userStatusDisplay?.let {
                     }
                 }
                 displayData.startDate?.let {
-                    add(SpecEntry(label = "Started", value = formatDate(it)))
+                    add(SpecEntry(label = labelStarted, value = formatDate(it, locale)))
                 }
                 if (displayData.status != "RELEASING" && displayData.status != "NOT_YET_RELEASED") {
                     displayData.endDate?.let {
-                        add(SpecEntry(label = "Ended", value = formatDate(it)))
+                        add(SpecEntry(label = labelEnded, value = formatDate(it, locale)))
                     }
                 }
             }
@@ -681,13 +682,13 @@ internal fun GenresCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        "Genres",
+                        stringResource(R.string.anime_detail_genres),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Categories & themes",
+                        stringResource(R.string.anime_detail_categories_themes),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         letterSpacing = 0.5.sp
@@ -767,13 +768,13 @@ internal fun TagsCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        "Tags",
+                        stringResource(R.string.anime_detail_tags),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Labels & descriptors",
+                        stringResource(R.string.anime_detail_labels_descriptors),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         letterSpacing = 0.5.sp
@@ -812,7 +813,7 @@ internal fun TagsCard(
                 }
                 if (remainingCount > 0 && !showAllTags) {
                     Text(
-                        "+$remainingCount more",
+                        stringResource(R.string.anime_detail_more_tags, remainingCount),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f),
                         modifier = Modifier.align(Alignment.CenterVertically)
@@ -826,7 +827,7 @@ internal fun TagsCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        if (showAllTags) "Show Less" else "Show More",
+                        if (showAllTags) stringResource(R.string.anime_detail_show_less) else stringResource(R.string.anime_detail_show_more),
                         color = MaterialTheme.colorScheme.secondary
                     )
                 }
@@ -878,13 +879,13 @@ internal fun SynopsisCard(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        "Synopsis",
+                        stringResource(R.string.anime_detail_synopsis),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        "Story summary",
+                        stringResource(R.string.anime_detail_story_summary),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         letterSpacing = 0.5.sp
@@ -909,7 +910,7 @@ internal fun SynopsisCard(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        if (showFullDescription) "Show Less" else "Read More",
+                        if (showFullDescription) stringResource(R.string.anime_detail_show_less) else stringResource(R.string.anime_detail_read_more),
                         color = MaterialTheme.colorScheme.primary
                     )
                 }

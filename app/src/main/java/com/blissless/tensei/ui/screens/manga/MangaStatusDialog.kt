@@ -43,11 +43,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.StatusButton
 import com.blissless.tensei.ui.theme.MangaStatusLabels
@@ -119,7 +121,7 @@ fun MangaStatusDialog(
                         "$currentProgress"
                     }
                     Text(
-                        "Chapter: $progressText",
+                        stringResource(R.string.manga_detail_chapter_line, progressText),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.7f)
                     )
@@ -131,7 +133,7 @@ fun MangaStatusDialog(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatusButton(
                     icon = Icons.Default.PlayArrow,
-                    label = MangaStatusLabels["CURRENT"] ?: "Reading",
+                    label = MangaStatusLabels["CURRENT"] ?: stringResource(R.string.manga_detail_status_reading),
                     selected = selectedStatus == "CURRENT" && !markedForRemoval,
                     onClick = {
                         selectedStatus = "CURRENT"
@@ -143,7 +145,7 @@ fun MangaStatusDialog(
                 )
                 StatusButton(
                     icon = Icons.Default.Bookmark,
-                    label = MangaStatusLabels["PLANNING"] ?: "Planning",
+                    label = MangaStatusLabels["PLANNING"] ?: stringResource(R.string.manga_detail_status_planning),
                     selected = selectedStatus == "PLANNING" && !markedForRemoval,
                     onClick = {
                         selectedStatus = "PLANNING"
@@ -161,7 +163,7 @@ fun MangaStatusDialog(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatusButton(
                     icon = Icons.Default.Check,
-                    label = MangaStatusLabels["COMPLETED"] ?: "Completed",
+                    label = MangaStatusLabels["COMPLETED"] ?: stringResource(R.string.manga_detail_status_completed),
                     selected = selectedStatus == "COMPLETED" && !markedForRemoval,
                     onClick = {
                         selectedStatus = "COMPLETED"
@@ -173,7 +175,7 @@ fun MangaStatusDialog(
                 )
                 StatusButton(
                     icon = Icons.Default.Pause,
-                    label = MangaStatusLabels["PAUSED"] ?: "On Hold",
+                    label = MangaStatusLabels["PAUSED"] ?: stringResource(R.string.manga_detail_status_on_hold),
                     selected = selectedStatus == "PAUSED" && !markedForRemoval,
                     onClick = {
                         selectedStatus = "PAUSED"
@@ -191,7 +193,7 @@ fun MangaStatusDialog(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 StatusButton(
                     icon = Icons.Default.Close,
-                    label = MangaStatusLabels["DROPPED"] ?: "Dropped",
+                    label = MangaStatusLabels["DROPPED"] ?: stringResource(R.string.manga_detail_status_dropped),
                     selected = selectedStatus == "DROPPED" && !markedForRemoval,
                     onClick = {
                         selectedStatus = "DROPPED"
@@ -216,12 +218,12 @@ fun MangaStatusDialog(
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Remove", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = if (markedForRemoval) tenseiColors.destructive else Color.White.copy(alpha = 0.7f))
+                    Text(stringResource(R.string.manga_detail_remove), fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = if (markedForRemoval) tenseiColors.destructive else Color.White.copy(alpha = 0.7f))
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Chapter Progress", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
+            Text(stringResource(R.string.manga_detail_chapter_progress), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
@@ -238,7 +240,7 @@ fun MangaStatusDialog(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                placeholder = { Text("Enter last read chapter", color = Color.White.copy(alpha = 0.4f)) },
+                placeholder = { Text(stringResource(R.string.manga_detail_enter_last_read_chapter), color = Color.White.copy(alpha = 0.4f)) },
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = if (selectedProgress.isEmpty() || selectedProgress == "0") Color.Transparent else Color.White,
@@ -267,7 +269,7 @@ fun MangaStatusDialog(
                 )
             ) {
                 Text(
-                    if (markedForRemoval) "Remove from List" else "Save Changes",
+                    if (markedForRemoval) stringResource(R.string.manga_detail_remove_from_list) else stringResource(R.string.manga_detail_save_changes),
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -312,7 +314,7 @@ fun MangaRatingSheet(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("Your Rating", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                    Text(stringResource(R.string.manga_detail_your_rating), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
                 }
             }
 
@@ -327,7 +329,7 @@ fun MangaRatingSheet(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                placeholder = { Text(initialScore?.let { "Current: $it/10" } ?: "Rating (0-10)", color = Color.White.copy(alpha = 0.4f)) },
+                placeholder = { Text(initialScore?.let { stringResource(R.string.manga_detail_current_rating, it) } ?: stringResource(R.string.manga_detail_rating_range), color = Color.White.copy(alpha = 0.4f)) },
                 trailingIcon = {
                     if (selectedScore.isNotEmpty()) {
                         Text("/10", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(end = 12.dp))
@@ -349,7 +351,7 @@ fun MangaRatingSheet(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
-            ) { Text("Save Rating", fontWeight = FontWeight.Bold) }
+            ) { Text(stringResource(R.string.manga_detail_save_rating), fontWeight = FontWeight.Bold) }
         }
     }
 }

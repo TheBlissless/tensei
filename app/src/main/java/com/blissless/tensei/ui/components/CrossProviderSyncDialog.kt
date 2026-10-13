@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -50,6 +51,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.PillShape
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Spacing
@@ -180,7 +182,7 @@ fun CrossProviderSyncDialog(
 
                 Spacer(Modifier.height(18.dp))
                 Text(
-                    "Sync your libraries",
+                    stringResource(R.string.comp_sync_libraries_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -189,7 +191,7 @@ fun CrossProviderSyncDialog(
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Both trackers are signed in. Pick the source of truth and the other library is updated to match — entries are added, updated and removed.",
+                    stringResource(R.string.comp_sync_libraries_message),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -200,7 +202,7 @@ fun CrossProviderSyncDialog(
                 DirectionOption(
                     from = "AniList",
                     to = "MyAnimeList",
-                    description = "MAL mirrors your AniList lists — adds, updates and removes.",
+                    description = stringResource(R.string.comp_sync_ani_to_mal_desc),
                     accent = aniListAccent,
                     changesAnime = aniToMalAnime,
                     changesManga = aniToMalManga,
@@ -212,7 +214,7 @@ fun CrossProviderSyncDialog(
                 DirectionOption(
                     from = "MyAnimeList",
                     to = "AniList",
-                    description = "AniList mirrors your MAL lists — adds, updates and removes.",
+                    description = stringResource(R.string.comp_sync_mal_to_ani_desc),
                     accent = malAccent,
                     changesAnime = malToAniAnime,
                     changesManga = malToAniManga,
@@ -231,7 +233,7 @@ fun CrossProviderSyncDialog(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Status, score and progress are synced. Entries missing from the source are removed from the target.",
+                        stringResource(R.string.comp_sync_status_note),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -251,9 +253,9 @@ fun CrossProviderSyncDialog(
                 ) {
                     Text(
                         when (direction) {
-                            true -> "Sync AniList → MAL"
-                            false -> "Sync MAL → AniList"
-                            null -> "Select a direction"
+                            true -> stringResource(R.string.comp_sync_button_ani_to_mal)
+                            false -> stringResource(R.string.comp_sync_button_mal_to_ani)
+                            null -> stringResource(R.string.comp_sync_select_direction)
                         },
                         fontWeight = FontWeight.SemiBold
                     )
@@ -267,7 +269,7 @@ fun CrossProviderSyncDialog(
                         .height(44.dp),
                     shape = Radius.controlShape
                 ) {
-                    Text("Not now", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.comp_not_now), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -334,6 +336,7 @@ private fun DirectionOption(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val context = LocalContext.current
     val borderColor by animateColorAsState(
         if (selected) accent else MaterialTheme.colorScheme.outlineVariant,
         label = "border"
@@ -377,8 +380,8 @@ private fun DirectionOption(
                     if (total > 0) {
                         Spacer(Modifier.height(2.dp))
                         val parts = buildList {
-                            if (changesAnime > 0) add("$changesAnime anime")
-                            if (changesManga > 0) add("$changesManga manga")
+                            if (changesAnime > 0) add(context.getString(R.string.comp_sync_changes_anime, changesAnime))
+                            if (changesManga > 0) add(context.getString(R.string.comp_sync_changes_manga, changesManga))
                         }
                         Text(
                             parts.joinToString(" · "),
@@ -426,7 +429,8 @@ private fun CountPill(count: Int, accent: Color, isOled: Boolean) {
             .padding(horizontal = 9.dp, vertical = 3.dp)
     ) {
         Text(
-            if (inSync) "In sync" else "$count ${if (count == 1) "change" else "changes"}",
+            if (inSync) stringResource(R.string.comp_sync_in_sync)
+            else stringResource(if (count == 1) R.string.comp_sync_change_one else R.string.comp_sync_change_other, count),
             color = fg,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold

@@ -113,7 +113,15 @@ fun MihonZoomableImage(
      * PagedMangaReader where the HorizontalPager's scroll handling intercepts
      * touch events before MihonZoomableImage's detectTapGestures can see them.
      */
-    doubleTapTrigger: Int = 0
+    doubleTapTrigger: Int = 0,
+    /**
+     * Request headers to attach to the image fetch (User-Agent + source Referer
+     * from the manga extension). Many image CDNs 403 without the source's exact
+     * UA/Referer (the Referer must be the MANGA site, not the image host), which
+     * rendered external pages blank. When null (built-in scrape path), falls
+     * back to a Referer derived from the image URL host.
+     */
+    headers: Headers? = null
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -133,18 +141,23 @@ fun MihonZoomableImage(
     // We deliberately DON'T crossfade here: the existing reader UX expects
     // pages to appear instantly when scrolled into view, and a crossfade on
     // every load would make scrolling feel laggy.
-    val imageRequest = remember(imageUrl) {
-        val referer = try {
-            val url = java.net.URL(imageUrl)
-            "${url.protocol}://${url.host}/"
-        } catch (_: Exception) { null }
+    val imageRequest = remember(imageUrl, headers) {
+        val reqHeaders = headers
         ImageRequest.Builder(context)
             .data(imageUrl)
             .memoryCachePolicy(CachePolicy.DISABLED)
             .diskCachePolicy(CachePolicy.DISABLED)
             .apply {
-                if (referer != null) {
-                    headers(Headers.headersOf("Referer", referer))
+                if (reqHeaders != null) {
+                    headers(reqHeaders)
+                } else {
+                    val referer = try {
+                        val url = java.net.URL(imageUrl)
+                        "${url.protocol}://${url.host}/"
+                    } catch (_: Exception) { null }
+                    if (referer != null) {
+                        headers(Headers.headersOf("Referer", referer))
+                    }
                 }
             }
             .build()

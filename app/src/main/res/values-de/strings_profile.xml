@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_about_me">Über mich</string>
+    <string name="profile_favorites">Favoriten</string>
+    <string name="profile_history">Verlauf</string>
+    <string name="profile_share_profile">Profil teilen</string>
+    <string name="profile_share_profile_desc">Profil teilen</string>
+    <string name="profile_user">Benutzer</string>
+    <string name="profile_unknown">Unbekannt</string>
+    <string name="profile_avatar">Profilbild</string>
+    <string name="profile_joined">Beigetreten am %1$s</string>
+    <string name="profile_anime">Anime</string>
+    <string name="profile_episodes">Folgen</string>
+    <string name="profile_mean">Durchschnitt</string>
+    <string name="profile_total">Gesamt: %1$s</string>
+    <string name="profile_anime_library">Anime-Bibliothek</string>
+    <string name="profile_manga_library">Manga-Bibliothek</string>
+    <string name="profile_manga">Manga</string>
+    <string name="profile_no_favorites">Noch keine Favoriten</string>
+    <string name="profile_no_history">Kein Verlauf</string>
+    <string name="profile_remove_favorite_title">Favorit entfernen</string>
+    <string name="profile_remove_favorite_message">%1$s aus deinen Favoriten entfernen?</string>
+    <string name="profile_remove">Entfernen</string>
+    <string name="profile_cancel">Abbrechen</string>
+    <string name="profile_remove_from_favorites">Aus Favoriten entfernen</string>
+    <string name="profile_completed">Abgeschlossen</string>
+    <string name="profile_on_hold">Pausiert</string>
+    <string name="profile_dropped">Verworfen</string>
+    <string name="profile_planning_to_watch">Geplant zum Ansehen</string>
+    <string name="profile_watched">Angesehen</string>
+    <string name="profile_planning_to_read">Geplant zum Lesen</string>
+    <string name="profile_read">Gelesen</string>
+    <string name="profile_days">%1$d Tage</string>
+    <string name="profile_hours">%1$d Stunden</string>
+    <string name="profile_min">%1$d Min.</string>
+    <string name="profile_episode_range">Folge %1$d-%2$d</string>
+    <string name="profile_episode">Folge %1$d</string>
+    <string name="profile_chapter_range">Kapitel %1$d-%2$d</string>
+    <string name="profile_chapter">Kapitel %1$d</string>
+    <string name="profile_chapter_progress">Kapitel %1$s</string>
+
+    <!-- Home profile / settings bottom sheet -->
+    <string name="profile_sheet_avatar_content_description">Benutzeravatar</string>
+    <string name="profile_sheet_user_content_description">Benutzer</string>
+    <string name="profile_sheet_app_content_description">App</string>
+    <string name="profile_sheet_default_username">Mein Anime</string>
+    <string name="profile_sheet_subtitle_logged_in">Profil, Favoriten &amp; Aktivität</string>
+    <string name="profile_sheet_subtitle_guest">Lokale Favoriten &amp; App-Einstellungen</string>
+    <string name="profile_sheet_my_profile">Mein Profil</string>
+    <string name="profile_tap_to_view_profile">Tippen, um Profil anzuzeigen</string>
+</resources>

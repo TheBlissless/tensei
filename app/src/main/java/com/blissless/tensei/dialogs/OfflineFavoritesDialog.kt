@@ -33,11 +33,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.StoredFavorite
 import com.blissless.tensei.ui.theme.tenseiColors
@@ -62,20 +64,20 @@ fun OfflineFavoritesDialog(
                 ) {
                     Column {
                         Text(
-                            "My Favorites",
+                            stringResource(R.string.comp_favorites_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            "${favorites.size} anime (offline)",
+                            stringResource(R.string.comp_favorites_offline_count, favorites.size),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, "Close", tint = MaterialTheme.colorScheme.onSurface)
+                        Icon(Icons.Default.Close, stringResource(R.string.comp_close), tint = MaterialTheme.colorScheme.onSurface)
                     }
                 }
 
@@ -89,9 +91,9 @@ fun OfflineFavoritesDialog(
                                     modifier = Modifier.size(48.dp)
                                 )
                                 Spacer(Modifier.height(8.dp))
-                                Text("No favorites yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.comp_no_favorites_yet), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(
-                                    "Tap the heart icon on anime to add them",
+                                    stringResource(R.string.comp_favorites_hint),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     style = MaterialTheme.typography.bodySmall
                                 )
@@ -151,7 +153,7 @@ private fun OfflineFavoriteItem(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    favorite.title.ifEmpty { "Anime" },
+                    favorite.title.ifEmpty { stringResource(R.string.comp_anime_fallback) },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
@@ -163,7 +165,7 @@ private fun OfflineFavoriteItem(
             }
             IconButton(onClick = onRemove) {
                 Icon(
-                    Icons.Filled.Favorite, "Remove from favorites",
+                    Icons.Filled.Favorite, stringResource(R.string.comp_remove_from_favorites),
                     tint = tenseiColors.favorite, modifier = Modifier.size(24.dp)
                 )
             }

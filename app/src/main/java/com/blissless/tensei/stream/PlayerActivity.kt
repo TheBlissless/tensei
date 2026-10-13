@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,6 +70,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.SubtitleView
+import com.blissless.tensei.R
 import com.blissless.tensei.util.AppLocale
 import eu.kanade.tachiyomi.animesource.model.Track
 import eu.kanade.tachiyomi.animesource.model.Video
@@ -318,7 +320,7 @@ class PlayerActivity : ComponentActivity() {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(onClick = { finish() }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.player_activity_back), tint = Color.White)
                                 }
                                 Text(
                                     PlayerData.animeTitle,
@@ -383,20 +385,20 @@ class PlayerActivity : ComponentActivity() {
                             ) {
                                 ControlChip(
                                     icon = Icons.Default.Settings,
-                                    label = "Quality",
+                                    label = stringResource(R.string.player_activity_quality),
                                     onClick = { showQualitySheet = !showQualitySheet; showSubSheet = false; showAudioSheet = false; scheduleHide() }
                                 )
                                 if ((currentVideo?.subtitleTracks?.size ?: 0) > 0) {
                                     ControlChip(
                                         icon = Icons.Default.Subtitles,
-                                        label = selectedSubtitle?.lang?.uppercase() ?: "Subs",
+                                        label = selectedSubtitle?.lang?.uppercase() ?: stringResource(R.string.player_activity_subs),
                                         onClick = { showSubSheet = !showSubSheet; showQualitySheet = false; showAudioSheet = false; scheduleHide() }
                                     )
                                 }
                                 if ((currentVideo?.audioTracks?.size ?: 0) > 0) {
                                     ControlChip(
                                         icon = Icons.AutoMirrored.Filled.VolumeUp,
-                                        label = selectedAudio?.lang?.uppercase() ?: "Audio",
+                                        label = selectedAudio?.lang?.uppercase() ?: stringResource(R.string.player_activity_audio),
                                         onClick = { showAudioSheet = !showAudioSheet; showQualitySheet = false; showSubSheet = false; scheduleHide() }
                                     )
                                 }
@@ -415,7 +417,7 @@ class PlayerActivity : ComponentActivity() {
                                 }) {
                                     Icon(
                                         if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = "Play/Pause",
+                                        contentDescription = stringResource(R.string.player_activity_play_pause),
                                         tint = Color.White,
                                         modifier = Modifier.size(48.dp)
                                     )
@@ -504,13 +506,13 @@ private fun QualitySheet(
         colors = CardDefaults.cardColors(containerColor = Color(0xEE333333))
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text("Quality", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.player_activity_quality), color = Color.White, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(
                     selected = adaptiveMode,
                     onClick = onToggleAdaptive,
-                    label = { Text("Auto") },
+                    label = { Text(stringResource(R.string.player_activity_auto)) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(0xFF1976D2), selectedLabelColor = Color.White
                     )
@@ -541,13 +543,13 @@ private fun SubtitleSheet(tracks: List<Track>, selected: Track?, onSelect: (Trac
         colors = CardDefaults.cardColors(containerColor = Color(0xEE333333))
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text("Subtitles", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.player_activity_subtitles), color = Color.White, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(
                     selected = selected == null,
                     onClick = { onSelect(null) },
-                    label = { Text("Off") },
+                    label = { Text(stringResource(R.string.player_activity_off)) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(0xFF1976D2), selectedLabelColor = Color.White
                     )
@@ -574,13 +576,13 @@ private fun AudioSheet(tracks: List<Track>, selected: Track?, onSelect: (Track?)
         colors = CardDefaults.cardColors(containerColor = Color(0xEE333333))
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text("Audio", color = Color.White, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.player_activity_audio), color = Color.White, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 FilterChip(
                     selected = selected == null,
                     onClick = { onSelect(null) },
-                    label = { Text("Default") },
+                    label = { Text(stringResource(R.string.player_activity_default)) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Color(0xFF1976D2), selectedLabelColor = Color.White
                     )

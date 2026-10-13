@@ -41,9 +41,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
@@ -98,7 +100,7 @@ fun TenseiErrorBanner(
             TextButton(onClick = onRetry) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(Spacing.xs))
-                Text("Retry", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(R.string.comp_retry), style = MaterialTheme.typography.labelLarge)
             }
         }
     }

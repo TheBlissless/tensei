@@ -43,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import com.blissless.tensei.ui.components.StaffEdgeJobText
 import com.blissless.tensei.ui.components.StaffJobLinesUnlimited
 import com.blissless.tensei.ui.components.RelatedMediaCard
@@ -55,6 +56,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.MangaCharacterNode
 import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.data.models.MangaRelation
@@ -123,14 +125,14 @@ fun MangaAllCharactersScreen(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.common_back),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.Center)) {
                         Text(
-                            text = "Characters",
+                            text = stringResource(R.string.reader_characters_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -153,7 +155,7 @@ fun MangaAllCharactersScreen(
                 } else if (characters.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "No characters found",
+                            text = stringResource(R.string.reader_no_characters),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -191,7 +193,7 @@ fun MangaAllCharactersScreen(
                                 }
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = character.name?.full ?: "Unknown",
+                                    text = character.name?.full ?: stringResource(R.string.reader_unknown),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Medium,
                                     maxLines = 2,
@@ -263,14 +265,14 @@ fun MangaAllStaffScreen(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.common_back),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.Center)) {
                         Text(
-                            text = "Staff",
+                            text = stringResource(R.string.reader_staff_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -293,7 +295,7 @@ fun MangaAllStaffScreen(
                 } else if (staff.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "No staff found",
+                            text = stringResource(R.string.reader_no_staff),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -332,7 +334,7 @@ fun MangaAllStaffScreen(
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = member.name?.full ?: "Unknown",
+                                    text = member.name?.full ?: stringResource(R.string.reader_unknown),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Medium,
                                     // Was clipped to one line, which cut most full names off
@@ -433,14 +435,14 @@ fun MangaAllRelationsScreen(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.common_back),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.Center)) {
                         Text(
-                            text = "Relations",
+                            text = stringResource(R.string.reader_relations_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -463,7 +465,7 @@ fun MangaAllRelationsScreen(
                 } else if (relations.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "No relations found",
+                            text = stringResource(R.string.reader_no_relations),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -570,14 +572,14 @@ fun MangaAllRecommendationsScreen(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.common_back),
                             tint = Color.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.Center)) {
                         Text(
-                            text = "Recommendations",
+                            text = stringResource(R.string.reader_recommendations_title),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -600,7 +602,7 @@ fun MangaAllRecommendationsScreen(
                 } else if (recommendations.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "No recommendations found",
+                            text = stringResource(R.string.reader_no_recommendations),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

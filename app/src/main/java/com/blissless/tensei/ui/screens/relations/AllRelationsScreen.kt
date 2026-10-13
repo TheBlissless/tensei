@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeRelation
 import com.blissless.tensei.ui.components.RelatedMediaCard
 import com.blissless.tensei.ui.components.asRelatedMedia
@@ -118,18 +120,18 @@ fun AllRelationsScreen(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            contentDescription = stringResource(R.string.lists_back),
+                             tint = Color.White,
+                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.align(Alignment.Center)) {
                         Text(
-                            text = "Relations",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
+                            text = stringResource(R.string.lists_relations),
+                             style = MaterialTheme.typography.titleLarge,
+                             fontWeight = FontWeight.Bold,
+                             color = MaterialTheme.colorScheme.onBackground,
+                         )
                         Text(
                             text = displayTitle,
                             style = MaterialTheme.typography.bodySmall,
@@ -148,7 +150,7 @@ fun AllRelationsScreen(
                 } else if (relations.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
-                            text = "No relations found",
+                            text = stringResource(R.string.lists_no_relations_found),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -93,6 +93,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -100,6 +101,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.MangaExploreMedia
 import com.blissless.tensei.ui.components.SectionTitle
 import com.blissless.tensei.ui.components.AppIconCircle
@@ -121,6 +123,8 @@ import com.blissless.tensei.viewmodel.mangaPlanningToRead
 import com.blissless.tensei.viewmodel.removeMangaTracking
 import com.blissless.tensei.viewmodel.retryMangaExploreFromMalFallback
 import com.blissless.tensei.viewmodel.selectedExtensionAuthority
+import com.blissless.tensei.viewmodel.mangaSourceMethod
+import com.blissless.tensei.viewmodel.defaultExternalMangaExtension
 import com.blissless.tensei.viewmodel.updateMangaProgress
 import com.blissless.tensei.viewmodel.updateMangaStatus
 import kotlinx.coroutines.Job
@@ -160,6 +164,10 @@ fun MangaScreen(
     val mangaPlanningToRead by viewModel.mangaPlanningToRead.collectAsState()
     val mangaCompleted by viewModel.mangaCompleted.collectAsState()
     val selectedMangaExtension by viewModel.selectedExtensionAuthority.collectAsState()
+    val mangaSourceMethod by viewModel.mangaSourceMethod.collectAsState()
+    val defaultExternalMangaExtension by viewModel.defaultExternalMangaExtension.collectAsState()
+    val hasMangaSource = selectedMangaExtension != null ||
+        (mangaSourceMethod == "external" && !defaultExternalMangaExtension.isNullOrBlank())
     val apiError by viewModel.apiError.collectAsState()
     val isOffline by viewModel.isOffline.collectAsState()
     val appIcon by viewModel.appIcon.collectAsState()
@@ -207,19 +215,19 @@ fun MangaScreen(
     if (showMangaNoExtensionDialog) {
         AlertDialog(
             onDismissRequest = { showMangaNoExtensionDialog = false; pendingMangaReadAfterSettings = null },
-            title = { Text("No Extension Selected") },
-            text = { Text("Select a default manga extension in Settings to load chapters for this title.") },
+            title = { Text(stringResource(R.string.explore_no_extension_selected)) },
+            text = { Text(stringResource(R.string.explore_no_manga_extension_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     showMangaNoExtensionDialog = false
                     onMangaNoExtension()
                 }) {
-                    Text("Go to Settings")
+                    Text(stringResource(R.string.explore_go_to_settings))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showMangaNoExtensionDialog = false; pendingMangaReadAfterSettings = null }) {
-                    Text("Close")
+                    Text(stringResource(R.string.explore_close))
                 }
             }
         )
@@ -229,7 +237,7 @@ fun MangaScreen(
         val pending = pendingMangaReadAfterSettings
         if (settingsReturnVersion > 0 && pending != null) {
             pendingMangaReadAfterSettings = null
-            if (selectedMangaExtension == null) {
+            if (!hasMangaSource) {
                 showMangaNoExtensionDialog = true
             } else {
                 onMangaReadClick(pending)
@@ -241,7 +249,7 @@ fun MangaScreen(
     if (showMangaStatusDialog && selectedMangaForStatus != null) {
         val manga = selectedMangaForStatus!!
         MangaStatusDialog(
-            title = manga.title.romaji ?: manga.title.english ?: "Unknown",
+            title = manga.title.romaji ?: manga.title.english ?: stringResource(R.string.explore_unknown),
             titleEnglish = manga.title.english,
             preferEnglishTitles = preferEnglishTitles,
             coverUrl = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: "",
@@ -354,7 +362,7 @@ fun MangaScreen(
             ) {
             if (apiError != null || isOffline) {
                 TenseiErrorBanner(
-                    message = if (isOffline) "No internet connection" else "AniList is currently unavailable",
+                    message = if (isOffline) stringResource(R.string.home_offline) else stringResource(R.string.home_anilist_unavailable),
                     icon = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
                     onRetry = requestRefresh,
                 )
@@ -364,16 +372,16 @@ fun MangaScreen(
             // No "Manga" header — sections flow directly.
             if (mangaExploreSections.isNotEmpty()) {
                 val sectionLabelMap = mapOf(
-                    "trending" to "Trending Now",
-                    "popular" to "Most Popular",
-                    "topRated" to "Top Rated",
-                    "favourites" to "Most Favourited",
-                    "action" to "Action",
-                    "romance" to "Romance",
-                    "comedy" to "Comedy",
-                    "fantasy" to "Fantasy",
-                    "sci-fi" to "Sci-Fi",
-                    "seinen" to "Seinen"
+                    "trending" to stringResource(R.string.explore_trending_now),
+                    "popular" to stringResource(R.string.explore_most_popular),
+                    "topRated" to stringResource(R.string.explore_top_rated),
+                    "favourites" to stringResource(R.string.explore_most_favourited),
+                    "action" to stringResource(R.string.explore_genre_action),
+                    "romance" to stringResource(R.string.explore_genre_romance),
+                    "comedy" to stringResource(R.string.explore_genre_comedy),
+                    "fantasy" to stringResource(R.string.explore_genre_fantasy),
+                    "sci-fi" to stringResource(R.string.explore_genre_scifi),
+                    "seinen" to stringResource(R.string.explore_genre_seinen)
                 )
                 val mangaSectionOrder = listOf(
                     "trending", "popular", "topRated", "favourites",
@@ -402,7 +410,7 @@ fun MangaScreen(
                             showMangaStatusDialog = true
                         },
                         onReadClick = { manga ->
-                            if (selectedMangaExtension == null) {
+                            if (!hasMangaSource) {
                                 pendingMangaReadAfterSettings = manga
                                 showMangaNoExtensionDialog = true
                             } else {
@@ -452,7 +460,7 @@ fun MangaScreen(
                                 showMangaStatusDialog = true
                             },
                             onReadClick = { manga ->
-                                if (selectedMangaExtension == null) {
+                                if (!hasMangaSource) {
                                     pendingMangaReadAfterSettings = manga
                                     showMangaNoExtensionDialog = true
                                 } else {
@@ -483,13 +491,13 @@ fun MangaScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "AniList is currently unavailable",
+                            text = stringResource(R.string.home_anilist_unavailable),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Nothing was returned. Tap retry to try again.",
+                            text = stringResource(R.string.explore_manga_nothing_returned),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
@@ -501,7 +509,7 @@ fun MangaScreen(
                         }) {
                             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
-                            Text("Retry")
+                            Text(stringResource(R.string.explore_retry))
                         }
                     }
                 }
@@ -585,16 +593,19 @@ private fun MangaExploreHorizontalRow(
             key = { _, manga -> manga.id }
         ) { index, manga ->
             val title = if (preferEnglishTitles && !manga.title.english.isNullOrBlank()) manga.title.english!!
-                       else manga.title.romaji ?: "Unknown"
+                       else manga.title.romaji ?: stringResource(R.string.explore_unknown)
             val coverUrl = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: manga.coverImage?.medium ?: ""
             val status = mangaStatusMap[manga.id]
             val hasStatus = status != null
             val resolvedStatusColor = statusColor(status)
-            val statusIndicatorColor = if (showMangaStatusColors) resolvedStatusColor else Color.Transparent
-            val buttonContainerColor = if (showMangaStatusColors) {
+            // No status -> no top stripe and no tinted bookmark; the status button then
+            // mirrors the read button so the pair reads consistently in every theme.
+            val statusIndicatorColor = if (showMangaStatusColors && hasStatus) resolvedStatusColor else Color.Transparent
+            val playButtonContainerColor = Color.Black.copy(alpha = 0.5f)
+            val buttonContainerColor = if (showMangaStatusColors && hasStatus) {
                 resolvedStatusColor.copy(alpha = 0.8f)
             } else {
-                Color.Black.copy(alpha = 0.6f)
+                playButtonContainerColor
             }
             // Mirrors the anime explore rows: a per-card center-offset 3D tilt while
             // scrolling plus a staggered cinematic fade/slide-in when the screen appears.
@@ -661,7 +672,7 @@ private fun MangaExploreHorizontalRow(
                             Box(
                                 modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
                                 contentAlignment = Alignment.Center
-                            ) { Text("N/A", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            ) { Text(stringResource(R.string.explore_na), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
                         Box(modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(50.dp)
                             .background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))))
@@ -701,7 +712,7 @@ private fun MangaExploreHorizontalRow(
                                 color = Color.Black.copy(alpha = 0.65f)
                             ) {
                                 Text(
-                                    text = "Ch. $ch",
+                                    text = stringResource(R.string.explore_chapter_short, ch),
                                     color = Color.White,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
@@ -738,7 +749,7 @@ private fun MangaExploreHorizontalRow(
                                     ) { statusExists ->
                                         Icon(
                                             imageVector = if (statusExists) Icons.Filled.Bookmark else Icons.Outlined.BookmarkAdd,
-                                            contentDescription = if (statusExists) "Change status" else "Add status",
+                                            contentDescription = if (statusExists) stringResource(R.string.explore_change_status) else stringResource(R.string.explore_add_status),
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
@@ -751,13 +762,13 @@ private fun MangaExploreHorizontalRow(
                                     modifier = Modifier.size(34.dp),
                                     shape = Radius.chipShape,
                                     colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                        containerColor = Color.Black.copy(alpha = 0.5f),
+                                        containerColor = playButtonContainerColor,
                                         contentColor = Color.White
                                     )
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "Read",
+                                        contentDescription = stringResource(R.string.explore_read),
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -957,7 +968,7 @@ private fun MangaFeaturedCarousel(
                 ) {
                     val displayTitle =
                         if (preferEnglishTitles && !currentManga.title.english.isNullOrBlank()) currentManga.title.english!!
-                        else currentManga.title.romaji ?: "Unknown"
+                        else currentManga.title.romaji ?: stringResource(R.string.explore_unknown)
                     Text(
                         text = displayTitle,
                         color = Color.White,
@@ -993,12 +1004,12 @@ private fun MangaFeaturedCarousel(
                             Text(text = " • ", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.bodyMedium)
                         }
                         val formatText = when (format?.uppercase()) {
-                            "NOVEL" -> "Novel"
-                            "ONE_SHOT" -> "One Shot"
-                            "DOUJIN" -> "Doujin"
-                            "MANHWA" -> "Manhwa"
-                            "MANHUA" -> "Manhua"
-                            else -> "Manga"
+                            "NOVEL" -> stringResource(R.string.explore_format_novel)
+                            "ONE_SHOT" -> stringResource(R.string.explore_format_one_shot)
+                            "DOUJIN" -> stringResource(R.string.explore_format_doujin)
+                            "MANHWA" -> stringResource(R.string.explore_format_manhwa)
+                            "MANHUA" -> stringResource(R.string.explore_format_manhua)
+                            else -> stringResource(R.string.explore_format_manga)
                         }
                         Text(text = formatText, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
                     }
@@ -1025,7 +1036,7 @@ private fun MangaFeaturedCarousel(
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         if (isSaved) Icons.Default.Bookmark else Icons.Outlined.BookmarkAdd,
-                                        contentDescription = "Save",
+                                        contentDescription = stringResource(R.string.explore_save),
                                         tint = savedStatusColor,
                                         modifier = Modifier.size(22.dp)
                                     )
@@ -1047,12 +1058,12 @@ private fun MangaFeaturedCarousel(
                         ) {
                             Icon(
                                 Icons.Outlined.PlayArrow,
-                                contentDescription = "Read",
+                                contentDescription = stringResource(R.string.explore_read),
                                 modifier = Modifier.size(22.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "Read Now",
+                                stringResource(R.string.explore_read_now),
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.SemiBold,
                                 maxLines = 1
@@ -1071,7 +1082,7 @@ private fun MangaFeaturedCarousel(
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         Icons.Outlined.Info,
-                                        contentDescription = "Info",
+                                        contentDescription = stringResource(R.string.explore_info),
                                         tint = Color.White,
                                         modifier = Modifier.size(22.dp)
                                     )

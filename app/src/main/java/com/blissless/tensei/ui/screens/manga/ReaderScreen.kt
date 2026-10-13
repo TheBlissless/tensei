@@ -60,6 +60,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.MangaChapter
 import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.data.models.countDistinctChapters
@@ -81,12 +83,15 @@ import com.blissless.tensei.viewmodel.loadChapterImages
 import com.blissless.tensei.viewmodel.loadMangaChapters
 import com.blissless.tensei.viewmodel.mangaChapterImages
 import com.blissless.tensei.viewmodel.mangaChapterImagesError
+import com.blissless.tensei.viewmodel.mangaImageHeaders
 import com.blissless.tensei.viewmodel.mangaChapters
 import com.blissless.tensei.viewmodel.mangaTrackManager
 import com.blissless.tensei.viewmodel.onMangaScrollProgress
 import com.blissless.tensei.viewmodel.prefetchMangaChapterImages
 import com.blissless.tensei.viewmodel.refreshMangaTracking
 import com.blissless.tensei.viewmodel.selectedExtensionAuthority
+import com.blissless.tensei.viewmodel.mangaSourceMethod
+import com.blissless.tensei.viewmodel.defaultExternalMangaExtension
 import com.blissless.tensei.viewmodel.setMangaAutoAdvance
 import com.blissless.tensei.viewmodel.setMangaFullscreen
 import com.blissless.tensei.viewmodel.setMangaPageIndicator
@@ -98,6 +103,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import okhttp3.Headers
 
 enum class ReaderMode { VERTICAL_SCROLL, LEFT_TO_RIGHT, RIGHT_TO_LEFT }
 
@@ -141,6 +147,7 @@ fun MangaReaderScreen(
     val chapters by viewModel.mangaChapters.collectAsState()
     val chapterImages by viewModel.mangaChapterImages.collectAsState()
     val chapterImagesError by viewModel.mangaChapterImagesError.collectAsState()
+    val chapterImageHeaders by viewModel.mangaImageHeaders.collectAsState()
     var currentChapterIndex by remember { mutableIntStateOf(initialChapterIndex.coerceAtLeast(0)) }
     var readerMode by remember { mutableStateOf(
         when (viewModel.mangaReaderMode.value) {
@@ -229,6 +236,10 @@ fun MangaReaderScreen(
     val isLoadingChapters by viewModel.isLoadingMangaChapters.collectAsState()
     val hasLoadedChapters by viewModel.hasLoadedMangaChapters.collectAsState()
     val selectedExtension by viewModel.selectedExtensionAuthority.collectAsState()
+    val mangaSourceMethod by viewModel.mangaSourceMethod.collectAsState()
+    val defaultExternalMangaExtension by viewModel.defaultExternalMangaExtension.collectAsState()
+    val hasMangaSource = selectedExtension != null ||
+        (mangaSourceMethod == "external" && !defaultExternalMangaExtension.isNullOrBlank())
     val showPageIndicator by viewModel.mangaPageIndicator.collectAsState()
     val syncThreshold by viewModel.mangaSyncThreshold.collectAsState()
     val lockRotation by viewModel.mangaLockRotation.collectAsState()
@@ -338,9 +349,9 @@ fun MangaReaderScreen(
     // chapters. Skipped while no manga extension is selected: without a source there's no
     // real chapter list, and the synthetic fallback produces wrong chapter numbers for
     // releasing manga.
-    LaunchedEffect(manga.id, selectedExtension, showChapterList) {
+    LaunchedEffect(manga.id, hasMangaSource, showChapterList) {
         val shouldLoad = chapters.isEmpty() || showChapterList
-        if (shouldLoad && selectedExtension != null) {
+        if (shouldLoad && hasMangaSource) {
             runCatching { viewModel.fetchMangaDetail(manga.id) }
             viewModel.loadMangaChapters(manga.id, manga.title)
         }
@@ -576,6 +587,7 @@ fun MangaReaderScreen(
                         chapterImages = displayedImages ?: emptyList(),
                         chapterImagesError = displayedImagesError,
                         chapter = currentChapter,
+                        headers = chapterImageHeaders,
                         totalChapters = chapters.size,
                         currentIndex = currentChapterIndex,
                         scrollProgress = scrollProgress,
@@ -612,6 +624,7 @@ fun MangaReaderScreen(
                         chapterImages = displayedImages ?: emptyList(),
                         chapterImagesError = displayedImagesError,
                         mode = readerMode,
+                        headers = chapterImageHeaders,
                         initialPage = currentPageIndex.coerceIn(0, (displayedImages?.size ?: 1) - 1),
                         restorePage = if (pendingResumeProgress >= 0f && displayedImages != null && displayedImages!!.size > 1) {
                             val page = (pendingResumeProgress * (displayedImages!!.size - 1)).toInt().coerceIn(0, displayedImages!!.size - 1)
@@ -678,7 +691,7 @@ fun MangaReaderScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = { handleReaderBack() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
                     },
                     actions = {
@@ -688,7 +701,7 @@ fun MangaReaderScreen(
                         ) {
                             Icon(
                                 Icons.Default.SkipPrevious,
-                                contentDescription = "Previous Chapter",
+                                contentDescription = stringResource(R.string.reader_previous_chapter),
                                 tint = if (currentChapterIndex > 0) Color.White else Color.White.copy(alpha = 0.3f)
                             )
                         }
@@ -698,7 +711,7 @@ fun MangaReaderScreen(
                         ) {
                             Icon(
                                 Icons.Default.SkipNext,
-                                contentDescription = "Next Chapter",
+                                contentDescription = stringResource(R.string.reader_next_chapter),
                                 tint = if (currentChapterIndex < chapters.lastIndex) Color.White else Color.White.copy(alpha = 0.3f)
                             )
                         }
@@ -749,7 +762,7 @@ fun MangaReaderScreen(
         ) {
             val nextLabel = cachedNextChapterForButton?.let { ch ->
                 val num = extractChapterNum(ch.title)
-                if (num != "?") "Ch. $num" else ch.title
+                if (num != "?") stringResource(R.string.reader_chapter_short, num) else ch.title
             } ?: ""
             Button(
                 onClick = {
@@ -781,7 +794,7 @@ fun MangaReaderScreen(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.Start) {
                     Text(
-                        text = "Next Chapter",
+                        text = stringResource(R.string.reader_next_chapter),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -847,7 +860,7 @@ fun MangaReaderScreen(
                     ) {
                         Icon(
                             if (lockRotation) Icons.Default.Lock else Icons.Default.LockOpen,
-                            contentDescription = "Toggle rotation lock",
+                            contentDescription = stringResource(R.string.reader_toggle_rotation_lock),
                             tint = if (lockRotation) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
                             modifier = Modifier.size(18.dp)
                         )
@@ -876,7 +889,7 @@ fun MangaReaderScreen(
                         ) {
                             Icon(
                                 if (fullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                contentDescription = "Toggle fullscreen",
+                                contentDescription = stringResource(R.string.reader_toggle_fullscreen),
                                 tint = if (fullscreen) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
                                 modifier = Modifier.size(18.dp)
                             )
@@ -887,7 +900,7 @@ fun MangaReaderScreen(
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.Article,
-                                contentDescription = "Toggle page indicator",
+                                contentDescription = stringResource(R.string.reader_toggle_page_indicator),
                                 tint = if (showPageIndicator) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
                                 modifier = Modifier.size(18.dp)
                             )
@@ -897,19 +910,19 @@ fun MangaReaderScreen(
             }
         }
 
-        if (selectedExtension == null) {
+        if (!hasMangaSource) {
             AlertDialog(
                 onDismissRequest = onClose,
-                title = { Text("No Extension Selected") },
-                text = { Text("Select a default manga extension in Settings to load chapters for this title.") },
+                title = { Text(stringResource(R.string.reader_no_extension_selected)) },
+                text = { Text(stringResource(R.string.reader_no_extension_message)) },
                 confirmButton = {
                     TextButton(onClick = onOpenSettings) {
-                        Text("Go to Settings")
+                        Text(stringResource(R.string.reader_go_to_settings))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = onClose) {
-                        Text("Close")
+                        Text(stringResource(R.string.reader_close))
                     }
                 }
             )
@@ -931,19 +944,19 @@ private fun ReaderModeSegmentedToggle(
     ) {
         ReaderModeToggleItem(
             icon = Icons.Default.ViewAgenda,
-            contentDescription = "Vertical scroll mode",
+            contentDescription = stringResource(R.string.reader_mode_vertical),
             selected = currentMode == ReaderMode.VERTICAL_SCROLL,
             onClick = { onSelect(ReaderMode.VERTICAL_SCROLL) }
         )
         ReaderModeToggleItem(
             icon = Icons.AutoMirrored.Filled.ArrowForward,
-            contentDescription = "Left to right paged mode",
+            contentDescription = stringResource(R.string.reader_mode_ltr),
             selected = currentMode == ReaderMode.LEFT_TO_RIGHT,
             onClick = { onSelect(ReaderMode.LEFT_TO_RIGHT) }
         )
         ReaderModeToggleItem(
             icon = Icons.AutoMirrored.Filled.ArrowBack,
-            contentDescription = "Right to left paged mode",
+            contentDescription = stringResource(R.string.reader_mode_rtl),
             selected = currentMode == ReaderMode.RIGHT_TO_LEFT,
             onClick = { onSelect(ReaderMode.RIGHT_TO_LEFT) }
         )
@@ -1007,7 +1020,7 @@ private fun ChapterLoadErrorView(
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Retry")
+                Text(stringResource(R.string.reader_retry))
             }
         }
     }
@@ -1024,7 +1037,7 @@ private fun ChapterLoadingView(modifier: Modifier = Modifier) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(color = Color.White)
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Loading chapter...", color = Color.White)
+            Text(stringResource(R.string.reader_loading_chapter), color = Color.White)
         }
     }
 }
@@ -1034,6 +1047,7 @@ private fun VerticalScrollReader(
     chapterImages: List<String>,
     chapterImagesError: String?,
     chapter: MangaChapter?,
+    headers: Headers? = null,
     totalChapters: Int,
     currentIndex: Int,
     scrollProgress: Float,
@@ -1135,11 +1149,12 @@ private fun VerticalScrollReader(
         itemsIndexed(chapterImages, key = { index, _ -> "page_$index" }) { index, imageUrl ->
             MihonZoomableImage(
                 imageUrl = imageUrl,
-                contentDescription = "Page ${index + 1}",
+                contentDescription = stringResource(R.string.reader_page_number, index + 1),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(7f / 10f),
                 fillWidth = true,
+                headers = headers,
                 onSingleTap = { onToggleControls() }
             )
         }
@@ -1151,6 +1166,7 @@ private fun PagedMangaReader(
     chapterImages: List<String>,
     chapterImagesError: String?,
     mode: ReaderMode,
+    headers: Headers? = null,
     initialPage: Int,
     restorePage: Int = -1,
     onToggleControls: () -> Unit,
@@ -1247,11 +1263,12 @@ private fun PagedMangaReader(
 
             MihonZoomableImage(
                 imageUrl = chapterImages[pageIndex],
-                contentDescription = "Page ${pageIndex + 1}",
+                contentDescription = stringResource(R.string.reader_page_number, pageIndex + 1),
                 modifier = Modifier
                     .fillMaxSize()
                     .onSizeChanged { pageLayoutSize = it.toSize() },
                 fillWidth = false,
+                headers = headers,
                 doubleTapTrigger = doubleTapTriggers[pageIndex] ?: 0,
                 onSingleTap = { tap ->
                     if (isZoomed) return@MihonZoomableImage
@@ -1328,7 +1345,7 @@ fun MangaChapterListWithGroups(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = Color.White)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text("Loading chapters...", color = Color.White)
+                        Text(stringResource(R.string.reader_loading_chapters), color = Color.White)
                     }
                 }
             } else {
@@ -1337,10 +1354,10 @@ fun MangaChapterListWithGroups(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("No chapters found", color = MaterialTheme.colorScheme.onSurface, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.reader_no_chapters_found), color = MaterialTheme.colorScheme.onSurface, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Could not load chapters for this manga. It may not be available on the configured source, or the source may be down.",
+                            stringResource(R.string.reader_chapters_load_error),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -1349,7 +1366,7 @@ fun MangaChapterListWithGroups(
                         Spacer(modifier = Modifier.height(24.dp))
                         if (onRetryLoadChapters != null) {
                             Button(onClick = onRetryLoadChapters) {
-                                Text("Retry")
+                                Text(stringResource(R.string.reader_retry))
                             }
                         }
                     }
@@ -1489,7 +1506,7 @@ fun MangaChapterListWithGroups(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            "No chapters match \"$searchQuery\"",
+                            stringResource(R.string.reader_no_chapters_match, searchQuery),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp
                         )
@@ -1536,20 +1553,20 @@ private fun MangaChapterListHeader(
                     IconButton(onClick = onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(R.string.common_back),
                             tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 }
                 Column {
                     Text(
-                        text = "Chapters",
+                        text = stringResource(R.string.reader_chapters),
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onBackground,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "$readCount of $totalCount read",
+                        text = stringResource(R.string.reader_read_count, readCount, totalCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1622,7 +1639,7 @@ private fun MangaChapterListHeader(
                         Spacer(Modifier.width(4.dp))
                         val nextChapterDisplay = chapters.getOrNull(nextChapterToRead)?.let { extractChapterNum(it.title) }
                             ?: "${nextChapterToRead + 1}"
-                        Text("Ch. $nextChapterDisplay", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.reader_chapter_short, nextChapterDisplay), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -1653,7 +1670,7 @@ private fun MangaChapterSearchBar(
         ) {
             Icon(
                 Icons.Default.Search,
-                contentDescription = "Search",
+                contentDescription = stringResource(R.string.reader_search),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(18.dp)
             )
@@ -1672,7 +1689,7 @@ private fun MangaChapterSearchBar(
                     Box {
                         if (query.isEmpty()) {
                             Text(
-                                "Search chapters...",
+                                stringResource(R.string.reader_search_chapters),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 fontSize = 14.sp
                             )
@@ -1689,7 +1706,7 @@ private fun MangaChapterSearchBar(
                 ) {
                     Icon(
                         Icons.Default.Close,
-                        contentDescription = "Clear",
+                        contentDescription = stringResource(R.string.reader_clear),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp)
                     )
@@ -1777,8 +1794,8 @@ private fun MangaChapterGroup(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (readInGroup > 0) "$totalInGroup chapters \u00B7 $readInGroup read"
-                               else "$totalInGroup chapters",
+                        text = if (readInGroup > 0) stringResource(R.string.reader_group_chapters_read, totalInGroup, readInGroup)
+                               else stringResource(R.string.reader_group_chapters, totalInGroup),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (readInGroup > 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)
                                else MaterialTheme.colorScheme.onSurfaceVariant
@@ -1787,7 +1804,7 @@ private fun MangaChapterGroup(
 
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    contentDescription = if (expanded) stringResource(R.string.reader_collapse) else stringResource(R.string.reader_expand),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.graphicsLayer { rotationZ = rotationAngle }
                 )
@@ -1886,7 +1903,7 @@ private fun MangaChapterRow(
                         // back to "Chapter N" when there's no actual name.
                         val namePart = Regex("^Chapter\\s*${Regex.escape(chNum)}\\s*:\\s*")
                             .replaceFirst(chapter.title, "").trim()
-                        if (namePart.isNotBlank()) namePart else "Chapter $chNum"
+                        if (namePart.isNotBlank()) namePart else stringResource(R.string.reader_chapter_fallback, chNum)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = when {
@@ -1903,7 +1920,7 @@ private fun MangaChapterRow(
             if (isNextToRead && !isRead) {
                 Icon(
                     Icons.Default.PlayArrow,
-                    contentDescription = "Next",
+                    contentDescription = stringResource(R.string.reader_next),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp)
                 )

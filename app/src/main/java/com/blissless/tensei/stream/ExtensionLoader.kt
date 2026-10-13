@@ -8,6 +8,7 @@ import android.content.pm.Signature
 import android.os.Build
 import android.util.Log
 import com.blissless.tensei.extensions.ANIME_EXTENSION_FEATURE
+import com.blissless.tensei.extensions.EXTENSION_FEATURE
 import com.blissless.tensei.extensions.METADATA_ANIME_NSFW
 import com.blissless.tensei.extensions.METADATA_ANIME_SOURCE_CLASS
 import com.blissless.tensei.extensions.METADATA_NSFW
@@ -400,16 +401,26 @@ internal object AnimeExtensionLoader {
         val pkgName = pkgInfo.packageName
         val isBlisslessExtension =
             (pkgName.startsWith("com.blissless.") && pkgName.endsWith(".anime.stream")) ||
-            (pkgName.startsWith("com.blissless.") && pkgName.endsWith(".anime.torrent")) ||
-            (pkgName.startsWith("com.blissless.") && pkgName.endsWith(".manga"))
+            (pkgName.startsWith("com.blissless.") && pkgName.endsWith(".anime.torrent"))
         if (isBlisslessExtension) return true
 
         // Aniyomi-style: declared via <uses-feature android:name="tachiyomi.animeextension">.
         val features = pkgInfo.reqFeatures.orEmpty().map { it.name }.toSet()
         if (ANIME_EXTENSION_FEATURE in features) return true
 
-        // Fall back to meta-data presence (older extensions may not declare a feature).
         val metaData = pkgInfo.applicationInfo?.metaData
+
+        // Mihon-style MANGA extensions declare the manga feature/source class but not the
+        // anime feature. They belong to the separate manga extension system, so never let
+        // the anime loader hijack them (which would list them as untrusted anime extensions).
+        if (EXTENSION_FEATURE in features &&
+            ANIME_EXTENSION_FEATURE !in features &&
+            metaData?.containsKey(METADATA_ANIME_SOURCE_CLASS) != true
+        ) {
+            return false
+        }
+
+        // Fall back to meta-data presence (older extensions may not declare a feature).
         if (metaData?.containsKey(METADATA_ANIME_SOURCE_CLASS) == true) return true
         if (metaData?.containsKey(METADATA_SOURCE_FACTORY) == true) return true
         if (metaData?.containsKey(METADATA_SOURCE_CLASS) == true) return true

@@ -107,6 +107,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -119,6 +120,7 @@ import androidx.compose.ui.zIndex
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.AnimeRelation
 import com.blissless.tensei.data.models.DetailedAnimeData
@@ -424,12 +426,12 @@ fun DetailedAnimeScreen(
     }
 
     val statusDisplay = when (displayData.status) {
-        "RELEASING" -> "Airing"
-        "FINISHED" -> "Released"
-        "NOT_YET_RELEASED" -> "Not Yet Aired"
-        "CANCELLED" -> "Cancelled"
-        "HIATUS" -> "Hiatus"
-        else -> displayData.status ?: "Unknown"
+        "RELEASING" -> stringResource(R.string.anime_detail_status_airing)
+        "FINISHED" -> stringResource(R.string.anime_detail_status_released)
+        "NOT_YET_RELEASED" -> stringResource(R.string.anime_detail_status_not_yet_aired)
+        "CANCELLED" -> stringResource(R.string.anime_detail_status_cancelled)
+        "HIATUS" -> stringResource(R.string.anime_detail_status_hiatus)
+        else -> displayData.status ?: stringResource(R.string.anime_detail_unknown)
     }
 
     // The Information card's Status cell shows the user's tracking status, not the series
@@ -438,14 +440,14 @@ fun DetailedAnimeScreen(
     val userStatusDisplay = statusToCheck?.let { StatusLabels[it] ?: it }
 
     val formatDisplay = when (displayData.format) {
-        "TV" -> "TV Series"
-        "TV_SHORT" -> "TV Short"
-        "MOVIE" -> "Movie"
-        "SPECIAL" -> "Special"
+        "TV" -> stringResource(R.string.anime_detail_format_tv_series)
+        "TV_SHORT" -> stringResource(R.string.anime_detail_format_tv_short)
+        "MOVIE" -> stringResource(R.string.anime_detail_format_movie)
+        "SPECIAL" -> stringResource(R.string.anime_detail_format_special)
         "OVA" -> "OVA"
         "ONA" -> "ONA"
-        "MUSIC" -> "Music"
-        else -> displayData.format ?: "Unknown"
+        "MUSIC" -> stringResource(R.string.anime_detail_format_music)
+        else -> displayData.format ?: stringResource(R.string.anime_detail_unknown)
     }
 
     val nestedScrollConnection = remember {
@@ -657,7 +659,7 @@ fun DetailedAnimeScreen(
                     .background(Color.Black.copy(alpha = 0.6f), CircleShape)
                     .zIndex(10f)
             ) {
-                Icon(Icons.Default.Share, contentDescription = "Share", tint = Color.White, modifier = Modifier.size(24.dp))
+                Icon(Icons.Default.Share, contentDescription = stringResource(R.string.anime_detail_share), tint = Color.White, modifier = Modifier.size(24.dp))
             }
 
             IconButton(
@@ -671,7 +673,7 @@ fun DetailedAnimeScreen(
             ) {
                 Icon(
                     if (stackDepth > 2) Icons.Default.Close else Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = if (stackDepth > 2) "Close" else "Back",
+                    contentDescription = if (stackDepth > 2) stringResource(R.string.anime_detail_close) else stringResource(R.string.common_back),
                     tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
@@ -767,7 +769,7 @@ fun DetailedAnimeScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("Anime Title", displayData.title))
+                                clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.anime_detail_clip_anime_title), displayData.title))
                             }.padding(vertical = 4.dp)) {
                                 Text(
                                     text = displayData.title, style = MaterialTheme.typography.titleLarge,
@@ -780,7 +782,7 @@ fun DetailedAnimeScreen(
                             if (!displayData.titleEnglish.isNullOrEmpty() && displayData.titleEnglish != displayData.title) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText("Anime Title", displayData.titleEnglish))
+                                    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.anime_detail_clip_anime_title), displayData.titleEnglish))
                                 }.padding(vertical = 4.dp)) {
                                     Text(
                                         text = displayData.titleEnglish, style = MaterialTheme.typography.bodyMedium,
@@ -793,7 +795,7 @@ fun DetailedAnimeScreen(
                             if (!displayData.titleNative.isNullOrEmpty()) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText("Anime Title", displayData.titleNative))
+                                    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.anime_detail_clip_anime_title), displayData.titleNative))
                                 }.padding(vertical = 4.dp)) {
                                     Text(
                                         text = displayData.titleNative, style = MaterialTheme.typography.bodySmall,
@@ -878,7 +880,7 @@ fun DetailedAnimeScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     )
                                     Text(
-                                        "$episodeCount eps",
+                                        stringResource(R.string.anime_detail_eps_count, episodeCount),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -942,14 +944,14 @@ fun DetailedAnimeScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text(
-                                        if (isLoggedIn) "Add to List" else "Local List",
+                                        if (isLoggedIn) stringResource(R.string.anime_detail_add_to_list) else stringResource(R.string.anime_detail_local_list),
                                         style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     if (!isLoggedIn) {
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            "(Offline)",
+                                            stringResource(R.string.anime_detail_offline),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                                         )
@@ -1023,7 +1025,7 @@ fun DetailedAnimeScreen(
                                     ) {
                                         Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Change", fontWeight = FontWeight.SemiBold)
+                                        Text(stringResource(R.string.anime_detail_change), fontWeight = FontWeight.SemiBold)
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     OutlinedButton(
@@ -1041,7 +1043,7 @@ fun DetailedAnimeScreen(
                                     ) {
                                         Icon(
                                             Icons.Default.Star,
-                                            contentDescription = "Rate",
+                                            contentDescription = stringResource(R.string.anime_detail_rate),
                                             modifier = Modifier.size(20.dp)
                                         )
                                     }
@@ -1077,7 +1079,7 @@ fun DetailedAnimeScreen(
                                     ) {
                                         Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Add to List", fontWeight = FontWeight.SemiBold)
+                                        Text(stringResource(R.string.anime_detail_add_to_list), fontWeight = FontWeight.SemiBold)
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     OutlinedButton(
@@ -1208,13 +1210,13 @@ fun DetailedAnimeScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
-                                            "Relations",
+                                            stringResource(R.string.anime_detail_relations),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            "Connected series",
+                                            stringResource(R.string.anime_detail_connected_series),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                             letterSpacing = 0.5.sp
@@ -1225,7 +1227,7 @@ fun DetailedAnimeScreen(
                                         TextButton(onClick = { 
                                             onViewAllRelations(displayData.id, displayData.title, displayData.titleEnglish) 
                                         }) {
-                                            Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                            Text(stringResource(R.string.anime_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                         }
                                     }
                                 }
@@ -1347,12 +1349,12 @@ fun DetailedAnimeScreen(
                                     }
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
-                                        Text("Recommendations", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text("You might also enjoy", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
+                                        Text(stringResource(R.string.anime_detail_recommendations), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                        Text(stringResource(R.string.anime_detail_you_might_also_enjoy), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
                                     }
                                     Spacer(modifier = Modifier.weight(1f))
                                     TextButton(onClick = { onViewAllRecommendations(displayData.id, displayData.title, displayData.titleEnglish) }) {
-                                        Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                        Text(stringResource(R.string.anime_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                     }
                                 }
                                 HorizontalDivider(
@@ -1485,13 +1487,13 @@ fun DetailedAnimeScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
-                                            "Cast",
+                                            stringResource(R.string.anime_detail_cast),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            "Characters",
+                                            stringResource(R.string.anime_detail_characters),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                             letterSpacing = 0.5.sp
@@ -1500,7 +1502,7 @@ fun DetailedAnimeScreen(
                                     Spacer(modifier = Modifier.weight(1f))
                                     if (castList.isNotEmpty()) {
                                         TextButton(onClick = onViewAllCast) {
-                                            Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                            Text(stringResource(R.string.anime_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                         }
                                     }
                                 }
@@ -1602,7 +1604,7 @@ fun DetailedAnimeScreen(
                                             }
                                             Spacer(modifier = Modifier.height(6.dp))
                                             Text(
-                                                character.name?.full ?: "Unknown",
+                                                character.name?.full ?: stringResource(R.string.anime_detail_unknown),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 fontWeight = FontWeight.Medium,
                                                 maxLines = 2,
@@ -1658,13 +1660,13 @@ fun DetailedAnimeScreen(
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
-                                            "Staff",
+                                            stringResource(R.string.anime_detail_staff),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
                                         Text(
-                                            "Production crew",
+                                            stringResource(R.string.anime_detail_production_crew),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                             letterSpacing = 0.5.sp
@@ -1673,7 +1675,7 @@ fun DetailedAnimeScreen(
                                     Spacer(modifier = Modifier.weight(1f))
                                     if (staffList.isNotEmpty()) {
                                         TextButton(onClick = onViewAllStaff) {
-                                            Text("View All", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                            Text(stringResource(R.string.anime_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                         }
                                     }
                                 }
@@ -1773,7 +1775,7 @@ fun DetailedAnimeScreen(
                                                 }
                                                 Spacer(modifier = Modifier.height(6.dp))
                                                 Text(
-                                                    staff.name?.full ?: "Unknown",
+                                                    staff.name?.full ?: stringResource(R.string.anime_detail_unknown),
                                                     style = MaterialTheme.typography.labelSmall,
                                                     fontWeight = FontWeight.Medium,
                                                     maxLines = 2,
@@ -1836,7 +1838,7 @@ fun DetailedAnimeScreen(
                 tag.rank?.let { rank ->
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        "Rank: $rank%",
+                        stringResource(R.string.anime_detail_rank, rank),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1844,7 +1846,7 @@ fun DetailedAnimeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(16.dp))
-                val description = tag.description ?: "No description available."
+                val description = tag.description ?: stringResource(R.string.anime_detail_no_description)
                 Text(
                     anilistAnnotated(description, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.primary),
                     style = MaterialTheme.typography.bodyMedium,
@@ -1867,7 +1869,7 @@ fun DetailedAnimeScreen(
                 )
                 AsyncImage(
                     model = fullscreenImageUrl,
-                    contentDescription = "Fullscreen image",
+                    contentDescription = stringResource(R.string.anime_detail_fullscreen_image),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize().padding(16.dp)
                 )
@@ -1931,16 +1933,16 @@ fun DetailedAnimeScreen(
         val removeFavoriteTitle = if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showRemoveFavoriteDialog = false },
-            title = { Text("Remove Favorite") },
-            text = { Text("Remove $removeFavoriteTitle from your favorites?") },
+            title = { Text(stringResource(R.string.anime_detail_remove_favorite)) },
+            text = { Text(stringResource(R.string.anime_detail_remove_favorite_message, removeFavoriteTitle)) },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     showRemoveFavoriteDialog = false
                     toggleFavorite()
-                }) { Text("Remove") }
+                }) { Text(stringResource(R.string.anime_detail_remove)) }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showRemoveFavoriteDialog = false }) { Text("Cancel") }
+                androidx.compose.material3.TextButton(onClick = { showRemoveFavoriteDialog = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }

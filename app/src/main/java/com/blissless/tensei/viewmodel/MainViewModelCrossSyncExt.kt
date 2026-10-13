@@ -73,7 +73,7 @@ private fun ensureSyncNotificationChannel(context: Context) {
     try {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(
-            NotificationChannel(SYNC_NOTIFICATION_CHANNEL, "Cross-provider sync", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(SYNC_NOTIFICATION_CHANNEL, context.getString(R.string.runtime_sync_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
         )
     } catch (_: Exception) {
     }
@@ -89,7 +89,7 @@ private fun showSyncProgressNotification(context: Context, text: String, process
         val notification = NotificationCompat.Builder(context, SYNC_NOTIFICATION_CHANNEL)
                         .setSmallIcon(R.drawable.ic_notification_small)
             .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.drawable.ic_notification_large))
-            .setContentTitle("Syncing across providers")
+            .setContentTitle(context.getString(R.string.runtime_sync_notification_title))
             .setContentText(if (indeterminate) text else "$text  ($processed / $total)")
             .setProgress(if (indeterminate) 100 else total, if (indeterminate) 0 else processed, indeterminate)
             .setOngoing(true)
@@ -110,7 +110,7 @@ private fun showSyncCompleteNotification(context: Context, text: String) {
         val notification = NotificationCompat.Builder(context, SYNC_NOTIFICATION_CHANNEL)
                         .setSmallIcon(R.drawable.ic_notification_small)
             .setLargeIcon(BitmapFactory.decodeResource(context.resources, R.drawable.ic_notification_large))
-            .setContentTitle("Sync complete")
+            .setContentTitle(context.getString(R.string.runtime_sync_complete_title))
             .setContentText(text)
             .setAutoCancel(true)
             .build()
@@ -334,7 +334,7 @@ fun MainViewModel.applyCrossProviderCopy(toMal: Boolean) {
     // Persist the main list provider; it drives which list populates the home screen.
     userPreferences.setMalAsMainProvider(!toMal)
     viewModelScope.launch(Dispatchers.IO) {
-        val startMessage = if (toMal) "Syncing AniList → MAL…" else "Syncing MAL → AniList…"
+        val startMessage = if (toMal) context.getString(R.string.runtime_sync_start_ani_to_mal) else context.getString(R.string.runtime_sync_start_mal_to_ani)
         _crossProviderCopyProgress.value = CrossProviderCopyProgress(
             isRunning = true,
             text = startMessage,
@@ -369,7 +369,7 @@ fun MainViewModel.applyCrossProviderCopy(toMal: Boolean) {
         )
         cancelSyncNotification(context)
         if (pushed > 0) {
-            val doneMessage = if (toMal) "Synced $pushed changes from AniList to MAL" else "Synced $pushed changes from MAL to AniList"
+            val doneMessage = if (toMal) context.getString(R.string.runtime_sync_done_ani_to_mal, pushed) else context.getString(R.string.runtime_sync_done_mal_to_ani, pushed)
             showSyncCompleteNotification(context, doneMessage)
             withContext(Dispatchers.Main.immediate) {
                 viewModelScope.launch { _toastMessage.emit(doneMessage) }
@@ -394,11 +394,11 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
     val updateProgress: suspend () -> Unit = {
         _crossProviderCopyProgress.value = CrossProviderCopyProgress(
             isRunning = true,
-            text = "Syncing AniList → MAL…",
+            text = context.getString(R.string.runtime_sync_start_ani_to_mal),
             processed = processed,
             total = total
         )
-        showSyncProgressNotification(context, "Syncing AniList → MAL…", processed, total)
+        showSyncProgressNotification(context, context.getString(R.string.runtime_sync_start_ani_to_mal), processed, total)
     }
 
     // Pull MAL's current anime/manga lists (website load.json, falling back to /v2) so we only
@@ -582,7 +582,7 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
     if (!aniListLoaded) {
         android.util.Log.w(tag, "copyMalToAniList: could not fetch AniList lists — aborting to avoid blind overwrite")
         withContext(Dispatchers.Main.immediate) {
-            viewModelScope.launch { _toastMessage.emit("Couldn't reach AniList to compare — sync skipped") }
+            viewModelScope.launch { _toastMessage.emit(context.getString(R.string.runtime_sync_unreachable_toast)) }
         }
         return 0 to 0
     }
@@ -599,11 +599,11 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
     val updateProgress: suspend () -> Unit = {
         _crossProviderCopyProgress.value = CrossProviderCopyProgress(
             isRunning = true,
-            text = "Syncing MAL → AniList…",
+            text = context.getString(R.string.runtime_sync_start_mal_to_ani),
             processed = processed,
             total = total
         )
-        showSyncProgressNotification(context, "Syncing MAL → AniList…", processed, total)
+        showSyncProgressNotification(context, context.getString(R.string.runtime_sync_start_mal_to_ani), processed, total)
     }
 
     // Anime: push only entries that are new on AniList or whose status/score/progress differ.

@@ -1,43 +1,37 @@
 package eu.kanade.tachiyomi.network
 
-import okhttp3.Cookie
-import okhttp3.CookieJar
-import okhttp3.HttpUrl
+import android.content.Context
+import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
+import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
+import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
+import java.io.File
 import java.security.KeyStore
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
-import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.TrustManager
+import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
 
-class NetworkHelper {
+class NetworkHelper private constructor(context: Context) {
+    private val appContext = context.applicationContext
+
+    val cookieJar = AndroidCookieJar()
+
     val client: OkHttpClient
     val cloudflareClient: OkHttpClient
     val trustAllClient: OkHttpClient
 
     init {
-        val cookieJar = object : CookieJar {
-            private val store = ConcurrentHashMap<String, List<Cookie>>()
-
-            override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-                store[url.host] = cookies
-            }
-
-            override fun loadForRequest(url: HttpUrl): List<Cookie> {
-                return store[url.host] ?: emptyList()
-            }
-        }
-
-        val builder = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .cookieJar(cookieJar)
+        client = OkHttpClient.Builder()
+            .addInterceptor(UncaughtExceptionInterceptor())
+            .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
+            .addInterceptor(CloudflareInterceptor(appContext, cookieJar, ::defaultUserAgentProvider))
             .addInterceptor { chain ->
                 val request = chain.request()
                 val host = request.url.host
@@ -56,8 +50,12 @@ class NetworkHelper {
                 }
                 response
             }
-
-        client = builder.build()
+            .cookieJar(cookieJar)
+            .cache(Cache(File(appContext.cacheDir, "http_cache"), 150L * 1024 * 1024))
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
         cloudflareClient = client
 
         val defaultTmFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply {
@@ -94,9 +92,20 @@ class NetworkHelper {
         @Volatile
         private var instance: NetworkHelper? = null
 
+        @Volatile
+        private var appContext: Context? = null
+
+        fun getInstance(context: Context): NetworkHelper {
+            appContext = context.applicationContext
+            return getInstance()
+        }
+
         fun getInstance(): NetworkHelper {
+            val ctx = appContext ?: throw IllegalStateException(
+                "NetworkHelper not initialized; call getInstance(context) first",
+            )
             return instance ?: synchronized(this) {
-                instance ?: NetworkHelper().also { instance = it }
+                instance ?: NetworkHelper(ctx).also { instance = it }
             }
         }
     }

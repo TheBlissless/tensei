@@ -356,7 +356,22 @@ internal suspend fun AnimeRepository.calculateEpisodeOffset(
         if (totalEps > 0) {
             return Pair(recursiveOffset, totalEps)
         }
-        
+
+        // AniList doesn't know the episode count yet (common for a currently-airing
+        // sequel season whose `episodes` field is still null). If this title has
+        // prequel episodes, use their sum as the offset so we pick the correct
+        // season out of the flattened TMDB pool instead of falling back to
+        // episode 1 (which would show the previous season's episodes).
+        // Only apply it when the matched TMDB entry actually has episodes beyond
+        // the offset; otherwise TMDB likely lists this season as its own entry.
+        if (recursiveOffset > 0) {
+            val totalPoolEpisodes = allSeasonDetails.sumOf { it.episodes.size }
+            val remainingEpisodes = totalPoolEpisodes - recursiveOffset
+            if (remainingEpisodes > 0) {
+                return Pair(recursiveOffset, remainingEpisodes)
+            }
+        }
+
         // Fallback to TMDB only if AniList doesn't have episode count
         // If TMDB name exactly matches the original title, skip Aniwatch fallback and use offset 0
         val normalizedOriginal = normalizeTitle(animeTitle)

@@ -1,5 +1,6 @@
 package com.blissless.tensei.ui.screens.player
 
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.Spacing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -39,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -81,7 +83,7 @@ internal fun PanelHeader(
         IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
             Icon(
                 Icons.Default.Close,
-                contentDescription = "Close",
+                contentDescription = stringResource(R.string.subtitle_close),
                 tint = Color.White.copy(alpha = 0.6f),
                 modifier = Modifier.size(20.dp)
             )
@@ -94,12 +96,12 @@ internal fun ResetTextButton(onClick: () -> Unit) {
     TextButton(onClick = onClick) {
         Icon(
             Icons.Default.Refresh,
-            contentDescription = "Reset",
+            contentDescription = stringResource(R.string.subtitle_reset),
             modifier = Modifier.size(14.dp),
             tint = Color.White.copy(alpha = 0.5f)
         )
         Spacer(Modifier.width(4.dp))
-        Text("Reset", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+        Text(stringResource(R.string.subtitle_reset), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
     }
 }
 

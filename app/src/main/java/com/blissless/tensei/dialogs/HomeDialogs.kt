@@ -42,11 +42,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.StatusButton
@@ -106,7 +108,7 @@ fun HomeAnimeStatusDialog(
                             totalEp != null -> "${anime.progress} / $totalEp"
                             else -> "${anime.progress}"
                         }
-                        Text("Progress: $progressText", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.comp_home_dialog_progress, progressText), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
                     }
                 }
 
@@ -115,7 +117,7 @@ fun HomeAnimeStatusDialog(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     StatusButton(
                         icon = Icons.Default.PlayArrow,
-                        label = "Watching",
+                        label = stringResource(R.string.comp_status_watching),
                         selected = selectedStatus == "CURRENT" && !markedForRemoval,
                         onClick = {
                             selectedStatus = "CURRENT"
@@ -127,7 +129,7 @@ fun HomeAnimeStatusDialog(
                     )
                     StatusButton(
                         icon = Icons.Default.Bookmark,
-                        label = "Planning",
+                        label = stringResource(R.string.comp_status_planning),
                         selected = selectedStatus == "PLANNING" && !markedForRemoval,
                         onClick = {
                             selectedStatus = "PLANNING"
@@ -145,7 +147,7 @@ fun HomeAnimeStatusDialog(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     StatusButton(
                         icon = Icons.Default.Check,
-                        label = "Completed",
+                        label = stringResource(R.string.comp_status_completed),
                         selected = selectedStatus == "COMPLETED" && !markedForRemoval,
                         onClick = {
                             selectedStatus = "COMPLETED"
@@ -157,7 +159,7 @@ fun HomeAnimeStatusDialog(
                     )
                     StatusButton(
                         icon = Icons.Default.Pause,
-                        label = "On Hold",
+                        label = stringResource(R.string.comp_status_on_hold),
                         selected = selectedStatus == "PAUSED" && !markedForRemoval,
                         onClick = {
                             selectedStatus = "PAUSED"
@@ -175,7 +177,7 @@ fun HomeAnimeStatusDialog(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     StatusButton(
                         icon = Icons.Default.Close,
-                        label = "Dropped",
+                        label = stringResource(R.string.comp_status_dropped),
                         selected = selectedStatus == "DROPPED" && !markedForRemoval,
                         onClick = {
                             selectedStatus = "DROPPED"
@@ -200,12 +202,12 @@ fun HomeAnimeStatusDialog(
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Remove", fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = if (markedForRemoval) tenseiColors.destructive else Color.White.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.comp_status_remove), fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium, maxLines = 1, color = if (markedForRemoval) tenseiColors.destructive else Color.White.copy(alpha = 0.7f))
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Episode Progress", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
+                Text(stringResource(R.string.comp_home_episode_progress), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val maxEp = anime.latestEpisode?.takeIf { it > 0 } ?: anime.totalEpisodes.takeIf { it > 0 }
@@ -224,7 +226,7 @@ fun HomeAnimeStatusDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    placeholder = { Text("Enter last watched episode", color = Color.White.copy(alpha = 0.4f)) },
+                    placeholder = { Text(stringResource(R.string.comp_home_enter_episode_placeholder), color = Color.White.copy(alpha = 0.4f)) },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.White,
                         unfocusedTextColor = if (selectedProgress.isEmpty() || selectedProgress == "0") Color.Transparent else Color.White,
@@ -244,7 +246,7 @@ fun HomeAnimeStatusDialog(
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = if (markedForRemoval) tenseiColors.destructive else MaterialTheme.colorScheme.primary, contentColor = if (markedForRemoval) Color.White else MaterialTheme.colorScheme.onPrimary)
-                ) { Text(if (markedForRemoval) "Remove from List" else "Save Changes", fontWeight = FontWeight.Bold) }
+                ) { Text(if (markedForRemoval) stringResource(R.string.comp_remove_from_list) else stringResource(R.string.comp_save_changes), fontWeight = FontWeight.Bold) }
             }
         }
 }
@@ -278,7 +280,7 @@ fun AnimeRatingSheet(
                         style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("Your Rating", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                    Text(stringResource(R.string.comp_your_rating), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
                 }
             }
 
@@ -293,7 +295,7 @@ fun AnimeRatingSheet(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                placeholder = { Text(initialScore?.let { "Current: $it/10" } ?: "Rating (0-10)", color = Color.White.copy(alpha = 0.4f)) },
+                placeholder = { Text(initialScore?.let { stringResource(R.string.comp_rating_current, it) } ?: stringResource(R.string.comp_rating_placeholder), color = Color.White.copy(alpha = 0.4f)) },
                 trailingIcon = {
                     if (selectedScore.isNotEmpty()) {
                         Text("/10", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(end = 12.dp))
@@ -315,7 +317,7 @@ fun AnimeRatingSheet(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary)
-            ) { Text("Save Rating", fontWeight = FontWeight.Bold) }
+            ) { Text(stringResource(R.string.comp_save_rating), fontWeight = FontWeight.Bold) }
         }
     }
 }

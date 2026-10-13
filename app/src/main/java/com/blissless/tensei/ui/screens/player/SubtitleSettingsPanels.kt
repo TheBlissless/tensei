@@ -1,5 +1,6 @@
 package com.blissless.tensei.ui.screens.player
 
+import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.Spacing
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -58,9 +60,19 @@ internal fun TemplatePanel(
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
     ) {
-        PanelHeader(title = "Background Templates", onDismiss = onDismiss)
+        PanelHeader(title = stringResource(R.string.subtitle_background_templates), onDismiss = onDismiss)
         SectionDivider()
         Spacer(Modifier.height(12.dp))
+        val templateNames = listOf(
+            stringResource(R.string.subtitle_template_dark_scene),
+            stringResource(R.string.subtitle_template_daylight),
+            stringResource(R.string.subtitle_template_sunset),
+            stringResource(R.string.subtitle_template_forest),
+            stringResource(R.string.subtitle_template_night_sky),
+            stringResource(R.string.subtitle_template_beach),
+            stringResource(R.string.subtitle_template_solid_black),
+            stringResource(R.string.subtitle_template_solid_white)
+        )
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -73,7 +85,7 @@ internal fun TemplatePanel(
                     row.forEach { tmpl ->
                         val idx = TEMPLATES.indexOf(tmpl)
                         ThemeColorItem(
-                            name = tmpl.name,
+                            name = templateNames[idx],
                             colors = tmpl.colors,
                             isSelected = idx == selectedIndex,
                             onClick = { onSelect(idx) }
@@ -96,11 +108,11 @@ internal fun TextSizePanel(
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
     ) {
-        PanelHeader(title = "Text Size", onDismiss = onDismiss, onReset = onReset)
+        PanelHeader(title = stringResource(R.string.subtitle_text_size), onDismiss = onDismiss, onReset = onReset)
         SectionDivider()
         Spacer(Modifier.height(12.dp))
         SliderRow(
-            label = "Font Size",
+            label = stringResource(R.string.subtitle_font_size),
             value = currentSize,
             onValueChange = onSizeChange,
             valueRange = 10f..48f,
@@ -122,17 +134,17 @@ internal fun OutlinePanel(
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
     ) {
-        PanelHeader(title = "Outline", onDismiss = onDismiss, onReset = onResetAll)
+        PanelHeader(title = stringResource(R.string.subtitle_outline), onDismiss = onDismiss, onReset = onResetAll)
         SectionDivider()
         Spacer(Modifier.height(8.dp))
-        ToggleRow(label = "Enable Outline", checked = enabled, onCheckedChange = onToggle)
+        ToggleRow(label = stringResource(R.string.subtitle_enable_outline), checked = enabled, onCheckedChange = onToggle)
         if (enabled) {
             Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Color", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                Text(stringResource(R.string.subtitle_color), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
                 Spacer(Modifier.weight(1f))
                 ResetTextButton(onClick = onResetColor)
             }
@@ -171,17 +183,17 @@ internal fun ShadowPanel(
             .padding(bottom = 24.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        PanelHeader(title = "Shadow", onDismiss = onDismiss, onReset = onResetAll)
+        PanelHeader(title = stringResource(R.string.subtitle_shadow), onDismiss = onDismiss, onReset = onResetAll)
         SectionDivider()
         Spacer(Modifier.height(8.dp))
-        ToggleRow(label = "Enable Shadow", checked = enabled, onCheckedChange = onToggle)
+        ToggleRow(label = stringResource(R.string.subtitle_enable_shadow), checked = enabled, onCheckedChange = onToggle)
         if (enabled) {
             Spacer(Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Blur", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                Text(stringResource(R.string.subtitle_blur), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
                 Spacer(Modifier.weight(1f))
                 ResetTextButton(onClick = onResetBlur)
             }
@@ -196,7 +208,7 @@ internal fun ShadowPanel(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Offset X", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                Text(stringResource(R.string.subtitle_offset_x), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
                 Spacer(Modifier.weight(1f))
                 ResetTextButton(onClick = onResetOffsetX)
             }
@@ -211,7 +223,7 @@ internal fun ShadowPanel(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Offset Y", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                Text(stringResource(R.string.subtitle_offset_y), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
                 Spacer(Modifier.weight(1f))
                 ResetTextButton(onClick = onResetOffsetY)
             }
@@ -227,7 +239,7 @@ internal fun ShadowPanel(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Color", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+                Text(stringResource(R.string.subtitle_color), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
                 Spacer(Modifier.weight(1f))
                 ResetTextButton(onClick = onResetColor)
             }
@@ -252,14 +264,14 @@ internal fun BgPanel(
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
     ) {
-        PanelHeader(title = "Subtitle Background", onDismiss = onDismiss, onReset = onReset)
+        PanelHeader(title = stringResource(R.string.subtitle_subtitle_background), onDismiss = onDismiss, onReset = onReset)
         SectionDivider()
         Spacer(Modifier.height(12.dp))
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Presets", color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
+            Text(stringResource(R.string.subtitle_presets), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp)
         }
         Spacer(Modifier.height(8.dp))
         Row(
@@ -294,7 +306,7 @@ internal fun BgPanel(
         }
         Spacer(Modifier.height(12.dp))
         SliderRow(
-            label = "Opacity",
+            label = stringResource(R.string.subtitle_opacity),
             value = bgAlpha,
             onValueChange = { newAlpha ->
                 val alphaBits = (newAlpha * 255).toInt().coerceIn(0, 255)
@@ -317,7 +329,7 @@ internal fun FontColorPanel(
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
     ) {
-        PanelHeader(title = "Font Color", onDismiss = onDismiss, onReset = onReset)
+        PanelHeader(title = stringResource(R.string.subtitle_font_color), onDismiss = onDismiss, onReset = onReset)
         SectionDivider()
         Spacer(Modifier.height(8.dp))
         ImmediateColorPickerContent(
@@ -346,9 +358,10 @@ internal fun FontFamilyPanel(
     Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
     ) {
-        PanelHeader(title = "Font Family", onDismiss = onDismiss)
+        PanelHeader(title = stringResource(R.string.subtitle_font_family), onDismiss = onDismiss)
         SectionDivider()
         Spacer(Modifier.height(12.dp))
+        val fontPreviewText = stringResource(R.string.subtitle_font_preview)
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -373,7 +386,7 @@ internal fun FontFamilyPanel(
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            text = "The quick brown fox",
+                            text = fontPreviewText,
                             fontFamily = if (name == "Sans Serif Light") FontFamily.SansSerif else family,
                             fontWeight = if (name == "Sans Serif Light") FontWeight.Light else FontWeight.Normal,
                             fontSize = 16.sp,
