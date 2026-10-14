@@ -22,6 +22,7 @@
     <string name="runtime_update_up_to_date">Already up to date (%1$s)</string>
     <string name="runtime_update_check_failed">Update check failed</string>
     <string name="runtime_update_no_apk">No APK found for %1$s</string>
+    <string name="runtime_update_download_started">Download started</string>
     <string name="runtime_update_download_failed">Download failed</string>
     <string name="runtime_update_installer_failed">Failed to open installer: %1$s</string>
 

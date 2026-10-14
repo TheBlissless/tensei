@@ -22,6 +22,7 @@
     <string name="runtime_update_up_to_date">Bereits aktuell (%1$s)</string>
     <string name="runtime_update_check_failed">Updateprüfung fehlgeschlagen</string>
     <string name="runtime_update_no_apk">Keine APK für %1$s gefunden</string>
+    <string name="runtime_update_download_started">Download gestartet</string>
     <string name="runtime_update_download_failed">Download fehlgeschlagen</string>
     <string name="runtime_update_installer_failed">Installer konnte nicht geöffnet werden: %1$s</string>
 

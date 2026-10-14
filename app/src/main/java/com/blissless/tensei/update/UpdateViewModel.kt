@@ -79,21 +79,24 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) { ErrorHandler.ignore("UpdateViewModel", "best-effort operation failed", e) }
     }
 
-    private fun showDownloadNotification(progress: Int) {
+    private fun showDownloadNotification(progress: Int, indeterminate: Boolean = false) {
         val ctx = getApplication<Application>()
         if (ActivityCompat.checkSelfPermission(ctx, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             return
         }
-        val notification = NotificationCompat.Builder(ctx, "update_downloads")
-                        .setSmallIcon(R.drawable.ic_notification_small)
+        val builder = NotificationCompat.Builder(ctx, "update_downloads")
+            .setSmallIcon(R.drawable.ic_notification_small)
             .setLargeIcon(BitmapFactory.decodeResource(ctx.resources, R.drawable.ic_notification_large))
             .setContentTitle(ctx.getString(R.string.runtime_update_title))
-            .setContentText("$progress%")
-            .setProgress(100, progress, false)
             .setOngoing(true)
             .setSilent(true)
-            .build()
-        notificationManager.notify(notificationId, notification)
+        if (indeterminate) {
+            builder.setProgress(0, 0, true)
+        } else {
+            builder.setContentText("$progress%")
+            builder.setProgress(100, progress, false)
+        }
+        notificationManager.notify(notificationId, builder.build())
     }
 
     private fun dismissDownloadNotification() {
@@ -144,9 +147,10 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isDownloading = true, downloadProgress = 0f, error = null)
+            _toastMessage.tryEmit(getApplication<Application>().getString(R.string.runtime_update_download_started))
             showDownloadNotification(0)
             try {
-                val file = downloadApk(asset.downloadUrl, "tensei-update")
+                val file = downloadApk(asset.downloadUrl, "tensei-update", asset.size)
                 dismissDownloadNotification()
                 _uiState.value = _uiState.value.copy(isDownloading = false, downloadProgress = 1f, downloadedFile = file)
                 installApk(file)
@@ -170,7 +174,7 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         json.decodeFromString<GitHubRelease>(body)
     }
 
-    private suspend fun downloadApk(url: String, fileName: String): File = withContext(Dispatchers.IO) {
+    private suspend fun downloadApk(url: String, fileName: String, expectedSize: Long): File = withContext(Dispatchers.IO) {
         val ctx = getApplication<Application>()
         val cacheDir = File(ctx.cacheDir, "apks")
         cacheDir.mkdirs()
@@ -182,19 +186,28 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         if (!response.isSuccessful) {
             throw Exception("Server returned ${response.code}")
         }
-        val contentLength = response.body.contentLength()
+        // GitHub's release CDN often omits Content-Length (streamed responses), which leaves
+        // OkHttp's contentLength() at -1 and froze the notification at 0%. Prefer the size the
+        // GitHub API already reported for the asset, and only fall back to the header.
+        val totalBytes = response.body.contentLength().takeIf { it > 0 } ?: expectedSize
         val buffer = ByteArray(8192)
         var bytesRead: Long = 0
+        var lastNotified = -1
+        if (totalBytes <= 0) showDownloadNotification(0, indeterminate = true)
         apkFile.outputStream().use { output ->
             response.body.byteStream().use { input ->
                 var read: Int
                 while (input.read(buffer).also { read = it } != -1) {
                     output.write(buffer, 0, read)
                     bytesRead += read
-                    if (contentLength > 0) {
-                        val progress = (bytesRead.toFloat() / contentLength).coerceIn(0f, 1f)
+                    if (totalBytes > 0) {
+                        val progress = (bytesRead.toFloat() / totalBytes).coerceIn(0f, 1f)
                         _uiState.value = _uiState.value.copy(downloadProgress = progress)
-                        showDownloadNotification((progress * 100).toInt())
+                        val percent = (progress * 100).toInt()
+                        if (percent != lastNotified) {
+                            lastNotified = percent
+                            showDownloadNotification(percent)
+                        }
                     }
                 }
             }
