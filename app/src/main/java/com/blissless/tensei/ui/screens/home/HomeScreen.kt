@@ -26,9 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -108,6 +105,7 @@ import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.LoadingSkeleton
 import com.blissless.tensei.ui.components.SectionHeader
 import com.blissless.tensei.ui.components.TenseiCircleAction
+import com.blissless.tensei.ui.components.TenseiErrorBanner
 import com.blissless.tensei.ui.components.TenseiScrimChip
 import com.blissless.tensei.ui.theme.PillShape
 import com.blissless.tensei.ui.theme.Radius
@@ -115,7 +113,6 @@ import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
 import com.blissless.tensei.ui.theme.TenseiType
 import com.blissless.tensei.ui.theme.artworkGradient
-import com.blissless.tensei.ui.theme.tenseiColors
 import com.blissless.tensei.ui.components.ContinueWatchingEpisodeRow
 import com.blissless.tensei.ui.components.appIconDrawable
 import com.blissless.tensei.ui.components.AppIconCircle
@@ -339,31 +336,12 @@ fun HomeScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             if (apiError != null || isOffline) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).windowInsetsPadding(WindowInsets.statusBars),
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (isOffline) Color(0xFF1A1A1A) else if (isOled) tenseiColors.destructive else MaterialTheme.colorScheme.errorContainer,
-                    tonalElevation = 2.dp
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
-                            contentDescription = null,
-                            tint = if (isOffline) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isOffline) stringResource(R.string.home_offline) else stringResource(R.string.home_anilist_unavailable),
-                            color = if (isOffline) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
+                TenseiErrorBanner(
+                    message = if (isOffline) stringResource(R.string.home_offline) else stringResource(R.string.home_anilist_unavailable),
+                    icon = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
+                    isOffline = isOffline,
+                    isOled = isOled,
+                )
                 Spacer(modifier = Modifier.height(8.dp))
             }
 

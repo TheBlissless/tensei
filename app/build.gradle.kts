@@ -4,7 +4,7 @@ import java.io.FileInputStream
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.10"
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.21"
 }
 
 // 1. Load the local.properties file
@@ -23,7 +23,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 32
-        versionName = "1.4.0"
+        versionName = "1.4.1"
 
         externalNativeBuild {
             cmake {

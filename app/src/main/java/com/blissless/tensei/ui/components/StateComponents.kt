@@ -13,12 +13,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +32,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,6 +53,7 @@ import com.blissless.tensei.R
 import com.blissless.tensei.ui.theme.Radius
 import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
+import com.blissless.tensei.ui.theme.tenseiColors
 
 /**
  * The app's canonical loading / empty / error presentation.
@@ -63,8 +68,10 @@ import com.blissless.tensei.ui.theme.Spacing
  * Inline, dismissable-width banner used at the top of a screen to report a
  * non-fatal condition (offline, upstream outage).
  *
- * Unlike the old per-screen copies this always sits below the status bar and
- * always offers a retry when [onRetry] is supplied.
+ * Shared with Home, which originally hand-rolled this look: a rounded, tonal
+ * [Surface] that clears the status bar, a centred icon + message, a dim
+ * charcoal fill while offline and the theme's destructive fill otherwise.
+ * [onRetry] appends a trailing action.
  */
 @Composable
 fun TenseiErrorBanner(
@@ -72,35 +79,51 @@ fun TenseiErrorBanner(
     modifier: Modifier = Modifier,
     icon: ImageVector = Icons.Outlined.CloudOff,
     onRetry: (() -> Unit)? = null,
+    isOffline: Boolean = false,
+    isOled: Boolean = false,
 ) {
     val scheme = MaterialTheme.colorScheme
-    Row(
+    val contentColor = if (isOffline) Color.White.copy(alpha = 0.8f) else scheme.onErrorContainer
+    Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing.gutter, vertical = Spacing.sm)
-            .clip(Radius.controlShape)
-            .background(scheme.errorContainer.copy(alpha = 0.7f))
-            .padding(horizontal = Spacing.md, vertical = Spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = when {
+            isOffline -> Color(0xFF1A1A1A)
+            isOled -> tenseiColors.destructive
+            else -> scheme.errorContainer
+        },
+        tonalElevation = 2.dp,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = scheme.onErrorContainer.copy(alpha = 0.8f),
-            modifier = Modifier.size(18.dp),
-        )
-        Spacer(Modifier.width(Spacing.md))
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = scheme.onErrorContainer.copy(alpha = 0.9f),
-            modifier = Modifier.weight(1f),
-        )
-        if (onRetry != null) {
-            TextButton(onClick = onRetry) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(Spacing.xs))
-                Text(stringResource(R.string.comp_retry), style = MaterialTheme.typography.labelLarge)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isOffline) Color.White.copy(alpha = 0.7f) else scheme.onErrorContainer.copy(alpha = 0.7f),
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor,
+                textAlign = TextAlign.Center,
+                modifier = if (onRetry != null) Modifier.weight(1f) else Modifier,
+            )
+            if (onRetry != null) {
+                TextButton(onClick = onRetry) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = contentColor, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(Spacing.xs))
+                    Text(stringResource(R.string.comp_retry), style = MaterialTheme.typography.labelLarge, color = contentColor)
+                }
             }
         }
     }

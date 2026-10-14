@@ -660,6 +660,8 @@ fun AnimeScreen(
                     message = if (isOffline) stringResource(R.string.home_offline) else stringResource(R.string.home_anilist_unavailable),
                     icon = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
                     onRetry = requestRefresh,
+                    isOffline = isOffline,
+                    isOled = isOled,
                 )
                 Spacer(modifier = Modifier.height(Spacing.sm))
             }
