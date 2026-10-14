@@ -3024,7 +3024,8 @@ fun MainScreen(
                                     titleEnglish = manga.title.english,
                                     cover = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: "",
                                     totalChapters = manga.chapters ?: 0,
-                                    averageScore = manga.averageScore
+                                    averageScore = manga.averageScore,
+                                    malId = manga.idMal
                                 )
                                 mangaReaderChapterIndex = -1
                                 showMangaReader = true

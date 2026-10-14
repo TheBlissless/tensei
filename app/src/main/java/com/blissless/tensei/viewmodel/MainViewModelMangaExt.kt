@@ -701,6 +701,15 @@ suspend fun MainViewModel.fetchMangaDetail(mangaId: Int, malId: Int? = null) {
     _mangaDetailSource.value = null
     val token = authToken.value
     var detail = mangaRepository?.fetchMangaDetail(mangaId, token)
+    // MAL-sourced cards (explore / search fallback, or relations pushed from one) carry the
+    // MAL id as their own id. Looking that value up in AniList can silently return an
+    // unrelated Media that merely shares the same numeric id — which is why tapping a
+    // fallback card used to open the wrong manga. Trust the AniList detail only when its
+    // idMal matches the expected MAL id; otherwise discard it and fall through to MAL.
+    if (detail != null && malId != null && malId > 0 && detail.malId != malId) {
+        android.util.Log.w("MangaDetail", "fetchMangaDetail: AniList id=$mangaId is not MAL id $malId (got idMal=${detail.malId}) — discarding wrong media")
+        detail = null
+    }
     if (detail != null) _mangaDetailSource.value = "anilist"
     // AniList unavailable: fall back to the official MAL manga detail API so the
     // detail screen still renders a full page instead of only the shallow card data.
