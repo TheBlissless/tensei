@@ -471,6 +471,7 @@ class MainViewModel : ViewModel() {
     val showMangaCardButtons: StateFlow<Boolean> get() = userPreferences.showMangaCardButtons
     val showMangaStatusColors: StateFlow<Boolean> get() = userPreferences.showMangaStatusColors
     val preferEnglishTitles: StateFlow<Boolean> get() = userPreferences.preferEnglishTitles
+    val advancedSearch: StateFlow<Boolean> get() = userPreferences.advancedSearch
     val trackingPercentage: StateFlow<Int> get() = userPreferences.trackingPercentage
     val forwardSkipSeconds: StateFlow<Int> get() = userPreferences.forwardSkipSeconds
     val backwardSkipSeconds: StateFlow<Int> get() = userPreferences.backwardSkipSeconds

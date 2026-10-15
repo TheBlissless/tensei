@@ -45,4 +45,11 @@
     <string name="search_sort_favorites">Favoriten</string>
     <string name="search_sort_episode_count">Episodenanzahl</string>
     <string name="search_sort_title">Titel</string>
+    <string name="search_cancel">Abbrechen</string>
+    <string name="search_recent">Zuletzt gesucht</string>
+    <string name="search_clear_recent">Verlauf löschen</string>
+    <string name="search_trending_anime">Trending Anime</string>
+    <string name="search_trending_manga">Trending Manga</string>
+    <string name="search_browse_genres">Genres durchsuchen</string>
+    <string name="search_tags_selected_count">%1$d ausgewählt</string>
 </resources>

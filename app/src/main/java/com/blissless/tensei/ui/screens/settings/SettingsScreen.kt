@@ -121,6 +121,7 @@ import com.blissless.tensei.viewmodel.setShowMangaCardButtons
 import com.blissless.tensei.viewmodel.setShowMangaStatusColors
 import com.blissless.tensei.viewmodel.setMaxPerformance
 import com.blissless.tensei.viewmodel.setPreferEnglishTitles
+import com.blissless.tensei.viewmodel.setAdvancedSearch
 import com.blissless.tensei.viewmodel.setStartupScreen
 import com.blissless.tensei.viewmodel.setAppLanguage
 import com.blissless.tensei.viewmodel.setMangaReaderMode
@@ -511,6 +512,7 @@ private fun AppearanceSettingsPage(
     val showAnimeCardButtons by viewModel.showAnimeCardButtons.collectAsState(initial = true)
     val showMangaCardButtons by viewModel.showMangaCardButtons.collectAsState(initial = true)
     val showMangaStatusColors by viewModel.showMangaStatusColors.collectAsState(initial = true)
+    val advancedSearch by viewModel.advancedSearch.collectAsState(initial = false)
 
     SettingsPageScaffold(title = stringResource(R.string.settings_group_appearance), onBack = onBack) {
         val currentThemeMode by viewModel.themeMode.collectAsState()
@@ -695,6 +697,12 @@ private fun AppearanceSettingsPage(
                 description = stringResource(R.string.settings_display_manga_card_buttons_desc),
                 checked = showMangaCardButtons,
                 onCheckedChange = { viewModel.setShowMangaCardButtons(it) }
+            )
+            SettingsToggle(
+                title = stringResource(R.string.settings_display_advanced_search),
+                description = stringResource(R.string.settings_display_advanced_search_desc),
+                checked = advancedSearch,
+                onCheckedChange = { viewModel.setAdvancedSearch(it) }
             )
         }
     }

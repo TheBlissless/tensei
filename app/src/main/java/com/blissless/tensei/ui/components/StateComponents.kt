@@ -243,10 +243,19 @@ fun SkeletonBlock(
     modifier: Modifier = Modifier,
     cornerRadius: Dp = Radius.chip,
 ) {
+    val scheme = MaterialTheme.colorScheme
+    // On OLED `surfaceVariant` collapses onto `surface` (pure black), which made
+    // every skeleton invisible against the background. Fall back to a surface
+    // container tone there; every other theme keeps the standard translucent fill.
+    val fill = if (scheme.surfaceVariant == scheme.surface) {
+        scheme.surfaceContainerHighest
+    } else {
+        scheme.surfaceVariant.copy(alpha = 0.45f)
+    }
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(cornerRadius))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+            .background(fill)
     )
 }
 

@@ -55,6 +55,9 @@ fun MainViewModel.setMaxPerformance(enabled: Boolean) =
 fun MainViewModel.setPreferEnglishTitles(enabled: Boolean) =
     userPreferences.setPreferEnglishTitles(enabled)
 
+fun MainViewModel.setAdvancedSearch(enabled: Boolean) =
+    userPreferences.setAdvancedSearch(enabled)
+
 fun MainViewModel.setTrackingPercentage(percentage: Int) =
     userPreferences.setTrackingPercentage(percentage)
 

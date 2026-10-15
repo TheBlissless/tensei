@@ -1,10 +1,10 @@
 package com.blissless.tensei.ui.screens.search
 
 import android.widget.Toast
-import com.blissless.tensei.data.models.MangaMedia
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,56 +14,56 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -81,6 +81,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -91,7 +92,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.media3.common.util.UnstableApi
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -101,26 +101,36 @@ import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.LocalAnimeEntry
 import com.blissless.tensei.data.models.MangaExploreMedia
+import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.data.models.MediaTag
 import com.blissless.tensei.data.models.toDetailedAnimeData
-import com.blissless.tensei.ui.screens.details.DetailedAnimeScreen
-import com.blissless.tensei.ui.theme.statusColorOnArtwork
 import com.blissless.tensei.ui.components.SkeletonBlock
+import com.blissless.tensei.ui.components.TenseiSectionHeader
 import com.blissless.tensei.ui.components.shimmer
-import com.blissless.tensei.ui.theme.ratingColorOnArtwork
+import com.blissless.tensei.ui.screens.details.DetailedAnimeScreen
+import com.blissless.tensei.ui.theme.Radius
+import com.blissless.tensei.ui.theme.Sizes
+import com.blissless.tensei.ui.theme.Spacing
 import com.blissless.tensei.ui.theme.StatusLabels
 import com.blissless.tensei.ui.theme.MangaStatusLabels
+import com.blissless.tensei.ui.theme.TenseiType
+import com.blissless.tensei.ui.theme.artworkGradient
+import com.blissless.tensei.ui.components.navigationBarBottomPadding
+import com.blissless.tensei.ui.theme.ratingColorOnArtwork
+import com.blissless.tensei.ui.theme.statusColorOnArtwork
+import com.blissless.tensei.ui.theme.tenseiColors
+import com.blissless.tensei.util.longToast
+import com.blissless.tensei.util.toast
+import com.blissless.tensei.viewmodel.mangaCompleted
+import com.blissless.tensei.viewmodel.mangaCurrentlyReading
+import com.blissless.tensei.viewmodel.mangaPlanningToRead
+import com.blissless.tensei.viewmodel.searchMangaAdvanced
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
+import java.util.Calendar
 import java.util.Locale
-import com.blissless.tensei.util.toast
-import com.blissless.tensei.util.longToast
-import com.blissless.tensei.viewmodel.searchMangaAdvanced
-import com.blissless.tensei.viewmodel.mangaCurrentlyReading
-import com.blissless.tensei.viewmodel.mangaPlanningToRead
-import com.blissless.tensei.viewmodel.mangaCompleted
 
 val ALL_GENRES = listOf(
     "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
@@ -154,8 +164,8 @@ data class SearchFilters(
 
 /**
  * Heterogeneous search result wrapper used when `searchType == "both"`.
- * Lets the unified LazyVerticalGrid render anime and manga side-by-side
- * in a single, evenly-spaced grid.
+ * Lets the unified grid render anime and manga side-by-side in a single,
+ * evenly-spaced grid.
  */
 sealed class UnifiedSearchItem {
     abstract val id: Int
@@ -174,6 +184,9 @@ sealed class UnifiedSearchItem {
     }
 }
 
+/** Which filter bottom sheet is currently open. */
+private enum class SearchSheet { NONE, SORT, FORMAT, STATUS, GENRE, TAG, YEAR }
+
 @OptIn(UnstableApi::class)
 @Composable
 fun SearchScreen(
@@ -181,6 +194,9 @@ fun SearchScreen(
     isOled: Boolean,
     isLoggedIn: Boolean,
     preferEnglishTitles: Boolean,
+    advancedSearch: Boolean = false,
+    showAnimeStatusColors: Boolean = true,
+    showMangaStatusColors: Boolean = true,
     currentlyWatching: List<AnimeMedia>,
     planningToWatch: List<AnimeMedia>,
     completed: List<AnimeMedia>,
@@ -202,17 +218,20 @@ fun SearchScreen(
     onAnimeDetailMangaClick: (MangaMedia) -> Unit = {}
 ) {
     var searchType by remember { mutableStateOf("both") }
+
+    // Non-advanced mode always searches both anime and manga and hides the
+    // type switch, filters and discovery UI.
+    LaunchedEffect(advancedSearch) {
+        if (!advancedSearch) searchType = "both"
+    }
     var filters by remember { mutableStateOf(SearchFilters()) }
     var results by remember { mutableStateOf<List<ExploreAnime>>(emptyList()) }
     var mangaResults by remember { mutableStateOf<List<MangaExploreMedia>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     var hasSearched by remember { mutableStateOf(false) }
-    var showFilters by remember { mutableStateOf(false) }
     var showFormatDropdown by remember { mutableStateOf(false) }
-    var showStatusDropdown by remember { mutableStateOf(false) }
-    var showSortDropdown by remember { mutableStateOf(false) }
-    // Anime and manga pages are tracked independently so "both" mode can
-    // fetch and merge the next page of each type without losing state.
+    // Anime and manga pages are tracked independently so "both" mode can fetch
+    // and merge the next page of each type without losing state.
     var currentAnimePage by remember { mutableIntStateOf(1) }
     var currentMangaPage by remember { mutableIntStateOf(1) }
     var hasMoreAnime by remember { mutableStateOf(true) }
@@ -228,8 +247,14 @@ fun SearchScreen(
 
     var allTags by remember { mutableStateOf<List<MediaTag>>(emptyList()) }
     var tagsLoading by remember { mutableStateOf(false) }
-    var showGenreSheet by remember { mutableStateOf(false) }
-    var showTagSheet by remember { mutableStateOf(false) }
+    var activeSheet by remember { mutableStateOf(SearchSheet.NONE) }
+
+    var trendingAnime by remember { mutableStateOf<List<ExploreAnime>>(emptyList()) }
+    var trendingManga by remember { mutableStateOf<List<MangaExploreMedia>>(emptyList()) }
+
+    val context = LocalContext.current
+    val recentStore = remember(context) { RecentSearchStore(context) }
+    var recentSearches by remember { mutableStateOf(recentStore.load()) }
 
     LaunchedEffect(Unit) {
         tagsLoading = true
@@ -237,7 +262,24 @@ fun SearchScreen(
         tagsLoading = false
     }
 
-    val context = LocalContext.current
+    // Trending is only needed by the discovery state; fetch both types once.
+    LaunchedEffect(Unit) {
+        runCatching {
+            if (trendingAnime.isEmpty()) {
+                trendingAnime = viewModel.searchAnimeAdvanced(
+                    search = null, sort = "TRENDING_DESC", page = 1, perPage = 12
+                )
+            }
+        }
+        runCatching {
+            if (trendingManga.isEmpty()) {
+                trendingManga = viewModel.searchMangaAdvanced(
+                    search = null, sort = "TRENDING_DESC", page = 1, perPage = 12
+                )
+            }
+        }
+    }
+
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
@@ -269,8 +311,6 @@ fun SearchScreen(
     }
 
     // ── Manga tracking state ───────────────────────────────────────────
-    // Read from the VM's StateFlows so manga cards in the unified grid can
-    // show the same list-status badges as anime cards.
     val mangaCurrentlyReadingList by viewModel.mangaCurrentlyReading.collectAsState()
     val mangaPlanningToReadList by viewModel.mangaPlanningToRead.collectAsState()
     val mangaCompletedList by viewModel.mangaCompleted.collectAsState()
@@ -315,7 +355,35 @@ fun SearchScreen(
     var listVersion by remember { mutableIntStateOf(0) }
     LaunchedEffect(currentlyWatching, planningToWatch, completed, onHold, dropped, localAnimeStatus) { listVersion++ }
 
-    BackHandler { onClose() }
+    val activeFilterCount = listOfNotNull(
+        filters.genres.takeIf { it.isNotEmpty() }?.let { 1 },
+        filters.tags.takeIf { it.isNotEmpty() }?.let { 1 },
+        filters.format,
+        filters.status,
+        filters.seasonYear.takeIf { it.isNotBlank() }?.let { 1 },
+        filters.sort.takeIf { it != "POPULARITY_DESC" }?.let { 1 }
+    ).size
+
+    fun resetResultState() {
+        results = emptyList()
+        mangaResults = emptyList()
+        currentAnimePage = 1
+        currentMangaPage = 1
+        hasMoreAnime = true
+        hasMoreManga = true
+        hasMore = true
+        hasSearched = false
+    }
+
+    fun commitRecent(query: String) {
+        recentSearches = recentStore.add(query)
+    }
+
+    fun closeAndCommit() {
+        if (filters.query.isNotBlank()) commitRecent(filters.query)
+        keyboardController?.hide()
+        onClose()
+    }
 
     /**
      * Run an initial search (page 1) for whichever type(s) are active.
@@ -331,7 +399,6 @@ fun SearchScreen(
             val tagList = filters.tags.toList().ifEmpty { null }
 
             // ── Anime fetch ──────────────────────────────────────────────
-            // In "anime" and "both" modes we always run the anime query.
             if (searchType == "anime" || searchType == "both") {
                 val newResults = viewModel.searchAnimeAdvanced(
                     search = filters.query.ifBlank { null },
@@ -354,14 +421,9 @@ fun SearchScreen(
             }
 
             // ── Manga fetch ─────────────────────────────────────────────
-            // Uses the new searchMangaAdvanced() so genres/format/status/sort
-            // are honored in BOTH "manga" and "both" modes (previously only
-            // the text query was forwarded to the manga endpoint).
             if (searchType == "manga" || searchType == "both") {
-                // When the user is doing a plain text search and hasn't
-                // explicitly chosen a sort, prefer SEARCH_MATCH (better
-                // relevance ranking for manga). Otherwise honor the sort
-                // they picked so the filter chip behaves consistently.
+                // Plain text search with the default sort prefers SEARCH_MATCH for
+                // relevance; an explicit sort is always honored.
                 val effectiveMangaSort = if (
                     filters.query.isNotBlank() && filters.sort == "POPULARITY_DESC"
                 ) "SEARCH_MATCH" else filters.sort
@@ -383,9 +445,6 @@ fun SearchScreen(
                 hasMoreManga = false
             }
 
-            // Recompute the unified hasMore flag based on the active mode so
-            // the "Load More" button only shows when there is actually more
-            // data to fetch for at least one of the active types.
             hasMore = when (searchType) {
                 "anime" -> hasMoreAnime
                 "manga" -> hasMoreManga
@@ -398,11 +457,21 @@ fun SearchScreen(
     }
 
     /**
-     * Fetch the next page of whichever active type(s) still have more
-     * results, and append them to the existing lists. Each type tracks
-     * its own page counter so an exhausted side is skipped instead of
-     * being re-fetched (which would clobber the existing results).
+     * When the query is blank and no filter is active there is nothing to
+     * search — fall back to the discovery state instead of running an empty
+     * query that would just return the popular page.
      */
+    fun triggerSearchOrDiscovery() {
+        if (filters.query.isBlank() && activeFilterCount == 0) {
+            searchJob?.cancel()
+            isSearching = false
+            resetResultState()
+        } else {
+            performSearch()
+        }
+    }
+
+    /** Fetch the next page of whichever active type(s) still have more results. */
     fun loadMore() {
         scope.launch {
             isLoadingMore = true
@@ -460,47 +529,30 @@ fun SearchScreen(
         }
     }
 
-    var autoSearchSkippedInitial by remember { mutableStateOf(false) }
+    // Re-run the search whenever a filter (not the query) changes. The first
+    // composition is skipped so an untouched screen still shows discovery.
+    var filtersInitialized by remember { mutableStateOf(false) }
     LaunchedEffect(
         filters.genres, filters.tags,
         filters.format, filters.status, filters.seasonYear,
         filters.sort
     ) {
-        if (autoSearchSkippedInitial) {
-            performSearch()
+        if (filtersInitialized) {
+            triggerSearchOrDiscovery()
         } else {
-            autoSearchSkippedInitial = true
+            filtersInitialized = true
         }
     }
 
-    // Re-run the search whenever the query text changes — including clearing it
-    // back to blank, which must restore the default (popular/trending) results
-    // instead of leaving stale or empty results behind. Keying on searchType too
-    // means toggling the Anime/Manga/Both chips also (re)fetches the active set.
+    // Debounced auto-search as the query text or the active type changes.
     LaunchedEffect(filters.query, searchType) {
-        delay(400.milliseconds)
-        performSearch()
+        delay(350.milliseconds)
+        triggerSearchOrDiscovery()
     }
-
-    val activeFilterCount = listOfNotNull(
-        filters.genres.takeIf { it.isNotEmpty() }?.let { 1 },
-        filters.tags.takeIf { it.isNotEmpty() }?.let { 1 },
-        filters.format,
-        filters.status,
-        filters.seasonYear.takeIf { it.isNotBlank() }?.let { 1 },
-        filters.sort.takeIf { it != "POPULARITY_DESC" }?.let { 1 }
-    ).size
 
     fun clearAllFilters() {
         filters = SearchFilters(query = filters.query)
-        results = emptyList()
-        mangaResults = emptyList()
-        currentAnimePage = 1
-        currentMangaPage = 1
-        hasMoreAnime = true
-        hasMoreManga = true
-        hasMore = true
-        hasSearched = false
+        resetResultState()
     }
 
     LaunchedEffect(Unit) {
@@ -509,13 +561,10 @@ fun SearchScreen(
     }
 
     val filteredResults = results
-
     val filteredMangaResults = mangaResults
 
-    // Heterogeneous list used by the "both" grid. We interleave anime and
-    // manga items (anime first, then manga on the same row) so neither type
-    // ever dominates a long stretch of the grid and the user gets a balanced
-    // view of both media types.
+    // Interleave anime and manga (anime first, then manga) so neither type
+    // dominates a long stretch of the "both" grid.
     val unifiedResults = remember(filteredResults, filteredMangaResults) {
         val animeItems = filteredResults.map { UnifiedSearchItem.Anime(it) }
         val mangaItems = filteredMangaResults.map { UnifiedSearchItem.Manga(it) }
@@ -528,384 +577,189 @@ fun SearchScreen(
         merged
     }
 
-    Box(
+    BackHandler { closeAndCommit() }
+
+    Surface(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.96f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {})
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {}
+            ),
+        color = MaterialTheme.colorScheme.background
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 32.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { keyboardController?.hide(); onClose() }) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_close), tint = Color.White, modifier = Modifier.size(28.dp))
-                }
-                Text(stringResource(R.string.search_title), color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.weight(1f))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("anime" to stringResource(R.string.search_tab_anime), "manga" to stringResource(R.string.search_tab_manga), "both" to stringResource(R.string.search_tab_both)).forEach { (value, label) ->
-                        FilterChip(
-                            selected = searchType == value,
-                            onClick = {
-                                searchType = value
-                                results = emptyList()
-                                mangaResults = emptyList()
-                                currentAnimePage = 1
-                                currentMangaPage = 1
-                                hasMoreAnime = true
-                                hasMoreManga = true
-                                hasMore = true
-                                hasSearched = false
-                                if (filters.query.isNotBlank()) {
-                                    performSearch()
-                                }
-                            },
-                            label = { Text(label, style = MaterialTheme.typography.labelMedium) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = Color(0xFF2A2A2A),
-                                selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                                labelColor = Color.White.copy(alpha = 0.6f),
-                                selectedLabelColor = MaterialTheme.colorScheme.primary
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                borderColor = Color.Transparent,
-                                selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                                enabled = true,
-                                selected = searchType == value
-                            )
-                        )
+            SearchHeader(
+                query = filters.query,
+                isOled = isOled,
+                onQueryChange = { filters = filters.copy(query = it) },
+                onClear = { filters = filters.copy(query = "") },
+                onCancel = { closeAndCommit() },
+                onSearchAction = {
+                    if (filters.query.isNotBlank()) commitRecent(filters.query)
+                    keyboardController?.hide()
+                },
+                focusRequester = focusRequester,
+            )
+
+            if (advancedSearch) {
+                SearchTypeSegmented(
+                    selected = searchType,
+                    isOled = isOled,
+                    onSelect = { value ->
+                        if (value != searchType) {
+                            searchType = value
+                            resetResultState()
+                            triggerSearchOrDiscovery()
+                        }
                     }
-                }
+                )
+
+                Spacer(Modifier.height(Spacing.sm))
+
+                SearchFilterChipRow(
+                    filters = filters,
+                    activeFilterCount = activeFilterCount,
+                    isOled = isOled,
+                    onOpenSheet = { activeSheet = it },
+                )
+
+                Spacer(Modifier.height(Spacing.sm))
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = if (isOled) Color(0xFF1A1A1A) else Color(0xFF2A2A2A))
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    BasicTextField(
-                        value = filters.query,
-                        onValueChange = { filters = filters.copy(query = it) },
-                        modifier = Modifier.weight(1f).focusRequester(focusRequester),
-                        singleLine = true,
-                        textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        // Search is already auto-triggered (debounced) as the query changes,
-                        // so pressing the keyboard's search button only dismisses the keyboard.
-                        // No extra request is fired, and the button can't be spammed into
-                        // launching duplicate searches.
-                        keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
-                        decorationBox = { innerTextField ->
-                            Box(contentAlignment = Alignment.CenterStart) {
-                                if (filters.query.isEmpty()) Text(stringResource(R.string.search_query_hint), color = Color.White.copy(alpha = 0.35f), fontSize = 16.sp)
-                                innerTextField()
-                            }
-                        }
-                    )
-                    IconButton(
-                        onClick = {
-                            filters = filters.copy(query = "")
-                            results = emptyList()
-                            mangaResults = emptyList()
-                            currentAnimePage = 1
-                            currentMangaPage = 1
-                            hasMoreAnime = true
-                            hasMoreManga = true
-                            hasMore = true
-                            hasSearched = false
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_clear), tint = Color.White.copy(alpha = if (filters.query.isNotEmpty()) 0.5f else 0f), modifier = Modifier.size(18.dp))
-                    }
-                }
-            }
+            when {
+                isSearching -> SearchResultsSkeleton()
 
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showFilters = !showFilters }
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Default.FilterList, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.search_filters), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.titleSmall)
-                    if (activeFilterCount > 0) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primary) {
-                            Text("$activeFilterCount", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        if (showFilters) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
-                        contentDescription = stringResource(R.string.search_toggle_filters),
-                        tint = Color.White.copy(alpha = 0.5f),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Row {
-                    if (activeFilterCount > 0) {
-                        TextButton(onClick = { clearAllFilters() }, modifier = Modifier.height(32.dp)) {
-                            Text(stringResource(R.string.search_reset), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                    Button(
-                        // Searches are already auto-triggered (debounced) when the query or
-                        // active filters change, so this button only dismisses the keyboard.
-                        // No extra request is fired, so the button can't be spammed into
-                        // launching duplicate searches.
-                        onClick = { keyboardController?.hide() },
-                        modifier = Modifier.height(34.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                        enabled = filters.query.isNotBlank() || activeFilterCount > 0
-                    ) {
-                        Text(stringResource(R.string.search_action), style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-
-            AnimatedVisibility(visible = showFilters) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                    .heightIn(max = 320.dp)
-                    .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp)
-                ) {
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            FilterRow(
-                                label = stringResource(R.string.search_genres),
-                                count = filters.genres.size,
-                                onClick = { showGenreSheet = true }
-                            )
-                        }
-                        Box(modifier = Modifier.weight(1f)) {
-                            FilterRow(
-                                label = stringResource(R.string.search_tags),
-                                count = filters.tags.size,
-                                onClick = { showTagSheet = true }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        DropdownFilter(stringResource(R.string.search_format), filters.format, ALL_FORMATS, showFormatDropdown, { showFormatDropdown = !showFormatDropdown; showStatusDropdown = false; showSortDropdown = false }, { showFormatDropdown = false }, { filters = filters.copy(format = it) })
-                        DropdownFilter(stringResource(R.string.search_status), filters.status, ALL_STATUSES, showStatusDropdown, { showStatusDropdown = !showStatusDropdown; showFormatDropdown = false; showSortDropdown = false }, { showStatusDropdown = false }, { filters = filters.copy(status = it) })
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(R.string.search_year), color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall)
-                            BasicTextField(
-                                value = filters.seasonYear,
-                                onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 4) filters = filters.copy(seasonYear = it) },
-                                modifier = Modifier.fillMaxWidth().height(34.dp).background(Color(0xFF2A2A2A), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp),
-                                singleLine = true,
-                                textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                                decorationBox = { innerTextField ->
-                                    Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.fillMaxSize()) {
-                                        if (filters.seasonYear.isEmpty()) Text(stringResource(R.string.search_year_hint), color = Color.White.copy(alpha = 0.3f), fontSize = 13.sp)
-                                        innerTextField()
-                                    }
-                                }
-                            )
-                        }
-                        DropdownFilter(stringResource(R.string.search_sort), ALL_SORTS.find { it.first == filters.sort }?.let { stringResource(it.second) } ?: stringResource(R.string.search_sort_popularity), ALL_SORTS.map { stringResource(it.second) }, showSortDropdown, { showSortDropdown = !showSortDropdown; showFormatDropdown = false; showStatusDropdown = false }, { showSortDropdown = false }) { selectedLabel ->
-                            val pair = ALL_SORTS.find { context.getString(it.second) == selectedLabel } ?: ALL_SORTS.first()
-                            filters = filters.copy(sort = pair.first)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-
-if (isSearching) {
-            SearchResultsSkeleton()
-        } else if (hasSearched && filteredResults.isEmpty() && filteredMangaResults.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 128.dp)) {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(stringResource(R.string.search_no_results), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(R.string.search_try_adjusting), color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            } else if (!hasSearched) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 128.dp)) {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.15f), modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            if (searchType == "manga") stringResource(R.string.search_discover_manga)
-                            else if (searchType == "both") stringResource(R.string.search_discover_both)
-                            else stringResource(R.string.search_discover_anime),
-                            color = Color.White.copy(alpha = 0.35f),
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(stringResource(R.string.search_hint), color = Color.White.copy(alpha = 0.25f), style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            } else if (searchType == "manga") {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    state = gridState,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(filteredMangaResults, key = { it.id }) { manga ->
-                        val title = if (preferEnglishTitles && !manga.title.english.isNullOrBlank()) manga.title.english
-                                   else manga.title.romaji ?: "Unknown"
-                        val coverUrl = manga.coverImage?.large ?: manga.coverImage?.medium ?: ""
-                        SearchResultCard(
-                            anime = null,
-                            mangaTitle = title,
-                            mangaCover = coverUrl,
-                            mangaFormat = manga.format,
-                            mangaScore = manga.averageScore,
-                            mangaYear = manga.seasonYear ?: manga.startDate?.year,
-                            mangaChapters = manga.chapters,
-                            listStatus = mangaTrackMap[manga.id] ?: mangaTrackByMalMap[manga.idMal],
-                            onClick = { onMangaClick(manga) }
-                        )
-                    }
-                    if (hasMoreManga && filteredMangaResults.size >= 30) {
-                        item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                if (isLoadingMore) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                                } else {
-                                    TextButton(onClick = { loadMore() }) {
-                                        Text(stringResource(R.string.search_load_more), color = MaterialTheme.colorScheme.primary)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } else if (searchType == "both") {
-                // Unified grid: anime and manga are interleaved into a single
-                // heterogeneous list and rendered through MediaSearchResultCard
-                // so each tile carries a small ▶/📖 type chip in the corner.
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    state = gridState,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(unifiedResults, key = { it.stableKey() }) { item ->
-                        when (item) {
-                            is UnifiedSearchItem.Anime -> MediaSearchResultCard(
-                                isAnime = true,
-                                anime = item.item,
-                                listStatus = savedAnimeMap[item.item.id] ?: savedAnimeByMalMap[item.item.malId ?: item.item.id],
-                                preferEnglishTitles = preferEnglishTitles,
-                                onClick = {
-                                    keyboardController?.hide()
-                                    selectedAnime = item.item
-                                    firstAnime = item.item
-                                    showDetailDialog = true
-                                }
-                            )
-                            is UnifiedSearchItem.Manga -> {
-                                val manga = item.item
-                                MediaSearchResultCard(
-                                    isAnime = false,
-                                    manga = manga,
-                                    listStatus = mangaTrackMap[manga.id] ?: mangaTrackByMalMap[manga.idMal],
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    onClick = { onMangaClick(manga) }
-                                )
-                            }
-                        }
-                    }
-                    if (hasMore) {
-                        item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                if (isLoadingMore) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                                } else {
-                                    // loadMore() fetches the next page of
-                                    // whichever active type(s) still have more
-                                    // results, skipping any exhausted side.
-                                    TextButton(onClick = { loadMore() }) {
-                                        Text(stringResource(R.string.search_load_more), color = MaterialTheme.colorScheme.primary)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    state = gridState,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(filteredResults, key = { it.id }) { anime ->
-                        SearchResultCard(
-                            anime = anime,
-                            listStatus = savedAnimeMap[anime.id] ?: savedAnimeByMalMap[anime.malId ?: anime.id],
+                !hasSearched -> {
+                    if (advancedSearch) {
+                        SearchDiscovery(
+                            searchType = searchType,
+                            isOled = isOled,
+                            recentSearches = recentSearches,
+                            trendingAnime = trendingAnime,
+                            trendingManga = trendingManga,
                             preferEnglishTitles = preferEnglishTitles,
-                            onClick = {
+                            onQuerySelect = { filters = filters.copy(query = it) },
+                            onClearRecent = {
+                                recentStore.clear()
+                                recentSearches = emptyList()
+                            },
+                            onGenreSelect = { genre ->
+                                filters = filters.copy(genres = filters.genres + genre)
+                            },
+                            onAnimeClick = { anime ->
                                 keyboardController?.hide()
                                 selectedAnime = anime
                                 firstAnime = anime
                                 showDetailDialog = true
-                            }
+                            },
+                            onMangaClick = onMangaClick,
                         )
                     }
-                    if (hasMoreAnime) {
-                        item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                if (isLoadingMore) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                                } else {
-                                    TextButton(onClick = { loadMore() }) {
-                                        Text(stringResource(R.string.search_load_more), color = MaterialTheme.colorScheme.primary)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                    }
+                }
+
+                filteredResults.isEmpty() && filteredMangaResults.isEmpty() -> SearchEmptyState()
+
+                searchType == "manga" -> {
+                    ResultsGrid(
+                        gridState = gridState,
+                        hasMore = hasMoreManga && filteredMangaResults.size >= 30,
+                        isLoadingMore = isLoadingMore,
+                        onLoadMore = { loadMore() },
+                    ) {
+                        items(filteredMangaResults, key = { it.id }) { manga ->
+                            val title = if (preferEnglishTitles && !manga.title.english.isNullOrBlank()) manga.title.english
+                            else manga.title.romaji ?: stringResource(R.string.explore_unknown)
+                            val cover = manga.coverImage?.large ?: manga.coverImage?.medium ?: ""
+                            val trackStatus = mangaTrackMap[manga.id] ?: mangaTrackByMalMap[manga.idMal]
+                            SearchPosterCard(
+                                title = title,
+                                cover = cover,
+                                score = manga.averageScore?.let { it / 10.0 },
+                                meta = mangaMeta(manga),
+                                statusLabel = resolvedStatusLabel(trackStatus, isManga = true, show = showMangaStatusColors),
+                                statusTint = resolvedStatusTint(trackStatus, showMangaStatusColors),
+                                onClick = { commitRecent(filters.query); onMangaClick(manga) }
+                            )
+                        }
+                    }
+                }
+
+                searchType == "both" -> {
+                    ResultsGrid(
+                        gridState = gridState,
+                        hasMore = hasMore && unifiedResults.isNotEmpty(),
+                        isLoadingMore = isLoadingMore,
+                        onLoadMore = { loadMore() },
+                    ) {
+                        items(unifiedResults, key = { it.stableKey() }) { item ->
+                            when (item) {
+                                is UnifiedSearchItem.Anime -> {
+                                    val a = item.item
+                                    val trackStatus = savedAnimeMap[a.id] ?: savedAnimeByMalMap[a.malId ?: a.id]
+                                    SearchPosterCard(
+                                        title = animeTitle(a, preferEnglishTitles),
+                                        cover = a.cover,
+                                        score = a.averageScore?.let { it / 10.0 },
+                                        meta = animeMeta(a),
+                                        statusLabel = resolvedStatusLabel(trackStatus, isManga = false, show = showAnimeStatusColors),
+                                        statusTint = resolvedStatusTint(trackStatus, showAnimeStatusColors),
+                                        typeMarker = true,
+                                        onClick = {
+                                            commitRecent(filters.query)
+                                            keyboardController?.hide()
+                                            selectedAnime = a
+                                            firstAnime = a
+                                            showDetailDialog = true
+                                        }
+                                    )
+                                }
+                                is UnifiedSearchItem.Manga -> {
+                                    val m = item.item
+                                    val trackStatus = mangaTrackMap[m.id] ?: mangaTrackByMalMap[m.idMal]
+                                    val title = if (preferEnglishTitles && !m.title.english.isNullOrBlank()) m.title.english
+                                    else m.title.romaji ?: stringResource(R.string.explore_unknown)
+                                    SearchPosterCard(
+                                        title = title,
+                                        cover = m.coverImage?.large ?: m.coverImage?.medium ?: "",
+                                        score = m.averageScore?.let { it / 10.0 },
+                                        meta = mangaMeta(m),
+                                        statusLabel = resolvedStatusLabel(trackStatus, isManga = true, show = showMangaStatusColors),
+                                        statusTint = resolvedStatusTint(trackStatus, showMangaStatusColors),
+                                        typeMarker = false,
+                                        onClick = { commitRecent(filters.query); onMangaClick(m) }
+                                    )
                                 }
                             }
+                        }
+                    }
+                }
+
+                else -> {
+                    ResultsGrid(
+                        gridState = gridState,
+                        hasMore = hasMoreAnime && filteredResults.size >= 30,
+                        isLoadingMore = isLoadingMore,
+                        onLoadMore = { loadMore() },
+                    ) {
+                        items(filteredResults, key = { it.id }) { anime ->
+                            val trackStatus = savedAnimeMap[anime.id] ?: savedAnimeByMalMap[anime.malId ?: anime.id]
+                            SearchPosterCard(
+                                title = animeTitle(anime, preferEnglishTitles),
+                                cover = anime.cover,
+                                score = anime.averageScore?.let { it / 10.0 },
+                                meta = animeMeta(anime),
+                                statusLabel = resolvedStatusLabel(trackStatus, isManga = false, show = showAnimeStatusColors),
+                                statusTint = resolvedStatusTint(trackStatus, showAnimeStatusColors),
+                                onClick = {
+                                    commitRecent(filters.query)
+                                    keyboardController?.hide()
+                                    selectedAnime = anime
+                                    firstAnime = anime
+                                    showDetailDialog = true
+                                }
+                            )
                         }
                     }
                 }
@@ -1004,308 +858,766 @@ if (isSearching) {
         )
     }
 
-    val visibleTags = remember(allTags) {
-        allTags.sortedBy { it.name }
-    }
-
-    if (showGenreSheet) {
-        MultiSelectSheet(
+    // ── Filter bottom sheets ───────────────────────────────────────────
+    when (activeSheet) {
+        SearchSheet.SORT -> SingleSelectFilterSheet(
+            title = stringResource(R.string.search_sort),
+            options = ALL_SORTS.map { it.first to stringResource(it.second) },
+            selectedValue = filters.sort,
+            anyLabel = stringResource(R.string.search_sort_popularity),
+            isOled = isOled,
+            onSelect = { filters = filters.copy(sort = it ?: "POPULARITY_DESC") },
+            onDismiss = { activeSheet = SearchSheet.NONE }
+        )
+        SearchSheet.FORMAT -> SingleSelectFilterSheet(
+            title = stringResource(R.string.search_format),
+            options = ALL_FORMATS.map { it to it.replace("_", " ").replaceFirstChar { c -> c.uppercase() } },
+            selectedValue = filters.format,
+            anyLabel = stringResource(R.string.search_any),
+            isOled = isOled,
+            onSelect = { filters = filters.copy(format = it) },
+            onDismiss = { activeSheet = SearchSheet.NONE }
+        )
+        SearchSheet.STATUS -> SingleSelectFilterSheet(
+            title = stringResource(R.string.search_status),
+            options = ALL_STATUSES.map { it to it.replace("_", " ").replaceFirstChar { c -> c.uppercase() } },
+            selectedValue = filters.status,
+            anyLabel = stringResource(R.string.search_any),
+            isOled = isOled,
+            onSelect = { filters = filters.copy(status = it) },
+            onDismiss = { activeSheet = SearchSheet.NONE }
+        )
+        SearchSheet.GENRE -> MultiSelectFilterSheet(
+            title = stringResource(R.string.search_select_genres),
+            hint = stringResource(R.string.search_placeholder_short),
             options = ALL_GENRES,
             selected = filters.genres,
+            isOled = isOled,
             onToggle = { genre ->
                 filters = if (genre in filters.genres) filters.copy(genres = filters.genres - genre)
                 else filters.copy(genres = filters.genres + genre)
             },
-            onDismiss = { showGenreSheet = false }
+            onDismiss = { activeSheet = SearchSheet.NONE }
         )
+        SearchSheet.TAG -> MultiSelectFilterSheet(
+            title = stringResource(R.string.search_select_tags),
+            hint = stringResource(R.string.search_tags_hint),
+            options = remember(allTags) { allTags.sortedBy { it.name }.map { it.name } },
+            selected = filters.tags.toSet(),
+            isOled = isOled,
+            onToggle = { tag ->
+                filters = if (tag in filters.tags) filters.copy(tags = filters.tags - tag)
+                else filters.copy(tags = filters.tags + tag)
+            },
+            onDismiss = { activeSheet = SearchSheet.NONE }
+        )
+        SearchSheet.YEAR -> YearFilterSheet(
+            current = filters.seasonYear,
+            isOled = isOled,
+            onSelect = { filters = filters.copy(seasonYear = it) },
+            onDismiss = { activeSheet = SearchSheet.NONE }
+        )
+        SearchSheet.NONE -> Unit
     }
 
-    if (showTagSheet) {
-        TagSelectSheet(
-            allTags = visibleTags,
-            selected = filters.tags.toSet(),
-            onToggle = { tagName ->
-                filters = if (tagName in filters.tags) filters.copy(tags = filters.tags - tagName)
-                else filters.copy(tags = filters.tags + tagName)
-            },
-            onDismiss = { showTagSheet = false }
-        )
+    // Keep the unused-state warning quiet for the legacy flag.
+    if (tagsLoading) { /* tags load in the background; nothing to render */ }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Theming helpers
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Filled container tone for the search screen (search field, segmented track,
+ * filter chips, discovery pills).
+ *
+ * OLED flattens [androidx.compose.material3.ColorScheme.surfaceVariant] to pure
+ * black, so an element filled with it would vanish into the OLED background.
+ * OLED therefore uses the neutral surface-container tones instead, picking a
+ * lighter one for elements drawn on top of a sheet ([raised]); every other theme
+ * keeps the app-standard `surfaceVariant` fill.
+ */
+@Composable
+private fun searchContainerColor(isOled: Boolean, raised: Boolean = false): Color {
+    val scheme = MaterialTheme.colorScheme
+    return if (isOled) {
+        if (raised) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh
+    } else {
+        scheme.surfaceVariant
     }
 }
 
+/**
+ * Container tone for a filter bottom sheet. Distinct from
+ * [searchContainerColor] so elements drawn inside a sheet (search field, chips)
+ * still read as raised against it in both OLED and the light/dark themes.
+ */
 @Composable
-private fun SearchResultCard(
-    anime: ExploreAnime? = null,
-    mangaTitle: String? = null,
-    mangaCover: String? = null,
-    mangaFormat: String? = null,
-    mangaScore: Int? = null,
-    mangaYear: Int? = null,
-    mangaChapters: Int? = null,
-    listStatus: String? = null,
-    preferEnglishTitles: Boolean = true,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val displayTitle = if (anime != null) {
-        if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
-    } else {
-        mangaTitle ?: "Unknown"
-    }
-    val displayScore = anime?.averageScore?.let { it / 10.0 } ?: mangaScore?.let { it / 10.0 }
-    val cover = anime?.cover ?: mangaCover ?: ""
-    val format = anime?.format ?: mangaFormat
-    val year = anime?.year ?: mangaYear
+private fun searchSheetColor(isOled: Boolean): Color =
+    if (isOled) MaterialTheme.colorScheme.surfaceContainerHigh
+    else MaterialTheme.colorScheme.surfaceContainerLow
 
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+// ─────────────────────────────────────────────────────────────────────────
+// Header + controls
+// ─────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SearchHeader(
+    query: String,
+    isOled: Boolean,
+    onQueryChange: (String) -> Unit,
+    onClear: () -> Unit,
+    onCancel: () -> Unit,
+    onSearchAction: () -> Unit,
+    focusRequester: FocusRequester,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(start = Spacing.xs, end = Spacing.gutter, top = Spacing.sm, bottom = Spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column {
-            Box {
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(cover).memoryCacheKey(cover).diskCacheKey(cover).crossfade(false).build(),
-                    contentDescription = displayTitle,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(2f/3f).clip(RoundedCornerShape(12.dp))
+        IconButton(
+            onClick = onCancel,
+            modifier = Modifier.size(Sizes.iconButton),
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = stringResource(R.string.search_close),
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        Spacer(Modifier.width(Spacing.xs))
+        Surface(
+            modifier = Modifier.weight(1f).height(50.dp),
+            shape = Radius.controlShape,
+            color = searchContainerColor(isOled),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(start = Spacing.md, end = Spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
                 )
-                if (listStatus != null && statusColorOnArtwork(listStatus) != Color.Transparent) {
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color.Black.copy(alpha = 0.6f)
-                    ) {
-Text(
-                            if (anime == null) MangaStatusLabels[listStatus] ?: listStatus else StatusLabels[listStatus] ?: listStatus,
-                            color = statusColorOnArtwork(listStatus),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                Spacer(Modifier.width(Spacing.sm))
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { onSearchAction() }),
+                    decorationBox = { innerTextField ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (query.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.search_query_hint),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                            }
+                            innerTextField()
+                        }
+                    },
+                )
+                AnimatedVisibility(visible = query.isNotEmpty()) {
+                    IconButton(onClick = onClear, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = stringResource(R.string.search_clear),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
                         )
                     }
-                }
-                if (displayScore != null) {
-                    Row(
-                        modifier = Modifier.align(Alignment.BottomStart).padding(6.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = ratingColorOnArtwork(), modifier = Modifier.size(12.dp))
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(String.format(Locale.getDefault(), "%.1f", displayScore), color = ratingColorOnArtwork(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(displayTitle, color = Color.White, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp))
-            Row(
-                modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                format?.let { fmt ->
-                    Text(fmt, color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                    if (year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                }
-                year?.let {
-                    Text("$it", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                }
-                if (anime == null && mangaChapters != null) {
-                    if (format != null || year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                    Text(stringResource(R.string.search_chapter_count, mangaChapters), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                }
-                if (anime != null && anime.episodes > 0 && format?.uppercase() != "MOVIE") {
-                    if (year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                    Text(stringResource(R.string.search_episode_count, anime.episodes), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
     }
 }
 
-/**
- * Unified search-result card used in "both" mode. Renders either an anime
- * or manga tile with the same visual language as [SearchResultCard], but
- * adds a small type chip (▶ Anime / 📖 Manga) in the top-right corner so
- * the user can tell which kind of media each tile represents at a glance.
- *
- * List-status badges (CURRENT/PLANNING/COMPLETED) are moved to the
- * top-START corner so they don't collide with the type chip.
- */
-/**
- * Placeholder for the search results grid. Mirrors the real grid's 2 columns,
- * insets and card geometry (2:3 poster + two text lines) so results don't reflow
- * when the query resolves.
- */
+@Composable
+private fun SearchTypeSegmented(
+    selected: String,
+    isOled: Boolean,
+    onSelect: (String) -> Unit,
+) {
+    val options = listOf(
+        "anime" to R.string.search_tab_anime,
+        "manga" to R.string.search_tab_manga,
+        "both" to R.string.search_tab_both,
+    )
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.gutter),
+        shape = Radius.controlShape,
+        color = searchContainerColor(isOled),
+    ) {
+        Row(modifier = Modifier.padding(Spacing.xs)) {
+            options.forEach { (value, labelRes) ->
+                val isSelected = selected == value
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = Radius.chipShape,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    onClick = { onSelect(value) },
+                ) {
+                    Box(modifier = Modifier.height(38.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(labelRes),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchFilterChipRow(
+    filters: SearchFilters,
+    activeFilterCount: Int,
+    isOled: Boolean,
+    onOpenSheet: (SearchSheet) -> Unit,
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = Spacing.gutter),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+    ) {
+        item {
+            FilterChip(
+                label = stringResource(
+                    ALL_SORTS.find { it.first == filters.sort }?.second ?: R.string.search_sort_popularity
+                ),
+                active = filters.sort != "POPULARITY_DESC",
+                isOled = isOled,
+                onClick = { onOpenSheet(SearchSheet.SORT) },
+            )
+        }
+        item {
+            FilterChip(
+                label = filters.format?.replace("_", " ")?.replaceFirstChar { it.uppercase() }
+                    ?: stringResource(R.string.search_format),
+                active = filters.format != null,
+                isOled = isOled,
+                onClick = { onOpenSheet(SearchSheet.FORMAT) },
+            )
+        }
+        item {
+            FilterChip(
+                label = filters.status?.replace("_", " ")?.replaceFirstChar { it.uppercase() }
+                    ?: stringResource(R.string.search_status),
+                active = filters.status != null,
+                isOled = isOled,
+                onClick = { onOpenSheet(SearchSheet.STATUS) },
+            )
+        }
+        item {
+            FilterChip(
+                label = stringResource(R.string.search_genres),
+                active = filters.genres.isNotEmpty(),
+                count = filters.genres.size,
+                isOled = isOled,
+                onClick = { onOpenSheet(SearchSheet.GENRE) },
+            )
+        }
+        item {
+            FilterChip(
+                label = stringResource(R.string.search_tags),
+                active = filters.tags.isNotEmpty(),
+                count = filters.tags.size,
+                isOled = isOled,
+                onClick = { onOpenSheet(SearchSheet.TAG) },
+            )
+        }
+        item {
+            FilterChip(
+                label = filters.seasonYear.ifBlank { stringResource(R.string.search_year) },
+                active = filters.seasonYear.isNotBlank(),
+                isOled = isOled,
+                onClick = { onOpenSheet(SearchSheet.YEAR) },
+            )
+        }
+        if (activeFilterCount > 0) {
+            item {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.Transparent,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    onClick = { onOpenSheet(SearchSheet.NONE) },
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.RestartAlt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
+                        Text(
+                            text = stringResource(R.string.search_reset),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+        item { Spacer(Modifier.width(Spacing.xs)) }
+    }
+}
+
+/** Pill-shaped filter chip that opens a bottom sheet. */
+@Composable
+private fun FilterChip(
+    label: String,
+    active: Boolean,
+    isOled: Boolean,
+    onClick: () -> Unit,
+    count: Int? = null,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    Surface(
+        shape = CircleShape,
+        color = if (active) accent.copy(alpha = 0.16f) else searchContainerColor(isOled),
+        border = BorderStroke(
+            1.dp,
+            if (active) accent.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+        ),
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                start = Spacing.md,
+                end = Spacing.sm,
+                top = Spacing.sm,
+                bottom = Spacing.sm,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (active) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (count != null && count > 0) {
+                Spacer(Modifier.width(Spacing.xs))
+                Surface(shape = CircleShape, color = accent) {
+                    Text(
+                        text = count.toString(),
+                        style = TenseiType.badge,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.width(Spacing.xxs))
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = null,
+                tint = if (active) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Results
+// ─────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun ResultsGrid(
+    gridState: androidx.compose.foundation.lazy.grid.LazyGridState,
+    hasMore: Boolean,
+    isLoadingMore: Boolean,
+    onLoadMore: () -> Unit,
+    content: androidx.compose.foundation.lazy.grid.LazyGridScope.() -> Unit,
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 128.dp),
+        state = gridState,
+        contentPadding = PaddingValues(
+            start = Spacing.gutter,
+            end = Spacing.gutter,
+            top = Spacing.sm,
+            bottom = navigationBarBottomPadding() + Spacing.lg,
+        ),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        content()
+        if (hasMore) {
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.lg),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isLoadingMore) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    } else {
+                        TextButton(onClick = onLoadMore) {
+                            Text(stringResource(R.string.search_load_more), color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(Spacing.xs))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchPosterCard(
+    title: String,
+    cover: String,
+    score: Double?,
+    meta: String,
+    statusLabel: String?,
+    statusTint: Color,
+    onClick: () -> Unit,
+    typeMarker: Boolean? = null,
+) {
+    val context = LocalContext.current
+    Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(2f / 3f)
+                .clip(Radius.posterShape),
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(cover)
+                    .memoryCacheKey(cover)
+                    .diskCacheKey(cover)
+                    .crossfade(false)
+                    .build(),
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .background(artworkGradient(0.45f, 0f)),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .background(artworkGradient(0f, 0.72f)),
+            )
+
+            // A status is only shown when the card actually has one and the user
+            // enabled the setting (callers pass a transparent tint otherwise), so
+            // untracked cards get neither a stripe nor a chip — never a grey line.
+            val statusText = statusLabel
+            val hasStatus = statusText != null && statusTint != Color.Transparent
+
+            if (hasStatus) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .background(statusTint),
+                )
+                SearchArtworkChip(
+                    text = statusText,
+                    contentColor = statusTint,
+                    modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
+                )
+            }
+
+            score?.let {
+                SearchArtworkChip(
+                    text = "\u2605 ${String.format(Locale.US, "%.1f", it)}",
+                    contentColor = ratingColorOnArtwork(),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.sm),
+                )
+            }
+
+            typeMarker?.let { isAnime ->
+                SearchArtworkChip(
+                    text = stringResource(if (isAnime) R.string.search_tab_anime else R.string.search_tab_manga),
+                    contentColor = Color.White,
+                    leadingIcon = if (isAnime) Icons.Default.PlayArrow else Icons.AutoMirrored.Filled.MenuBook,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(Spacing.sm),
+                )
+            }
+        }
+        Spacer(Modifier.height(Spacing.sm))
+        Text(
+            text = title,
+            style = TenseiType.cardTitle,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (meta.isNotBlank()) {
+            Spacer(Modifier.height(Spacing.xxs))
+            Text(
+                text = meta,
+                style = TenseiType.cardMeta,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchArtworkChip(
+    text: String,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    leadingIcon: ImageVector? = null,
+) {
+    Surface(
+        modifier = modifier,
+        shape = Radius.chipShape,
+        color = Color.Black.copy(alpha = 0.6f),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (leadingIcon != null) {
+                Icon(
+                    imageVector = leadingIcon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(12.dp),
+                )
+                Spacer(Modifier.width(Spacing.xxs))
+            }
+            Text(
+                text = text,
+                style = TenseiType.badge,
+                color = contentColor,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
 @Composable
 private fun SearchResultsSkeleton() {
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        modifier = Modifier
-            .fillMaxSize()
-            .shimmer(),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        columns = GridCells.Adaptive(minSize = 128.dp),
+        modifier = Modifier.fillMaxSize().shimmer(),
+        contentPadding = PaddingValues(
+            start = Spacing.gutter,
+            end = Spacing.gutter,
+            top = Spacing.sm,
+            bottom = navigationBarBottomPadding() + Spacing.lg,
+        ),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
         userScrollEnabled = false,
     ) {
-        items(6) {
+        items(8) {
             Column {
                 SkeletonBlock(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(2f / 3f),
-                    cornerRadius = 12.dp,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f),
+                    cornerRadius = Radius.poster,
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-                SkeletonBlock(
-                    modifier = Modifier
-                        .fillMaxWidth(0.85f)
-                        .height(12.dp)
-                        .padding(horizontal = 4.dp)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                SkeletonBlock(
-                    modifier = Modifier
-                        .width(52.dp)
-                        .height(9.dp)
-                        .padding(horizontal = 4.dp)
-                )
+                Spacer(Modifier.height(Spacing.sm))
+                SkeletonBlock(modifier = Modifier.fillMaxWidth(0.85f).height(12.dp))
+                Spacer(Modifier.height(Spacing.xs))
+                SkeletonBlock(modifier = Modifier.width(52.dp).height(9.dp))
             }
         }
     }
 }
 
 @Composable
-private fun MediaSearchResultCard(
-    isAnime: Boolean,
-    anime: ExploreAnime? = null,
-    manga: MangaExploreMedia? = null,
-    listStatus: String? = null,
-    preferEnglishTitles: Boolean = true,
-    onClick: () -> Unit
+private fun SearchEmptyState() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(top = 96.dp, start = Spacing.xxxl, end = Spacing.xxxl),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(44.dp),
+            )
+            Spacer(Modifier.height(Spacing.md))
+            Text(
+                text = stringResource(R.string.search_no_results),
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.height(Spacing.xs))
+            Text(
+                text = stringResource(R.string.search_try_adjusting),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Discovery (no query / no filters)
+// ─────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun SearchDiscovery(
+    searchType: String,
+    isOled: Boolean,
+    recentSearches: List<String>,
+    trendingAnime: List<ExploreAnime>,
+    trendingManga: List<MangaExploreMedia>,
+    preferEnglishTitles: Boolean,
+    onQuerySelect: (String) -> Unit,
+    onClearRecent: () -> Unit,
+    onGenreSelect: (String) -> Unit,
+    onAnimeClick: (ExploreAnime) -> Unit,
+    onMangaClick: (MangaExploreMedia) -> Unit,
 ) {
-    val context = LocalContext.current
+    val showAnimeTrending = searchType != "manga" && trendingAnime.isNotEmpty()
+    val showMangaTrending = searchType != "anime" && trendingManga.isNotEmpty()
 
-    val displayTitle = if (isAnime) {
-        val a = anime
-        if (a != null) {
-            if (preferEnglishTitles && !a.titleEnglish.isNullOrEmpty()) a.titleEnglish else a.title
-        } else "Unknown"
-    } else {
-        val m = manga
-        if (m != null) {
-            if (preferEnglishTitles && !m.title.english.isNullOrBlank()) m.title.english
-            else m.title.romaji ?: "Unknown"
-        } else "Unknown"
-    }
-
-    val displayScore = if (isAnime) {
-        anime?.averageScore?.let { it / 10.0 }
-    } else {
-        manga?.averageScore?.let { it / 10.0 }
-    }
-
-    val cover = if (isAnime) {
-        anime?.cover ?: ""
-    } else {
-        manga?.coverImage?.large ?: manga?.coverImage?.medium ?: ""
-    }
-
-    val format = if (isAnime) anime?.format else manga?.format
-    val year = anime?.year ?: manga?.seasonYear ?: manga?.startDate?.year
-
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = navigationBarBottomPadding() + Spacing.lg),
     ) {
-        Column {
-            Box {
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(cover).memoryCacheKey(cover).diskCacheKey(cover).crossfade(false).build(),
-                    contentDescription = displayTitle,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(2f/3f).clip(RoundedCornerShape(12.dp))
+        if (recentSearches.isNotEmpty()) {
+            item {
+                TenseiSectionHeader(
+                    title = stringResource(R.string.search_recent),
+                    icon = Icons.Default.History,
                 )
-
-                // List-status badge — moved to top-START in the unified card
-                // so it doesn't overlap with the type chip on the top-end.
-                if (listStatus != null && statusColorOnArtwork(listStatus) != Color.Transparent) {
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color.Black.copy(alpha = 0.6f)
-                    ) {
-                        Text(
-                            if (isAnime) StatusLabels[listStatus] ?: listStatus else MangaStatusLabels[listStatus] ?: listStatus,
-                            color = statusColorOnArtwork(listStatus),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-
-                if (displayScore != null) {
-                    Row(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Star, contentDescription = null, tint = ratingColorOnArtwork(), modifier = Modifier.size(12.dp))
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(String.format(Locale.getDefault(), "%.1f", displayScore), color = ratingColorOnArtwork(), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                    }
-                }
-
-                // Type chip (bottom-start) — small, 24dp tall, with a subtle
-                // scrim background so it stays legible over any cover art.
-                Surface(
-                    modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
-                    shape = RoundedCornerShape(6.dp),
-                    color = Color.Black.copy(alpha = 0.55f)
+            }
+            item {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .height(24.dp)
-                            .padding(horizontal = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isAnime) Icons.Default.PlayArrow else Icons.AutoMirrored.Filled.MenuBook,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(12.dp)
-                        )
-                        Spacer(modifier = Modifier.width(2.dp))
-                        Text(
-                            text = if (isAnime) stringResource(R.string.search_tab_anime) else stringResource(R.string.search_tab_manga),
-                            color = Color.White,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold
-                        )
+                    recentSearches.forEach { query ->
+                        DiscoveryPill(icon = Icons.Default.History, label = query, isOled = isOled, onClick = { onQuerySelect(query) })
+                    }
+                    DiscoveryPill(
+                        icon = Icons.Default.Clear,
+                        label = stringResource(R.string.search_clear_recent),
+                        isOled = isOled,
+                        onClick = onClearRecent,
+                    )
+                }
+            }
+            item { Spacer(Modifier.height(Spacing.section)) }
+        }
+
+        if (showAnimeTrending) {
+            item {
+                TenseiSectionHeader(
+                    title = stringResource(R.string.search_trending_anime),
+                    icon = Icons.Default.Whatshot,
+                )
+            }
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = Spacing.gutter),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    items(trendingAnime, key = { it.id }) { anime ->
+                        Box(modifier = Modifier.width(132.dp)) {
+                            SearchPosterCard(
+                                title = animeTitle(anime, preferEnglishTitles),
+                                cover = anime.cover,
+                                score = anime.averageScore?.let { it / 10.0 },
+                                meta = animeMeta(anime),
+                                statusLabel = null,
+                                statusTint = Color.Transparent,
+                                onClick = { onAnimeClick(anime) },
+                            )
+                        }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(displayTitle, color = Color.White, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp))
-            Row(
-                modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
+            item { Spacer(Modifier.height(Spacing.section)) }
+        }
+
+        if (showMangaTrending) {
+            item {
+                TenseiSectionHeader(
+                    title = stringResource(R.string.search_trending_manga),
+                    icon = Icons.Default.Whatshot,
+                )
+            }
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = Spacing.gutter),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+                ) {
+                    items(trendingManga, key = { it.id }) { manga ->
+                        val title = if (preferEnglishTitles && !manga.title.english.isNullOrBlank()) manga.title.english
+                        else manga.title.romaji ?: stringResource(R.string.explore_unknown)
+                        Box(modifier = Modifier.width(132.dp)) {
+                            SearchPosterCard(
+                                title = title,
+                                cover = manga.coverImage?.large ?: manga.coverImage?.medium ?: "",
+                                score = manga.averageScore?.let { it / 10.0 },
+                                meta = mangaMeta(manga),
+                                statusLabel = null,
+                                statusTint = Color.Transparent,
+                                onClick = { onMangaClick(manga) },
+                            )
+                        }
+                    }
+                }
+            }
+            item { Spacer(Modifier.height(Spacing.section)) }
+        }
+
+        item {
+            TenseiSectionHeader(
+                title = stringResource(R.string.search_browse_genres),
+                icon = Icons.Default.Tune,
+            )
+        }
+        item {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.gutter),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
             ) {
-                format?.let { fmt ->
-                    Text(fmt, color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                    if (year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                }
-                year?.let {
-                    Text("$it", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                }
-                if (!isAnime && manga?.chapters != null) {
-                    if (format != null || year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                    Text(stringResource(R.string.search_chapter_count, manga.chapters), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                }
-                if (isAnime && anime != null && anime.episodes > 0 && format?.uppercase() != "MOVIE") {
-                    if (year != null) Text(" • ", color = Color.White.copy(alpha = 0.3f), style = MaterialTheme.typography.labelSmall)
-                    Text(stringResource(R.string.search_episode_count, anime.episodes), color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
+                ALL_GENRES.forEach { genre ->
+                    DiscoveryPill(label = genre, isOled = isOled, onClick = { onGenreSelect(genre) })
                 }
             }
         }
@@ -1313,246 +1625,415 @@ private fun MediaSearchResultCard(
 }
 
 @Composable
-private fun FilterRow(
+private fun DiscoveryPill(
     label: String,
-    count: Int,
-    onClick: () -> Unit
+    isOled: Boolean,
+    onClick: () -> Unit,
+    icon: ImageVector? = null,
 ) {
     Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = Color(0xFF2A2A2A),
-        modifier = Modifier.fillMaxWidth().height(42.dp).clickable(onClick = onClick)
+        shape = CircleShape,
+        color = searchContainerColor(isOled),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        onClick = onClick,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(label, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            if (count > 0) {
-                Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.primary) {
-                    Text("$count", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
-        }
-    }
-}
-
-@Composable
-private fun MultiSelectSheet(
-    options: List<String>,
-    selected: Set<String>,
-    onToggle: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var searchQuery by remember { mutableStateOf("") }
-
-    val filtered = remember(options, searchQuery) {
-        if (searchQuery.isBlank()) options
-        else options.filter { it.contains(searchQuery, ignoreCase = true) }
-    }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = Color(0xFF1A1A1A),
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.75f)
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(stringResource(R.string.search_select_genres), color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_close), tint = Color.White.copy(alpha = 0.6f))
-                    }
-                }
-                BasicTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).height(36.dp).background(Color(0xFF2A2A2A), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp),
-                    singleLine = true,
-                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    decorationBox = { innerTextField ->
-                        Box(contentAlignment = Alignment.CenterStart) {
-                            if (searchQuery.isEmpty()) Text(stringResource(R.string.search_placeholder_short), color = Color.White.copy(alpha = 0.3f), fontSize = 14.sp)
-                            innerTextField()
-                        }
-                    }
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                if (filtered.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.search_no_matches), color = Color.White.copy(alpha = 0.3f))
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)
-                    ) {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            filtered.forEach { option ->
-                                FilterChip(
-                                    selected = option in selected,
-                                    onClick = { onToggle(option) },
-                                    label = { Text(option, style = MaterialTheme.typography.labelSmall) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        containerColor = Color(0xFF2A2A2A),
-                                        selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f),
-                                        labelColor = Color.White.copy(alpha = 0.7f),
-                                        selectedLabelColor = MaterialTheme.colorScheme.primary
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        borderColor = Color.Transparent,
-                                        selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                                        enabled = true,
-                                        selected = option in selected
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
+                Spacer(Modifier.width(Spacing.xs))
             }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Filter sheets
+// ─────────────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TagSelectSheet(
-    allTags: List<MediaTag>,
-    selected: Set<String>,
-    onToggle: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var searchQuery by remember { mutableStateOf("") }
-
-    val filtered = remember(allTags, searchQuery) {
-        val q = searchQuery.lowercase().trim()
-        if (q.isEmpty()) allTags
-        else allTags.filter { it.name.lowercase().contains(q) }
-    }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = Color(0xFF1A1A1A),
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.75f)
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(stringResource(R.string.search_select_tags), color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.weight(1f))
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.search_close), tint = Color.White.copy(alpha = 0.6f))
-                    }
-                }
-                BasicTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).height(36.dp).background(Color(0xFF2A2A2A), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp),
-                    singleLine = true,
-                    textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    decorationBox = { innerTextField ->
-                        Box(contentAlignment = Alignment.CenterStart) {
-                            if (searchQuery.isEmpty()) Text(stringResource(R.string.search_tags_hint), color = Color.White.copy(alpha = 0.3f), fontSize = 14.sp)
-                            innerTextField()
-                        }
-                    }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                if (filtered.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(stringResource(R.string.search_no_tags_match), color = Color.White.copy(alpha = 0.3f))
-                    }
-                } else {
-                    val selectedCount = selected.size
-                    Text(
-                        stringResource(R.string.search_tags_count, filtered.size) + (if (selectedCount > 0) stringResource(R.string.search_tags_selected, selectedCount) else ""),
-                        color = Color.White.copy(alpha = 0.4f),
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)
-                    ) {
-                        items(filtered, key = { it.id }) { tag ->
-                            val isSelected = tag.name in selected
-                            Row(
-                                modifier = Modifier.fillMaxWidth().clickable { onToggle(tag.name) }.padding(vertical = 8.dp, horizontal = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = if (isSelected) MaterialTheme.colorScheme.tertiary else Color(0xFF2A2A2A),
-                                    modifier = Modifier.size(22.dp)
-                                ) {
-                                    if (isSelected) Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.padding(3.dp))
-                                }
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    tag.name,
-                                    color = Color.White.copy(alpha = if (isSelected) 0.9f else 0.6f),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RowScope.DropdownFilter(
-    label: String,
-    currentValue: String?,
-    options: List<String>,
-    expanded: Boolean,
-    onToggle: () -> Unit,
+private fun SingleSelectFilterSheet(
+    title: String,
+    options: List<Pair<String, String>>,
+    selectedValue: String?,
+    anyLabel: String,
+    isOled: Boolean,
+    onSelect: (String?) -> Unit,
     onDismiss: () -> Unit,
-    onSelect: (String?) -> Unit
 ) {
-    Column(modifier = Modifier.weight(1f)) {
-        Text(label, color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.labelSmall)
-        Box {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = searchSheetColor(isOled),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.xxl)) {
+            SheetTitle(title)
+            SheetOptionRow(
+                label = anyLabel,
+                selected = selectedValue == null,
+                onClick = { onSelect(null); onDismiss() },
+            )
+            options.forEach { (value, label) ->
+                SheetOptionRow(
+                    label = label,
+                    selected = selectedValue == value,
+                    onClick = { onSelect(value); onDismiss() },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetOptionRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = Spacing.xl, vertical = Spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (selected) accent else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        if (selected) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MultiSelectFilterSheet(
+    title: String,
+    hint: String,
+    options: List<String>,
+    selected: Set<String>,
+    isOled: Boolean,
+    onToggle: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filtered = remember(options, searchQuery) {
+        val q = searchQuery.trim()
+        if (q.isEmpty()) options else options.filter { it.contains(q, ignoreCase = true) }
+    }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = searchSheetColor(isOled),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.xxl)) {
+            SheetTitle(
+                title = title,
+                subtitle = if (selected.isNotEmpty()) {
+                    stringResource(R.string.search_tags_selected_count, selected.size)
+                } else null,
+            )
             Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color(0xFF2A2A2A),
-                modifier = Modifier.fillMaxWidth().height(34.dp).clickable(onClick = onToggle)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.xl)
+                    .height(40.dp),
+                shape = Radius.chipShape,
+                color = searchContainerColor(isOled, raised = true),
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(currentValue ?: stringResource(R.string.search_any), color = if (currentValue != null) Color.White else Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(Spacing.sm))
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        decorationBox = { innerTextField ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        text = hint,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        },
+                    )
                 }
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.search_any)) }, onClick = { onSelect(null); onDismiss() })
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.replace("_", " ").replaceFirstChar { it.uppercase() }) },
-                        onClick = { onSelect(option); onDismiss() }
+            Spacer(Modifier.height(Spacing.md))
+            if (filtered.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.xxl),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.search_no_matches),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = Spacing.xl),
+                ) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    ) {
+                        filtered.forEach { option ->
+                            SelectableChip(
+                                label = option,
+                                selected = option in selected,
+                                isOled = isOled,
+                                onClick = { onToggle(option) },
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun YearFilterSheet(
+    current: String,
+    isOled: Boolean,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(current) }
+    val thisYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
+    val years = remember(thisYear) { (thisYear downTo thisYear - 25).toList() }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = searchSheetColor(isOled),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = Spacing.xxl)) {
+            SheetTitle(title = stringResource(R.string.search_year))
+            BasicTextField(
+                value = text,
+                onValueChange = { if (it.all { c -> c.isDigit() } && it.length <= 4) text = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.xl)
+                    .height(44.dp)
+                    .clip(Radius.chipShape)
+                    .background(searchContainerColor(isOled, raised = true))
+                    .padding(horizontal = Spacing.md),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (text.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.search_year_hint),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+            )
+            Spacer(Modifier.height(Spacing.lg))
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.xl),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                years.forEach { year ->
+                    SelectableChip(
+                        label = year.toString(),
+                        selected = text == year.toString(),
+                        isOled = isOled,
+                        onClick = { text = year.toString() },
+                    )
+                }
+            }
+            Spacer(Modifier.height(Spacing.lg))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+            ) {
+                TextButton(
+                    onClick = { onSelect(""); onDismiss() },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(R.string.search_any))
+                }
+                Surface(
+                    modifier = Modifier.weight(1f),
+                    shape = Radius.controlShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    onClick = { onSelect(text); onDismiss() },
+                ) {
+                    Box(modifier = Modifier.height(44.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = stringResource(R.string.search_action),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectableChip(
+    label: String,
+    selected: Boolean,
+    isOled: Boolean,
+    onClick: () -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.primary
+    Surface(
+        shape = CircleShape,
+        color = if (selected) accent.copy(alpha = 0.16f) else searchContainerColor(isOled, raised = true),
+        border = BorderStroke(
+            1.dp,
+            if (selected) accent.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant,
+        ),
+        onClick = onClick,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(Spacing.xs))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SheetTitle(
+    title: String,
+    subtitle: String? = null,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl, vertical = Spacing.md)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (subtitle != null) {
+            Spacer(Modifier.height(Spacing.xxs))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Small helpers
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Badge text for a tracked title, or `null` when the card should show no status
+ * indicator at all — either the user disabled status colours or the title has no
+ * list status. Returning `null` (rather than a grey fallback label) is what keeps
+ * untracked cards free of a status stripe/chip.
+ */
+@Composable
+private fun resolvedStatusLabel(status: String?, isManga: Boolean, show: Boolean): String? {
+    if (!show || status == null) return null
+    return (if (isManga) MangaStatusLabels[status] else StatusLabels[status]) ?: status
+}
+
+/** Status tint for a tracked title, or transparent when it should not be drawn. */
+@Composable
+private fun resolvedStatusTint(status: String?, show: Boolean): Color =
+    if (show && status != null) statusColorOnArtwork(status) else Color.Transparent
+
+private fun animeTitle(anime: ExploreAnime, preferEnglishTitles: Boolean): String = when {
+    preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty() -> anime.titleEnglish
+    anime.title.isNotEmpty() -> anime.title
+    !anime.titleEnglish.isNullOrEmpty() -> anime.titleEnglish
+    else -> "Unknown"
+}
+
+@Composable
+private fun animeMeta(anime: ExploreAnime): String = listOfNotNull(
+    anime.format?.replace("_", " "),
+    anime.year?.toString(),
+    if (anime.episodes > 0 && anime.format?.uppercase() != "MOVIE") {
+        stringResource(R.string.search_episode_count, anime.episodes)
+    } else null,
+).joinToString("  \u2022  ")
+
+@Composable
+private fun mangaMeta(manga: MangaExploreMedia): String = listOfNotNull(
+    manga.format?.replace("_", " "),
+    (manga.seasonYear ?: manga.startDate?.year)?.toString(),
+    manga.chapters?.takeIf { it > 0 }?.let { stringResource(R.string.search_chapter_count, it) },
+).joinToString("  \u2022  ")

@@ -83,6 +83,8 @@
     <string name="settings_display_manga_status_colors_desc">Show colored status bars on manga cards</string>
     <string name="settings_display_manga_card_buttons">Manga Card Buttons</string>
     <string name="settings_display_manga_card_buttons_desc">Bookmark and read buttons on manga cards in Explore</string>
+    <string name="settings_display_advanced_search">Advanced Search Screen</string>
+    <string name="settings_display_advanced_search_desc">Show filters, tag search, type switch and discovery on the search screen</string>
     <string name="settings_section_launch">LAUNCH</string>
     <string name="settings_launch_desc">Choose which screen appears when you open the app</string>
     <string name="settings_startup_schedule">Schedule</string>

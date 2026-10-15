@@ -84,6 +84,8 @@
     <string name="settings_display_manga_status_colors_desc">Farbige Statusleisten auf Manga-Karten anzeigen</string>
     <string name="settings_display_manga_card_buttons">Buttons auf Manga-Karten</string>
     <string name="settings_display_manga_card_buttons_desc">Lesezeichen- und Lesen-Buttons auf Manga-Karten im Entdecken-Bereich</string>
+    <string name="settings_display_advanced_search">Erweiterte Suche</string>
+    <string name="settings_display_advanced_search_desc">Filter, Tag-Suche, Typ-Auswahl und Vorschläge auf dem Suchbildschirm anzeigen</string>
     <string name="settings_section_launch">START</string>
     <string name="settings_launch_desc">Wähle aus, welcher Bildschirm beim Öffnen der App erscheint</string>
     <string name="settings_startup_schedule">Ausstrahlungsplan</string>

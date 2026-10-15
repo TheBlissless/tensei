@@ -33,6 +33,7 @@ class UserPreferences(context: Context) {
         private const val KEY_SHOW_MANGA_CARD_BUTTONS = "show_manga_card_buttons"
         private const val KEY_SHOW_MANGA_STATUS_COLORS = "show_manga_status_colors"
         private const val KEY_PREFER_ENGLISH_TITLES = "prefer_english_titles"
+        private const val KEY_ADVANCED_SEARCH = "advanced_search"
         private const val KEY_TRACKING_PERCENTAGE = "tracking_percentage"
         private const val KEY_FORWARD_SKIP_SECONDS = "forward_skip_seconds"
         private const val KEY_BACKWARD_SKIP_SECONDS = "backward_skip_seconds"
@@ -139,6 +140,9 @@ class UserPreferences(context: Context) {
 
     private val _preferEnglishTitles = MutableStateFlow(true)
     val preferEnglishTitles: StateFlow<Boolean> = _preferEnglishTitles.asStateFlow()
+
+    private val _advancedSearch = MutableStateFlow(false)
+    val advancedSearch: StateFlow<Boolean> = _advancedSearch.asStateFlow()
 
     private val _trackingPercentage = MutableStateFlow(85)
     val trackingPercentage: StateFlow<Int> = _trackingPercentage.asStateFlow()
@@ -343,6 +347,7 @@ class UserPreferences(context: Context) {
         _showMangaCardButtons.value = sharedPreferences.getBoolean(KEY_SHOW_MANGA_CARD_BUTTONS, false)
         _showMangaStatusColors.value = sharedPreferences.getBoolean(KEY_SHOW_MANGA_STATUS_COLORS, false)
         _preferEnglishTitles.value = sharedPreferences.getBoolean(KEY_PREFER_ENGLISH_TITLES, true)
+        _advancedSearch.value = sharedPreferences.getBoolean(KEY_ADVANCED_SEARCH, false)
 
         _trackingPercentage.value = sharedPreferences.getInt(KEY_TRACKING_PERCENTAGE, 85)
         _forwardSkipSeconds.value = sharedPreferences.getInt(KEY_FORWARD_SKIP_SECONDS, 10)
@@ -493,6 +498,11 @@ class UserPreferences(context: Context) {
     fun setPreferEnglishTitles(enabled: Boolean) {
         _preferEnglishTitles.value = enabled
         sharedPreferences.edit { putBoolean(KEY_PREFER_ENGLISH_TITLES, enabled) }
+    }
+
+    fun setAdvancedSearch(enabled: Boolean) {
+        _advancedSearch.value = enabled
+        sharedPreferences.edit { putBoolean(KEY_ADVANCED_SEARCH, enabled) }
     }
 
     fun setTrackingPercentage(percentage: Int) {
