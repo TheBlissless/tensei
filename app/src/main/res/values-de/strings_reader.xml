@@ -14,6 +14,7 @@
     <string name="reader_mode_rtl">Seitenmodus von rechts nach links</string>
     <string name="reader_retry">Erneut versuchen</string>
     <string name="reader_loading_chapter">Kapitel wird geladen…</string>
+    <string name="reader_load_cancelled">Laden abgebrochen.</string>
     <string name="reader_page_number">Seite %1$d</string>
     <string name="reader_loading_chapters">Kapitel werden geladen…</string>
     <string name="reader_no_chapters_found">Keine Kapitel gefunden</string>

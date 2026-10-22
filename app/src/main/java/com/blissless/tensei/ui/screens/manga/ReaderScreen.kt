@@ -75,6 +75,8 @@ import com.blissless.tensei.data.models.MangaChapter
 import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.data.models.countDistinctChapters
 import com.blissless.tensei.viewmodel.clearMangaChapterImagesCache
+import com.blissless.tensei.viewmodel.cancelChapterImageLoad
+import com.blissless.tensei.viewmodel.cancelMangaChapterLoad
 import com.blissless.tensei.viewmodel.fetchMangaDetail
 import com.blissless.tensei.viewmodel.flushMangaSync
 import com.blissless.tensei.viewmodel.hasLoadedMangaChapters
@@ -106,6 +108,17 @@ import kotlinx.coroutines.launch
 import okhttp3.Headers
 
 enum class ReaderMode { VERTICAL_SCROLL, LEFT_TO_RIGHT, RIGHT_TO_LEFT }
+
+// ─── Reader overlay palette ───────────────────────────────────────────────
+// The reader's control overlays (top bar, bottom bar, loading and error states) always sit
+// on a dark background, so they use fixed light colors instead of the app theme's: in the
+// light app theme the theme's primary/onSurface tones are dark and would be unreadable on
+// black, and over a white manga page the theme's light tones would vanish.
+private val ReaderAccent = Color(0xFF60A5FA)          // light blue accent (active states)
+private val ReaderTextStrong = Color.White
+private val ReaderTextMuted = Color.White.copy(alpha = 0.75f)
+private val ReaderTextFaint = Color.White.copy(alpha = 0.45f)
+private val ReaderScrim = Color.Black.copy(alpha = 0.85f)
 
 @Composable
 fun MangaReaderScreen(
@@ -187,6 +200,11 @@ fun MangaReaderScreen(
     var displayedImages by remember { mutableStateOf<List<String>?>(null) }
     var displayedImagesError by remember { mutableStateOf<String?>(null) }
     var displayedChapterIndex by remember { mutableIntStateOf(-1) }
+    // Chapter whose image load the user cancelled. The load effect below re-runs whenever the
+    // load state changes, so the cancelled chapter is remembered to block that automatic
+    // restart; it is cleared when the user picks or retries a chapter.
+    var cancelledChapterId by remember { mutableStateOf<String?>(null) }
+    val loadCancelledMessage = stringResource(R.string.reader_load_cancelled)
     // Read marks come from the local track's FLOAT progress (314.1 after that subchapter
     // was read) instead of the model's truncated Int: 314.1 must show as read while the
     // 314.2 after it must not. Whichever source is further along wins, so a model that
@@ -288,6 +306,8 @@ fun MangaReaderScreen(
     LaunchedEffect(currentChapter, showChapterList, pendingChapterLoad) {
         if (!showChapterList || pendingChapterLoad) {
             currentChapter?.let { chapter ->
+                // A cancelled load stays cancelled until the user picks or retries a chapter.
+                if (cancelledChapterId == chapter.chapterId) return@let
                 viewModel.loadChapterImages(
                     chapterId = chapter.chapterId,
                     useDataSaver = useDataSaver,
@@ -446,6 +466,10 @@ fun MangaReaderScreen(
         pendingChapterLoad = true
         pendingChapterIndex = index
         showControls = false
+        // Picking a chapter explicitly always loads it, even if a previous load of it was
+        // cancelled, and drops any stale error (e.g. from a cancelled or failed chapter).
+        cancelledChapterId = null
+        displayedImagesError = null
     }
 
     // A chapter only counts as read once it is actually read (scrolled past the sync
@@ -495,8 +519,25 @@ fun MangaReaderScreen(
     fun retryChapterLoad() {
         // Clear the stale error so the reader shows its loading state while retrying.
         displayedImagesError = null
+        cancelledChapterId = null
         currentChapter?.let { chapter ->
             viewModel.loadChapterImages(chapter.chapterId, useDataSaver, manga.title, chapter.title, manga.id)
+        }
+    }
+
+    // Cancel the current chapter image load: stops the request and leaves the reader on the
+    // chapter that is already on screen (or on its error/retry screen) instead of spinning.
+    fun cancelChapterLoad() {
+        val chapter = currentChapter ?: return
+        cancelledChapterId = chapter.chapterId
+        viewModel.cancelChapterImageLoad()
+        pendingChapterLoad = false
+        pendingChapterIndex = -1
+        // If nothing is on screen yet, fall back to the error/retry screen so the reader
+        // does not spin forever.
+        if (displayedImages.isNullOrEmpty()) {
+            displayedImages = null
+            displayedImagesError = loadCancelledMessage
         }
     }
 
@@ -572,6 +613,9 @@ fun MangaReaderScreen(
                             viewModel.loadMangaChapters(manga.id, manga.title)
                         }
                     },
+                    onCancelLoadChapters = {
+                        viewModel.cancelMangaChapterLoad()
+                    },
                     onBack = {
                         handleReaderBack()
                     }
@@ -613,7 +657,8 @@ fun MangaReaderScreen(
                         },
                         onCurrentPage = { page -> currentPageIndex = page },
                         onToggleControls = { showControls = !showControls },
-                        onRetry = { retryChapterLoad() }
+                        onRetry = { retryChapterLoad() },
+                        onCancel = { cancelChapterLoad() }
                     )
                 }
             }
@@ -635,6 +680,7 @@ fun MangaReaderScreen(
                         onPrevChapter = { if (!isFirstChapter) selectChapter(currentChapterIndex - 1) },
                         onNextChapter = { if (!isLastChapter) selectChapter(currentChapterIndex + 1) },
                         onRetry = { retryChapterLoad() },
+                        onCancel = { cancelChapterLoad() },
                         onPageChanged = { page, total ->
                             currentPageIndex = page
                             if (total > 1) {
@@ -659,7 +705,7 @@ fun MangaReaderScreen(
         // or the current chapter while a next/prev transition loads). Drawn after the branch
         // content so it sits on top, and dismissed once the new chapter's images are ready.
         if (pendingChapterLoad) {
-            ChapterLoadingView()
+            ChapterLoadingView(onCancel = { cancelChapterLoad() })
         }
 
         // ─── Overlay: top bar (only when reading) ─────────────────────
@@ -682,7 +728,9 @@ fun MangaReaderScreen(
                                 Text(
                                     text = currentChapter.title,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    // The top bar is always dark, so the theme's onSurfaceVariant
+                                    // (dark in the light theme) would be unreadable here.
+                                    color = ReaderTextMuted,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -702,7 +750,7 @@ fun MangaReaderScreen(
                             Icon(
                                 Icons.Default.SkipPrevious,
                                 contentDescription = stringResource(R.string.reader_previous_chapter),
-                                tint = if (currentChapterIndex > 0) Color.White else Color.White.copy(alpha = 0.3f)
+                                tint = if (currentChapterIndex > 0) ReaderTextStrong else ReaderTextStrong.copy(alpha = 0.3f)
                             )
                         }
                         IconButton(
@@ -712,14 +760,15 @@ fun MangaReaderScreen(
                             Icon(
                                 Icons.Default.SkipNext,
                                 contentDescription = stringResource(R.string.reader_next_chapter),
-                                tint = if (currentChapterIndex < chapters.lastIndex) Color.White else Color.White.copy(alpha = 0.3f)
+                                tint = if (currentChapterIndex < chapters.lastIndex) ReaderTextStrong else ReaderTextStrong.copy(alpha = 0.3f)
                             )
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Black.copy(alpha = 0.95f),
-                        titleContentColor = Color.White,
-                        navigationIconContentColor = Color.White
+                        titleContentColor = ReaderTextStrong,
+                        navigationIconContentColor = ReaderTextStrong,
+                        actionIconContentColor = ReaderTextStrong
                     )
                 )
                 Box(modifier = Modifier.fillMaxWidth().height(3.dp).background(Color.Black.copy(alpha = 0.95f))) {
@@ -728,7 +777,7 @@ fun MangaReaderScreen(
                         modifier = Modifier
                             .fillMaxWidth(scrollProgress.coerceIn(0f, 1f))
                             .height(3.dp)
-                            .background(MaterialTheme.colorScheme.primary)
+                            .background(ReaderAccent)
                     )
                     // AniList sync-threshold marker — shows where the sync-threshold mark-as-read
                     // kicks in on the progress bar.
@@ -782,7 +831,9 @@ fun MangaReaderScreen(
                 Box(
                     modifier = Modifier
                         .size(34.dp)
-                        .background(Color.White.copy(alpha = 0.22f), CircleShape),
+                        // Tinted with the button's content color so the arrow stays legible
+                        // on the circle in both app themes.
+                        .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.22f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -838,7 +889,7 @@ fun MangaReaderScreen(
                         Text(
                             text = "${currentPageIndex + 1} / $totalPages",
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color.White
+                            color = ReaderTextStrong
                         )
                     }
                 }
@@ -861,7 +912,7 @@ fun MangaReaderScreen(
                         Icon(
                             if (lockRotation) Icons.Default.Lock else Icons.Default.LockOpen,
                             contentDescription = stringResource(R.string.reader_toggle_rotation_lock),
-                            tint = if (lockRotation) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
+                            tint = if (lockRotation) ReaderAccent else ReaderTextFaint,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -890,7 +941,7 @@ fun MangaReaderScreen(
                             Icon(
                                 if (fullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
                                 contentDescription = stringResource(R.string.reader_toggle_fullscreen),
-                                tint = if (fullscreen) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
+                                tint = if (fullscreen) ReaderAccent else ReaderTextFaint,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -901,7 +952,7 @@ fun MangaReaderScreen(
                             Icon(
                                 Icons.AutoMirrored.Filled.Article,
                                 contentDescription = stringResource(R.string.reader_toggle_page_indicator),
-                                tint = if (showPageIndicator) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f),
+                                tint = if (showPageIndicator) ReaderAccent else ReaderTextFaint,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -974,14 +1025,16 @@ private fun ReaderModeToggleItem(
         modifier = Modifier
             .size(32.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+            // The toggle sits in the dark bottom bar, so the selected item uses a light
+            // accent (the theme's primary is dark in the light app theme).
+            .background(if (selected) ReaderAccent else Color.Transparent)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             icon,
             contentDescription = contentDescription,
-            tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            tint = if (selected) Color(0xFF062033) else ReaderTextMuted,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -994,7 +1047,7 @@ private fun ChapterLoadErrorView(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier.fillMaxSize().padding(32.dp),
+        modifier = modifier.fillMaxSize().background(ReaderScrim).padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -1004,19 +1057,22 @@ private fun ChapterLoadErrorView(
             Icon(
                 Icons.Default.ErrorOutline,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.6f),
+                tint = ReaderTextMuted,
                 modifier = Modifier.size(48.dp)
             )
             Text(
                 text = message,
-                color = Color.White.copy(alpha = 0.85f),
+                color = ReaderTextStrong,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Button(
                 onClick = onRetry,
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ReaderAccent,
+                    contentColor = Color(0xFF062033)
+                )
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
@@ -1027,7 +1083,7 @@ private fun ChapterLoadErrorView(
 }
 
 @Composable
-private fun ChapterLoadingView(modifier: Modifier = Modifier) {
+private fun ChapterLoadingView(modifier: Modifier = Modifier, onCancel: (() -> Unit)? = null) {
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -1035,9 +1091,21 @@ private fun ChapterLoadingView(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = Color.White)
+            CircularProgressIndicator(color = ReaderTextStrong)
             Spacer(modifier = Modifier.height(16.dp))
-            Text(stringResource(R.string.reader_loading_chapter), color = Color.White)
+            Text(stringResource(R.string.reader_loading_chapter), color = ReaderTextStrong)
+            if (onCancel != null) {
+                Spacer(modifier = Modifier.height(24.dp))
+                // Explicit light colors: the overlay is always dark, so the theme's default
+                // outlined-button colors would be unreadable in the light app theme.
+                OutlinedButton(
+                    onClick = onCancel,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ReaderTextStrong),
+                    border = BorderStroke(1.dp, ReaderTextStrong.copy(alpha = 0.7f))
+                ) {
+                    Text(stringResource(R.string.common_cancel), color = ReaderTextStrong)
+                }
+            }
         }
     }
 }
@@ -1056,7 +1124,8 @@ private fun VerticalScrollReader(
     onScrollProgress: (Float) -> Unit,
     onCurrentPage: (Int) -> Unit = {},
     onToggleControls: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onCancel: (() -> Unit)? = null
 ) {
     val listState = rememberLazyListState()
     var restored by remember { mutableStateOf(false) }
@@ -1133,7 +1202,7 @@ private fun VerticalScrollReader(
 
     // Loading state — chapter just started loading
     if (chapterImages.isEmpty()) {
-        ChapterLoadingView(modifier = Modifier.fillMaxSize())
+        ChapterLoadingView(modifier = Modifier.fillMaxSize(), onCancel = onCancel)
         return
     }
 
@@ -1173,6 +1242,7 @@ private fun PagedMangaReader(
     onPrevChapter: () -> Unit,
     onNextChapter: () -> Unit,
     onRetry: () -> Unit,
+    onCancel: (() -> Unit)? = null,
     onPageChanged: (page: Int, total: Int) -> Unit = { _, _ -> }
 ) {
     // Error state — show error message + retry button
@@ -1186,7 +1256,7 @@ private fun PagedMangaReader(
     }
 
     if (chapterImages.isEmpty()) {
-        ChapterLoadingView(modifier = Modifier.fillMaxSize())
+        ChapterLoadingView(modifier = Modifier.fillMaxSize(), onCancel = onCancel)
         return
     }
 
@@ -1322,6 +1392,7 @@ fun MangaChapterListWithGroups(
     hasLoadedChapters: Boolean = false,
     onContinueReading: (() -> Unit)? = null,
     onRetryLoadChapters: (() -> Unit)? = null,
+    onCancelLoadChapters: (() -> Unit)? = null,
     onBack: (() -> Unit)? = null
 ) {
     if (chapters.isEmpty()) {
@@ -1343,9 +1414,22 @@ fun MangaChapterListWithGroups(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(color = Color.White)
+                        CircularProgressIndicator(color = ReaderTextStrong)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(stringResource(R.string.reader_loading_chapters), color = Color.White)
+                        Text(stringResource(R.string.reader_loading_chapters), color = ReaderTextStrong)
+                        if (onCancelLoadChapters != null) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            // Explicit light colors: the overlay is always dark, so the theme's
+                            // default outlined-button colors would be unreadable in the light
+                            // app theme.
+                            OutlinedButton(
+                                onClick = onCancelLoadChapters,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = ReaderTextStrong),
+                                border = BorderStroke(1.dp, ReaderTextStrong.copy(alpha = 0.7f))
+                            ) {
+                                Text(stringResource(R.string.common_cancel), color = ReaderTextStrong)
+                            }
+                        }
                     }
                 }
             } else {

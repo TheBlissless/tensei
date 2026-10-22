@@ -52,6 +52,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.blissless.tensei.R
 
@@ -103,7 +104,10 @@ internal fun StreamErrorOverlay(
             if (showTryNextServer) {
                 Button(
                     onClick = onTryNextServer,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
                     Text(stringResource(R.string.player_try_next_server))
                 }
@@ -143,7 +147,7 @@ internal fun VolumeOverlay(
     disableMaterialColors: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val accentColor = if (disableMaterialColors) Color.White else MaterialTheme.colorScheme.primary
+    val accentColor = if (disableMaterialColors) Color.White else playerAccentColor()
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(animationSpec = tween(200)) + slideInVertically { it / 4 },
@@ -357,8 +361,10 @@ internal fun AutoplayFullscreenRow(
                         onCheckedChange = onAutoPlayChange,
                         modifier = Modifier.scale(if (isCompact) 0.35f else 0.5f),
                         colors = SwitchDefaults.colors(
-                            checkedTrackColor = Color.White,
-                            checkedThumbColor = Color.Black,
+                            // Accent-coloured track: the switch floats over the video, so it uses
+                            // the player's (always light) accent instead of the theme's primary.
+                            checkedTrackColor = playerAccentColor(),
+                            checkedThumbColor = Color.White,
                             uncheckedTrackColor = Color.White.copy(alpha = 0.3f),
                             uncheckedThumbColor = Color.White
                         )
@@ -439,12 +445,14 @@ internal fun PlaybackSpeedSelector(
             expanded = showMenu,
             onDismissRequest = { onShowMenuChange(false) }
         ) {
+            // The menu follows the app theme (light panel + dark text in the light theme).
+            val accent = playerMenuAccentColor()
             speedOptions.forEach { speed ->
                 androidx.compose.material3.DropdownMenuItem(
                     text = {
                         Text(
                             text = "${speed}x",
-                            color = if (currentSpeed == speed) MaterialTheme.colorScheme.primary else Color.White
+                            color = if (currentSpeed == speed) accent else MaterialTheme.colorScheme.onSurface
                         )
                     },
                     onClick = {
@@ -452,7 +460,7 @@ internal fun PlaybackSpeedSelector(
                         onShowMenuChange(false)
                     },
                     leadingIcon = if (currentSpeed == speed) {
-                        { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) }
+                        { Icon(Icons.Default.Check, null, tint = accent) }
                     } else null
                 )
             }
@@ -525,6 +533,10 @@ internal fun PlayerSettingsButton(
     supportsPiP: Boolean = false,
     onPiPToggle: ((Boolean) -> Unit)? = null,
 ) {
+    // Accent for the switches: the menu follows the app theme, so the accent has to stay
+    // readable on a light panel (semi-monochrome mode darkens the app blue).
+    val menuAccent = playerMenuAccentColor()
+    val menuWidth = playerMenuWidth(280.dp)
     Box {
         Surface(
             shape = RoundedCornerShape(if (isCompact) 10.dp else 14.dp),
@@ -547,7 +559,9 @@ internal fun PlayerSettingsButton(
         androidx.compose.material3.DropdownMenu(
             expanded = showMenu,
             onDismissRequest = { onShowMenuChange(false) },
-            modifier = Modifier.background(Color(0xFF1A1A1A)).width(220.dp)
+            // The menu never grows past the screen: on small devices the labels wrap onto a
+            // second line instead of being cut off.
+            modifier = Modifier.width(menuWidth)
         ) {
             androidx.compose.material3.DropdownMenuItem(
                 text = {
@@ -556,11 +570,17 @@ internal fun PlayerSettingsButton(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(stringResource(R.string.player_swipe_for_volume, stringResource(if (swipeSwap) R.string.player_side_right else R.string.player_side_left)), color = Color.White)
+                        Text(stringResource(R.string.player_swipe_for_volume, stringResource(if (swipeSwap) R.string.player_side_right else R.string.player_side_left)), color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 12.dp))
                         Switch(
                             checked = swipeVolume,
                             onCheckedChange = onSwipeVolumeChange,
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = menuAccent,
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                uncheckedBorderColor = MaterialTheme.colorScheme.outline
+                            )
                         )
                     }
                 },
@@ -573,11 +593,17 @@ internal fun PlayerSettingsButton(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(stringResource(R.string.player_swipe_for_brightness, stringResource(if (swipeSwap) R.string.player_side_left else R.string.player_side_right)), color = Color.White)
+                        Text(stringResource(R.string.player_swipe_for_brightness, stringResource(if (swipeSwap) R.string.player_side_left else R.string.player_side_right)), color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 12.dp))
                         Switch(
                             checked = swipeBrightness,
                             onCheckedChange = onSwipeBrightnessChange,
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = menuAccent,
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                uncheckedBorderColor = MaterialTheme.colorScheme.outline
+                            )
                         )
                     }
                 },
@@ -590,11 +616,17 @@ internal fun PlayerSettingsButton(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(stringResource(R.string.player_swap_sides), color = Color.White)
+                        Text(stringResource(R.string.player_swap_sides), color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 12.dp))
                         Switch(
                             checked = swipeSwap,
                             onCheckedChange = onSwipeSwapChange,
-                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+                            colors = SwitchDefaults.colors(
+                                checkedTrackColor = menuAccent,
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                uncheckedBorderColor = MaterialTheme.colorScheme.outline
+                            )
                         )
                     }
                 },
@@ -608,11 +640,17 @@ internal fun PlayerSettingsButton(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(stringResource(R.string.player_picture_in_picture), color = Color.White)
+                            Text(stringResource(R.string.player_picture_in_picture), color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 12.dp))
                             Switch(
                                 checked = supportsPiP,
                                 onCheckedChange = onPiPToggle,
-                                colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary)
+                                colors = SwitchDefaults.colors(
+                                    checkedTrackColor = menuAccent,
+                                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.outline
+                                )
                             )
                         }
                     },

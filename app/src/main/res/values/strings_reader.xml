@@ -14,6 +14,7 @@
     <string name="reader_mode_rtl">Right to left paged mode</string>
     <string name="reader_retry">Retry</string>
     <string name="reader_loading_chapter">Loading chapter...</string>
+    <string name="reader_load_cancelled">Loading cancelled.</string>
     <string name="reader_page_number">Page %1$d</string>
     <string name="reader_loading_chapters">Loading chapters...</string>
     <string name="reader_no_chapters_found">No chapters found</string>

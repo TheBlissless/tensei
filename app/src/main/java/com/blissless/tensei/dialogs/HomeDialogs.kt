@@ -89,7 +89,7 @@ fun HomeAnimeStatusDialog(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = if (isOled) Color.Black else Color(0xFF1A1A1A)
+        containerColor = if (isOled) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 32.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -98,7 +98,7 @@ fun HomeAnimeStatusDialog(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title,
-                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Spacer(modifier = Modifier.height(4.dp))
                         val latestEp = anime.latestEpisode?.takeIf { it > 0 }
                         val totalEp = anime.totalEpisodes.takeIf { it > 0 }
@@ -108,7 +108,7 @@ fun HomeAnimeStatusDialog(
                             totalEp != null -> "${anime.progress} / $totalEp"
                             else -> "${anime.progress}"
                         }
-                        Text(stringResource(R.string.comp_home_dialog_progress, progressText), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.comp_home_dialog_progress, progressText), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
@@ -207,7 +207,7 @@ fun HomeAnimeStatusDialog(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(stringResource(R.string.comp_home_episode_progress), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
+                Text(stringResource(R.string.comp_home_episode_progress), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val maxEp = anime.latestEpisode?.takeIf { it > 0 } ?: anime.totalEpisodes.takeIf { it > 0 }
@@ -226,12 +226,12 @@ fun HomeAnimeStatusDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    placeholder = { Text(stringResource(R.string.comp_home_enter_episode_placeholder), color = Color.White.copy(alpha = 0.4f)) },
+                    placeholder = { Text(stringResource(R.string.comp_home_enter_episode_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = if (selectedProgress.isEmpty() || selectedProgress == "0") Color.Transparent else Color.White,
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = if (selectedProgress.isEmpty() || selectedProgress == "0") Color.Transparent else MaterialTheme.colorScheme.onSurface,
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                         cursorColor = MaterialTheme.colorScheme.primary
                     ),
                     shape = RoundedCornerShape(10.dp)
@@ -268,7 +268,7 @@ fun AnimeRatingSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = if (isOled) Color.Black else Color(0xFF1A1A1A)
+        containerColor = if (isOled) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 32.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -277,10 +277,10 @@ fun AnimeRatingSheet(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title,
-                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(stringResource(R.string.comp_your_rating), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                    Text(stringResource(R.string.comp_your_rating), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -295,17 +295,17 @@ fun AnimeRatingSheet(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                placeholder = { Text(initialScore?.let { stringResource(R.string.comp_rating_current, it) } ?: stringResource(R.string.comp_rating_placeholder), color = Color.White.copy(alpha = 0.4f)) },
+                placeholder = { Text(initialScore?.let { stringResource(R.string.comp_rating_current, it) } ?: stringResource(R.string.comp_rating_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                 trailingIcon = {
                     if (selectedScore.isNotEmpty()) {
-                        Text("/10", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(end = 12.dp))
+                        Text("/10", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.padding(end = 12.dp))
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = if (selectedScore.isEmpty()) Color.Transparent else Color.White,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = if (selectedScore.isEmpty()) Color.Transparent else MaterialTheme.colorScheme.onSurface,
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                     cursorColor = MaterialTheme.colorScheme.primary
                 ),
                 shape = RoundedCornerShape(10.dp)

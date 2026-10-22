@@ -1440,7 +1440,7 @@ fun PlayerScreen(
                                                 CircularProgressIndicator(
                                                     modifier = Modifier.size(12.dp),
                                                     strokeWidth = 1.5.dp,
-                                                    color = if (disableMaterialColors) Color.White else MaterialTheme.colorScheme.primary
+                                                    color = if (disableMaterialColors) Color.White else playerAccentColor()
                                                 )
                                             }
                                         }
@@ -1490,12 +1490,12 @@ fun PlayerScreen(
                                         DropdownMenu(
                                             expanded = showServerMenu,
                                             onDismissRequest = { showServerMenu = false },
-                                            modifier = Modifier.background(Color(0xFF1A1A1A)).width(280.dp)
+                                            modifier = Modifier.width(playerMenuWidth(280.dp))
                                         ) {
                                             val headerCat = if (extensionServers.isNotEmpty()) catFromName(currentServerName) else currentCategory.uppercase()
                                             Text(
                                                 text = "${currentServerName.uppercase()} ($headerCat)",
-                                                color = MaterialTheme.colorScheme.primary,
+                                                color = playerMenuAccentColor(),
                                                 fontWeight = FontWeight.Bold,
                                                 style = MaterialTheme.typography.labelMedium,
                                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -1504,7 +1504,7 @@ fun PlayerScreen(
                                                 val extSubServers = extensionServers.filter { it.name.contains("sub", ignoreCase = true) || !it.name.contains("dub", ignoreCase = true) }
                                                 val extDubServers = extensionServers.filter { it.name.contains("dub", ignoreCase = true) && !it.name.contains("sub", ignoreCase = true) }
                                                 if (extSubServers.isNotEmpty()) {
-                                                    Text("SUB", color = Color.Gray, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                                    Text("SUB", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                                                      extSubServers.forEach { server ->
                                                         ServerSelectorButton(
                                                             serverName = server.name,
@@ -1521,7 +1521,7 @@ fun PlayerScreen(
                                                     Spacer(modifier = Modifier.height(4.dp))
                                                 }
                                                 if (extDubServers.isNotEmpty()) {
-                                                    Text("DUB", color = Color.Gray, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                                    Text("DUB", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                                                      extDubServers.forEach { server ->
                                                         ServerSelectorButton(
                                                             serverName = server.name,
@@ -1538,7 +1538,7 @@ fun PlayerScreen(
                                                     Spacer(modifier = Modifier.height(8.dp))
                                                 }
                                                 if (extSubServers.isEmpty() && extDubServers.isEmpty()) {
-                                                    Text(extensionName.ifEmpty { "EXT" }, color = Color.Gray, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                                    Text(extensionName.ifEmpty { "EXT" }, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                                                      extensionServers.forEach { server ->
                                                         ServerSelectorButton(
                                                             serverName = server.name,
@@ -1556,7 +1556,7 @@ fun PlayerScreen(
                                                 }
                                             }
                                             if (subServers.isNotEmpty()) {
-                                                Text("SUB", color = Color.Gray, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                                Text("SUB", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                                                 subServers.forEach { server ->
                                                     ServerSelectorButton(
                                                         serverName = server.name,
@@ -1570,7 +1570,7 @@ fun PlayerScreen(
                                             }
                                             if (dubServers.isNotEmpty()) {
                                                 Spacer(modifier = Modifier.height(8.dp))
-                                                Text("DUB", color = Color.Gray, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+                                                Text("DUB", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                                                 dubServers.forEach { server ->
                                                     ServerSelectorButton(
                                                         serverName = server.name,
@@ -1614,35 +1614,35 @@ fun PlayerScreen(
                                         DropdownMenu(
                                             expanded = showSubtitleMenu,
                                             onDismissRequest = { showSubtitleMenu = false },
-                                            modifier = Modifier.background(Color(0xFF1A1A1A)).width(180.dp)
+                                            modifier = Modifier.width(playerMenuWidth(220.dp))
                                         ) {
                                             if (subtitleSettingsView) {
                                                 Text(
                                                     stringResource(R.string.player_translation_profiles),
-                                                    color = Color.Gray,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                     style = MaterialTheme.typography.labelSmall,
                                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                                                 )
                                                 subtitleProfileData.profiles.forEachIndexed { index, profile ->
                                                     val isActive = index == subtitleProfileData.activeProfileIndex
                                                     DropdownMenuItem(
-                                                        text = { Text(profile.profileName, color = if (isActive) MaterialTheme.colorScheme.primary else Color.White) },
+                                                        text = { Text(profile.profileName, color = if (isActive) playerMenuAccentColor() else MaterialTheme.colorScheme.onSurface) },
                                                         onClick = {
                                                             val data = subtitleProfileData
                                                             saveSubtitleProfileData(data.copy(activeProfileIndex = index))
                                                             subtitleSettingsView = false
                                                             showSubtitleMenu = false
                                                         },
-                                                        leadingIcon = if (isActive) { { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) } } else null
+                                                        leadingIcon = if (isActive) { { Icon(Icons.Default.Check, null, tint = playerMenuAccentColor()) } } else null
                                                     )
                                                 }
-                                                HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                                 DropdownMenuItem(
                                                     text = {
                                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                                            Icon(Icons.Default.Settings, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                            Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))
                                                             Spacer(Modifier.width(8.dp))
-                                                            Text(stringResource(R.string.player_edit_subtitles), color = Color.White)
+                                                            Text(stringResource(R.string.player_edit_subtitles), color = MaterialTheme.colorScheme.onSurface)
                                                         }
                                                     },
                                                     onClick = {
@@ -1653,42 +1653,42 @@ fun PlayerScreen(
                                                 )
                                             } else {
                                                 DropdownMenuItem(
-                                                    text = { Text(stringResource(R.string.player_off), color = if (!subtitlesEnabled) MaterialTheme.colorScheme.primary else Color.White) },
+                                                    text = { Text(stringResource(R.string.player_off), color = if (!subtitlesEnabled) playerMenuAccentColor() else MaterialTheme.colorScheme.onSurface) },
                                                     onClick = {
                                                         if (subtitlesEnabled) rebuildWithSubtitles(false)
                                                         selectedEmbeddedTrackIndex = -1
                                                         engine.disableSubtitles()
                                                         showSubtitleMenu = false
                                                     },
-                                                    leadingIcon = if (!subtitlesEnabled) { { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) } } else null
+                                                    leadingIcon = if (!subtitlesEnabled) { { Icon(Icons.Default.Check, null, tint = playerMenuAccentColor()) } } else null
                                                 )
                                                 val externalTrackList = subtitleTracks.ifEmpty {
                                                     if (subtitleUrl != null) listOf(eu.kanade.tachiyomi.animesource.model.Track(subtitleUrl, "en"))
                                                     else emptyList()
                                                 }
                                                 if (externalTrackList.isNotEmpty()) {
-                                                    Text(stringResource(R.string.player_external), color = Color.Gray, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                                    Text(stringResource(R.string.player_external), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                                                     externalTrackList.forEachIndexed { index, track ->
                                                         val isSelected = subtitlesEnabled && selectedSubtitleIndex == index && selectedEmbeddedTrackIndex < 0
                                                         DropdownMenuItem(
-                                                            text = { Text(track.lang.uppercase(), color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White) },
+                                                            text = { Text(track.lang.uppercase(), color = if (isSelected) playerMenuAccentColor() else MaterialTheme.colorScheme.onSurface) },
                                                             onClick = {
                                                                 selectedSubtitleIndex = index
                                                                 selectedEmbeddedTrackIndex = -1
                                                                 rebuildWithSubtitles(true)
                                                                 showSubtitleMenu = false
                                                             },
-                                                            leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary) } } else null
+                                                            leadingIcon = if (isSelected) { { Icon(Icons.Default.Check, null, tint = playerMenuAccentColor()) } } else null
                                                         )
                                                     }
                                                 }
-                                                HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+                                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                                 DropdownMenuItem(
                                                     text = {
                                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                                            Icon(Icons.Default.Settings, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                                                            Icon(Icons.Default.Settings, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                                                             Spacer(Modifier.width(6.dp))
-                                                            Text(stringResource(R.string.player_settings), color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+                                                            Text(stringResource(R.string.player_settings), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                                                         }
                                                     },
                                                     onClick = { subtitleSettingsView = true }

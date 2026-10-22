@@ -89,7 +89,7 @@ fun MangaStatusDialog(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = if (isOled) Color.Black else Color(0xFF1A1A1A)
+        containerColor = if (isOled) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(
             modifier = Modifier
@@ -110,7 +110,7 @@ fun MangaStatusDialog(
                         displayTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -123,7 +123,7 @@ fun MangaStatusDialog(
                     Text(
                         stringResource(R.string.manga_detail_chapter_line, progressText),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -223,7 +223,7 @@ fun MangaStatusDialog(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text(stringResource(R.string.manga_detail_chapter_progress), style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.7f))
+            Text(stringResource(R.string.manga_detail_chapter_progress), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
@@ -240,10 +240,10 @@ fun MangaStatusDialog(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                placeholder = { Text(stringResource(R.string.manga_detail_enter_last_read_chapter), color = Color.White.copy(alpha = 0.4f)) },
+                placeholder = { Text(stringResource(R.string.manga_detail_enter_last_read_chapter), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = if (selectedProgress.isEmpty() || selectedProgress == "0") Color.Transparent else Color.White,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = if (selectedProgress.isEmpty() || selectedProgress == "0") Color.Transparent else MaterialTheme.colorScheme.onSurface,
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
                     cursorColor = MaterialTheme.colorScheme.primary
@@ -295,7 +295,7 @@ fun MangaRatingSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = if (isOled) Color.Black else Color(0xFF1A1A1A)
+        containerColor = if (isOled) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Column(
             modifier = Modifier
@@ -312,9 +312,9 @@ fun MangaRatingSheet(
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(stringResource(R.string.manga_detail_your_rating), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+                    Text(stringResource(R.string.manga_detail_your_rating), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
@@ -329,17 +329,17 @@ fun MangaRatingSheet(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                placeholder = { Text(initialScore?.let { stringResource(R.string.manga_detail_current_rating, it) } ?: stringResource(R.string.manga_detail_rating_range), color = Color.White.copy(alpha = 0.4f)) },
+                placeholder = { Text(initialScore?.let { stringResource(R.string.manga_detail_current_rating, it) } ?: stringResource(R.string.manga_detail_rating_range), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)) },
                 trailingIcon = {
                     if (selectedScore.isNotEmpty()) {
-                        Text("/10", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(end = 12.dp))
+                        Text("/10", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.padding(end = 12.dp))
                     }
                 },
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = if (selectedScore.isEmpty()) Color.Transparent else Color.White,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = if (selectedScore.isEmpty()) Color.Transparent else MaterialTheme.colorScheme.onSurface,
                     focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                     cursorColor = MaterialTheme.colorScheme.primary
                 ),
                 shape = RoundedCornerShape(10.dp)

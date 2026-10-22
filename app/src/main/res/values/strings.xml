@@ -243,7 +243,9 @@
     <string name="extensions_uninstall_dialog_msg">You will be asked to confirm in the system uninstall dialog.</string>
     <string name="extensions_add_repo">Add repository</string>
     <string name="extensions_add_repo_subtitle">Add an index.json, index.min.json, or index.pb repository</string>
-    <string name="extensions_add_repo_hint">Paste the repository index URL (index.json, index.min.json, or index.pb).</string>
+    <string name="extensions_add_repo_hint">Paste the repository index URL (index.json, index.min.json, or index.pb). Anime or manga is detected automatically.</string>
+    <string name="extensions_detecting_repo">Detecting repository type…</string>
+    <string name="extensions_detect_repo_failed">Could not detect the repository type. Check the URL and try again.</string>
     <string name="extensions_add">Add</string>
     <string name="extensions_source_count_one">1 source</string>
     <string name="extensions_source_count_many">%1$d sources</string>

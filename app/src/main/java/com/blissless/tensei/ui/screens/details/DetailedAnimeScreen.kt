@@ -138,6 +138,7 @@ import com.blissless.tensei.ui.components.SkeletonTextLine
 import com.blissless.tensei.ui.components.StaffEdgeJobText
 import com.blissless.tensei.ui.components.anilistAnnotated
 import com.blissless.tensei.ui.components.asRelatedMedia
+import com.blissless.tensei.ui.components.BannerOverlayText
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
 import com.blissless.tensei.ui.theme.StatusLabels
 import com.blissless.tensei.ui.theme.statusAccentFor
@@ -771,20 +772,22 @@ fun DetailedAnimeScreen(
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.anime_detail_clip_anime_title), displayData.title))
                             }.padding(vertical = 4.dp)) {
-                                Text(
+                                BannerOverlayText(
+                                    // The title overlaps the banner, so it gets an outline in the
+                                    // theme's background colour to stay readable on the image.
                                     text = displayData.title, style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold, maxLines = 10, overflow = TextOverflow.Clip,
                                     color = MaterialTheme.colorScheme.onBackground,
                                     modifier = Modifier.weight(1f)
                                 )
-                                Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(16.dp).padding(start = 4.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                Icon(Icons.Default.ContentCopy, null, modifier = Modifier.padding(start = 4.dp).size(16.dp).background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f), CircleShape).padding(3.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             if (!displayData.titleEnglish.isNullOrEmpty() && displayData.titleEnglish != displayData.title) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                     clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.anime_detail_clip_anime_title), displayData.titleEnglish))
                                 }.padding(vertical = 4.dp)) {
-                                    Text(
+                                    BannerOverlayText(
                                         text = displayData.titleEnglish, style = MaterialTheme.typography.bodyMedium,
                                         maxLines = 10, overflow = TextOverflow.Clip,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -797,10 +800,10 @@ fun DetailedAnimeScreen(
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                     clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.anime_detail_clip_anime_title), displayData.titleNative))
                                 }.padding(vertical = 4.dp)) {
-                                    Text(
+                                    BannerOverlayText(
                                         text = displayData.titleNative, style = MaterialTheme.typography.bodySmall,
                                         maxLines = 10, overflow = TextOverflow.Clip,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1021,11 +1024,14 @@ fun DetailedAnimeScreen(
                                         onClick = { showStatusDialog = true },
                                         modifier = Modifier.weight(1f).height(44.dp),
                                         shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                    ) {
-                                        Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(stringResource(R.string.anime_detail_change), fontWeight = FontWeight.SemiBold)
+                                         colors = ButtonDefaults.buttonColors(
+                                             containerColor = MaterialTheme.colorScheme.primary,
+                                             contentColor = MaterialTheme.colorScheme.onPrimary
+                                         )
+                                     ) {
+                                         Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                                         Spacer(modifier = Modifier.width(8.dp))
+                                         Text(stringResource(R.string.anime_detail_change), fontWeight = FontWeight.SemiBold)
                                     }
                                     Spacer(modifier = Modifier.width(8.dp))
                                     OutlinedButton(
@@ -1075,7 +1081,10 @@ fun DetailedAnimeScreen(
                                         onClick = { showStatusDialog = true },
                                         modifier = Modifier.weight(1f).height(44.dp),
                                         shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        )
                                     ) {
                                         Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
                                         Spacer(modifier = Modifier.width(8.dp))

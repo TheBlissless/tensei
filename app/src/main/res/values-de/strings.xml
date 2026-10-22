@@ -244,7 +244,9 @@
     <string name="extensions_uninstall_dialog_msg">Du wirst im Deinstallationsdialog des Systems zur Bestätigung aufgefordert.</string>
     <string name="extensions_add_repo">Repository hinzufügen</string>
     <string name="extensions_add_repo_subtitle">Ein index.json-, index.min.json- oder index.pb-Repository hinzufügen</string>
-    <string name="extensions_add_repo_hint">Füge die Repository-Index-URL ein (index.json, index.min.json oder index.pb).</string>
+    <string name="extensions_add_repo_hint">Füge die Repository-Index-URL ein (index.json, index.min.json oder index.pb). Anime oder Manga wird automatisch erkannt.</string>
+    <string name="extensions_detecting_repo">Repository-Typ wird erkannt…</string>
+    <string name="extensions_detect_repo_failed">Der Repository-Typ konnte nicht erkannt werden. Prüfe die URL und versuche es erneut.</string>
     <string name="extensions_add">Hinzufügen</string>
     <string name="extensions_source_count_one">1 Quelle</string>
     <string name="extensions_source_count_many">%1$d Quellen</string>

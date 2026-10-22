@@ -39,6 +39,27 @@ enum class ExtensionType(val label: String) {
             "anime" -> ANIME
             else -> UNKNOWN
         }
+
+        /**
+         * Resolve the type from the extension package name.
+         *
+         * Tensei/Blissless extensions name themselves after the ecosystem they belong to:
+         * `com.blissless.<name>.manga`, `com.blissless.<name>.anime.stream` and
+         * `com.blissless.<name>.anime.torrent`. Mihon's manga extensions live under
+         * `eu.kanade.tachiyomi.extension.*`.
+         */
+        fun fromPackageName(packageName: String): ExtensionType {
+            if (packageName.isBlank()) return UNKNOWN
+            val lower = packageName.lowercase()
+            if (lower.endsWith(".manga")) return MANGA
+            if (lower.endsWith(".anime.stream")) return STREAM
+            if (lower.endsWith(".anime.torrent")) return TORRENT
+            if (lower.startsWith("eu.kanade.tachiyomi.extension.")) return MANGA
+            val segments = lower.split(".")
+            if (segments.contains("manga")) return MANGA
+            if (segments.contains("anime")) return ANIME
+            return UNKNOWN
+        }
     }
 }
 
@@ -56,9 +77,11 @@ data class RepoExtension(
 ) {
     companion object {
         fun fromJson(json: JsonObject): RepoExtension {
+            val packageName = (json["pkg"] ?: json["packageName"])?.jsonPrimitive?.content ?: ""
+            val declaredType = ExtensionType.fromString((json["type"] as? JsonPrimitive)?.content)
             return RepoExtension(
                 name = json["name"]?.jsonPrimitive?.content ?: "",
-                packageName = (json["pkg"] ?: json["packageName"])?.jsonPrimitive?.content ?: "",
+                packageName = packageName,
                 apk = json["apk"]?.jsonPrimitive?.content ?: json["url"]?.jsonPrimitive?.content ?: "",
                 icon = (json["icon"] ?: json["icons"])?.jsonPrimitive?.content ?: "",
                 lang = json["lang"]?.jsonPrimitive?.content ?: "en",
@@ -66,8 +89,18 @@ data class RepoExtension(
                 code = (json["code"] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L,
                 nsfw = (json["nsfw"] as? JsonPrimitive)?.content?.toBooleanStrictOrNull() ?: false,
                 sources = (json["sources"] as? JsonArray)?.map { it.jsonObject.let(RepoSources::fromJson) } ?: emptyList(),
-                type = ExtensionType.fromString(json["type"]?.jsonPrimitive?.content)
+                type = resolveType(declaredType, packageName)
             )
+        }
+
+        /**
+         * The package name wins over the type declared by the repository: a manga extension
+         * must never be badged as anime just because the index says so.
+         */
+        private fun resolveType(declared: ExtensionType, packageName: String): ExtensionType {
+            if (declared == ExtensionType.STREAM || declared == ExtensionType.TORRENT) return declared
+            val hinted = ExtensionType.fromPackageName(packageName)
+            return if (hinted != ExtensionType.UNKNOWN) hinted else declared
         }
     }
 }

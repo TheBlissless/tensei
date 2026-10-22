@@ -418,6 +418,19 @@ val MainViewModel.isLoadingMangaChapters: StateFlow<Boolean> get() = _isLoadingM
 private val _hasLoadedMangaChapters = MutableStateFlow(false)
 val MainViewModel.hasLoadedMangaChapters: StateFlow<Boolean> get() = _hasLoadedMangaChapters.asStateFlow()
 
+/** In-flight chapter-list load. Kept so the reader's "Loading chapters…" screen can cancel a
+ *  stalled load, mirroring the anime stream loader's cancel button. */
+private var mangaChaptersJob: Job? = null
+
+/** Cancel an in-flight chapter-list load. The reader stops spinning and falls back to its
+ *  "no chapters found" state instead of waiting forever on a hanging extension. */
+fun MainViewModel.cancelMangaChapterLoad() {
+    mangaChaptersJob?.cancel()
+    mangaChaptersJob = null
+    _isLoadingMangaChapters.value = false
+    _hasLoadedMangaChapters.value = true
+}
+
 // Profile state â€” real AniList favorites and activity, not faked from tracking lists
 private val _mangaFavorites = MutableStateFlow<List<MangaFavorite>>(emptyList())
 val MainViewModel.mangaFavorites: StateFlow<List<MangaFavorite>> get() = _mangaFavorites.asStateFlow()
@@ -838,7 +851,14 @@ suspend fun MainViewModel.fetchMangaAllRecommendations(mangaId: Int, malId: Int?
  * The chapter URL is a routing token, NOT a real URL. The chapter number is later extracted
  * from the chapter TITLE (not the URL) when scraping images, matching oni's contract.
  */
-suspend fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
+fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
+    mangaChaptersJob?.cancel()
+    mangaChaptersJob = viewModelScope.launch {
+        loadMangaChaptersInternal(mangaId, title)
+    }
+}
+
+private suspend fun MainViewModel.loadMangaChaptersInternal(mangaId: Int, title: String) {
     if (userPreferences.mangaSourceMethod.value == "external") {
         loadMangaChaptersFromExternal(mangaId, title)
         return
@@ -1233,6 +1253,18 @@ fun MainViewModel.loadChapterImages(chapterId: String, useDataSaver: Boolean = f
             _mangaChapterImages.value = images
         }
     }
+}
+
+/**
+ * Cancel an in-flight chapter image load (the reader's "Loading chapter…" screen).
+ *
+ * Stops the request so the pending result is never written; the reader keeps whatever is
+ * already on screen and decides what to show next (its error/retry screen when nothing is
+ * loaded yet).
+ */
+fun MainViewModel.cancelChapterImageLoad() {
+    chapterImagesJob?.cancel()
+    chapterImagesJob = null
 }
 
 /**

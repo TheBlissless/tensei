@@ -172,6 +172,26 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Work out whether a repository URL points at an anime or a manga repository, so the
+     * "Add repository" dialog never has to ask the user to pick a type by hand.
+     */
+    suspend fun detectRepoKind(url: String): RepoKind = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url).build()
+        httpClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw Exception("Server returned ${response.code} ${response.message}")
+            }
+            val raw = response.body.bytes()
+            val bytes = if (raw.size >= 2 && raw[0] == 0x1f.toByte() && raw[1] == 0x8b.toByte()) {
+                java.util.zip.GZIPInputStream(java.io.ByteArrayInputStream(raw)).use { it.readBytes() }
+            } else {
+                raw
+            }
+            RepoKindDetector.detect(url, bytes)
+        }
+    }
+
     fun removeRepo(url: String) {
         _uiState.value = _uiState.value.copy(
             repos = _uiState.value.repos.filter { it.url != url }

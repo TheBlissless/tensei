@@ -56,7 +56,7 @@ fun ServerSelectorButton(
             Column(
                 modifier = Modifier.fillMaxWidth()
                     .background(
-                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent,
+                        if (isSelected) playerMenuAccentColor().copy(alpha = 0.15f) else Color.Transparent,
                         RoundedCornerShape(4.dp)
                     )
                     .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -69,12 +69,12 @@ fun ServerSelectorButton(
                     if (isSelected) Icon(
                         Icons.Default.Check,
                         null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = playerMenuAccentColor(),
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         serverName.uppercase(),
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
+                        color = if (isSelected) playerMenuAccentColor() else MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Medium,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -85,7 +85,7 @@ fun ServerSelectorButton(
                 if (qualities.size > 1) {
                     Text(
                         qualities.joinToString(" · "),
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelSmall,
                         fontSize = 11.sp,
                         maxLines = 1,

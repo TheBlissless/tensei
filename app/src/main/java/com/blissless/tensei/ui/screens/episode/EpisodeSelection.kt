@@ -726,7 +726,7 @@ fun RichEpisodeScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.tertiary)
                                 Spacer(modifier = Modifier.height(12.dp))
-                                 Text(stringResource(R.string.lists_fetching_tensei_sources), style = MaterialTheme.typography.bodyMedium, color = if (isOled) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                 Text(stringResource(R.string.lists_fetching_tensei_sources), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -748,7 +748,7 @@ fun RichEpisodeScreen(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                                 Spacer(modifier = Modifier.height(12.dp))
-                                 Text(stringResource(R.string.lists_fetching_sources), style = MaterialTheme.typography.bodyMedium, color = if (isOled) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                 Text(stringResource(R.string.lists_fetching_sources), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -968,12 +968,12 @@ internal fun SimpleRichEpisodeCard(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
+                             Text(
                                  text = stringResource(R.string.lists_episode, episodeNumber),
                                  style = MaterialTheme.typography.titleSmall,
                                  fontWeight = FontWeight.SemiBold,
-                                 color = if (isOled) Color.White else MaterialTheme.colorScheme.onSurface
-                            )
+                                 color = MaterialTheme.colorScheme.onSurface
+                             )
                         }
                     }
                 }
@@ -1117,24 +1117,24 @@ if (hasAired) {
                     modifier = Modifier.weight(1f).padding(top = 2.dp).alpha(if (isWatched) 0.55f else 1f)
                 ) {
                     if (hideDescription) {
-                        Text(
+                         Text(
                              text = stringResource(R.string.lists_episode, episodeNumber),
                              style = MaterialTheme.typography.titleSmall,
                              fontWeight = FontWeight.Bold,
                              maxLines = 1,
                              overflow = TextOverflow.Ellipsis,
-                             color = if (isOled) Color.White.copy(alpha = 0.55f) else MaterialTheme.colorScheme.onSurfaceVariant
+                             color = MaterialTheme.colorScheme.onSurfaceVariant
                          )
                         Spacer(modifier = Modifier.height(2.dp))
                     }
                     Text(
                          text = title?.ifEmpty { stringResource(R.string.lists_episode, episodeNumber) } ?: stringResource(R.string.lists_episode, episodeNumber),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        color = if (isOled) Color.White else MaterialTheme.colorScheme.onSurface
-                    )
+                         style = MaterialTheme.typography.titleMedium,
+                         fontWeight = FontWeight.SemiBold,
+                         maxLines = 4,
+                         overflow = TextOverflow.Ellipsis,
+                         color = MaterialTheme.colorScheme.onSurface
+                     )
                     if (!hideDescription && !description.isNullOrEmpty()) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -1145,7 +1145,7 @@ if (hasAired) {
                             onTextLayout = { result ->
                                 descriptionTruncated = result.isLineEllipsized((result.lineCount - 1).coerceAtLeast(0))
                             },
-                            color = if (isOled) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (descriptionExpanded) {
                             Text(

@@ -46,8 +46,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -64,6 +62,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,7 +86,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
 import com.blissless.tensei.R
 import com.blissless.tensei.ui.components.SkeletonBlock
 import com.blissless.tensei.ui.components.shimmer
@@ -99,6 +97,7 @@ import com.blissless.tensei.util.toast
 import com.blissless.tensei.extensions.manga.AvailableExtension
 import com.blissless.tensei.extensions.manga.LoadedExtension
 import com.blissless.tensei.extensions.manga.MangaExtensionManager
+import kotlinx.coroutines.launch
 
 /**
  * Extension management, laid out the way every other extension-based app does it
@@ -139,8 +138,6 @@ fun ExtensionsScreen(
     val mangaManager = remember { MangaExtensionManager.get(context) }
     val mangaExtensions by mangaManager.extensions.collectAsState()
     val mangaRepos by mangaManager.repos.collectAsState()
-    val mangaAvailable by mangaManager.available.collectAsState()
-    val mangaAvailableError by mangaManager.availableError.collectAsState()
     val mangaLoadErrors by mangaManager.loadErrors.collectAsState()
     val mangaBusy by mangaManager.busy.collectAsState()
     val mangaMessage by mangaManager.message.collectAsState()
@@ -149,6 +146,9 @@ fun ExtensionsScreen(
     var showAddRepoDialog by remember { mutableStateOf(false) }
     var repoPendingRemoval by remember { mutableStateOf<RepoRow?>(null) }
     var extensionPendingUninstall by remember { mutableStateOf<Extension?>(null) }
+    var isDetectingRepoKind by remember { mutableStateOf(false) }
+    var repoKindError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         mangaManager.fetchAvailable()
@@ -221,10 +221,15 @@ fun ExtensionsScreen(
 
     // Anime + manga extensions merged into a single alphabetical list. Each row
     // carries a small kind badge so the two ecosystems are distinguishable even
-    // though they now share one list.
+    // though they now share one list. An extension that both sides know about (a
+    // Tensei manga extension is detected as an installed app AND loadable as a manga
+    // extension) is listed once, as the manga extension it really is.
     val installedItems = remember(uiState.extensions, mangaExtensions) {
+        val mangaPackages = mangaExtensions.map { it.pkgName }.toSet()
         buildList {
-            uiState.extensions.forEach { add(InstalledItem.Anime(it)) }
+            uiState.extensions
+                .filter { it.packageName !in mangaPackages }
+                .forEach { add(InstalledItem.Anime(it)) }
             mangaExtensions.forEach { add(InstalledItem.Manga(it)) }
             sortBy { it.sortName.lowercase() }
         }
@@ -448,60 +453,36 @@ fun ExtensionsScreen(
                 }
             }
         }
-
-        item {
-            ExtensionsGroupHeader(title = stringResource(R.string.extensions_available), count = mangaAvailable?.size ?: 0)
-        }
-        item {
-            ExtensionsGroupCard {
-                mangaAvailableError?.let { err ->
-                    Text(
-                        err,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.xs)
-                    )
-                }
-                val list = mangaAvailable
-                when {
-                    list == null -> {
-                        ExtensionsRowSkeleton()
-                    }
-                    list.isEmpty() -> {
-                        ExtensionsHintRow(
-                            icon = Icons.Default.Extension,
-                            title = stringResource(R.string.extensions_no_extensions_available),
-                            message = stringResource(R.string.extensions_no_extensions_available_hint)
-                        )
-                    }
-                    else -> {
-                        val installedPkgs = mangaExtensions.map { it.pkgName }.toSet()
-                        list.forEachIndexed { index, avail ->
-                            MangaAvailableRow(
-                                ext = avail,
-                                installed = avail.pkgName in installedPkgs,
-                                busy = mangaBusy,
-                                onInstall = { mangaManager.install(avail.pkgName, avail.apkUrl) }
-                            )
-                            if (index < list.lastIndex) ExtensionsGroupDivider()
-                        }
-                    }
-                }
-            }
-        }
     }
 
     if (showAddRepoDialog) {
         ExtensionsAddRepoDialog(
-            onDismiss = { showAddRepoDialog = false },
-            onConfirm = { url, kind ->
-                when (kind) {
-                    ExtensionKind.ANIME -> viewModel.addRepo(url)
-                    ExtensionKind.MANGA -> if (mangaManager.addRepo(url)) {
-                        mangaManager.fetchAvailable()
-                    }
+            isDetecting = isDetectingRepoKind,
+            error = repoKindError,
+            onDismiss = {
+                if (!isDetectingRepoKind) {
+                    repoKindError = null
+                    showAddRepoDialog = false
                 }
-                showAddRepoDialog = false
+            },
+            onConfirm = { url ->
+                scope.launch {
+                    isDetectingRepoKind = true
+                    repoKindError = null
+                    val kind = runCatching { viewModel.detectRepoKind(url) }.getOrNull()
+                    isDetectingRepoKind = false
+                    if (kind == null) {
+                        repoKindError = context.getString(R.string.extensions_detect_repo_failed)
+                        return@launch
+                    }
+                    when (kind) {
+                        RepoKind.ANIME -> viewModel.addRepo(url)
+                        RepoKind.MANGA -> if (mangaManager.addRepo(url)) {
+                            mangaManager.fetchAvailable()
+                        }
+                    }
+                    showAddRepoDialog = false
+                }
             }
         )
     }
@@ -543,6 +524,42 @@ private enum class ExtensionKind(val label: String) {
     ANIME("Anime"),
     MANGA("Manga")
 }
+
+/**
+ * The ecosystem badges of a repository row.
+ *
+ * A repository can hold anime and manga extensions at the same time (e.g. a repo that ships a
+ * manga extension next to its stream extensions), so every ecosystem it holds gets its own
+ * badge, shown right after the "N available" text.
+ */
+private fun repoKindBadges(row: RepoRow): List<String> {
+    val types = row.anime?.repo?.extensions?.map { it.type }?.toSet().orEmpty()
+    val badges = mutableListOf<String>()
+    if (types.any { it == ExtensionType.MANGA }) badges += ExtensionKind.MANGA.label
+    if (types.any { it == ExtensionType.ANIME || it == ExtensionType.STREAM || it == ExtensionType.TORRENT }) {
+        badges += ExtensionKind.ANIME.label
+    }
+    if (badges.isEmpty()) {
+        // Nothing could be derived from the extensions themselves: fall back to the
+        // ecosystem the repository was added to.
+        badges += if (row.anime != null) ExtensionKind.ANIME.label else ExtensionKind.MANGA.label
+    }
+    return badges
+}
+
+/**
+ * The ecosystem an installed extension belongs to, resolved from its package name.
+ *
+ * Tensei/Blissless extensions name themselves after the ecosystem they serve
+ * (`com.blissless.<name>.manga`, `.anime.stream`, `.anime.torrent`) and Mihon's manga
+ * extensions live under `eu.kanade.tachiyomi.extension.*`.
+ */
+private fun extensionKindFor(packageName: String): ExtensionKind =
+    if (ExtensionType.fromPackageName(packageName) == ExtensionType.MANGA) {
+        ExtensionKind.MANGA
+    } else {
+        ExtensionKind.ANIME
+    }
 
 /** A unified installed-extension entry, either an Aniyomi anime ext or a Mihon manga ext. */
 private sealed interface InstalledItem {
@@ -659,56 +676,6 @@ private fun MangaInstalledRow(
     )
 }
 
-@Composable
-private fun MangaAvailableRow(
-    ext: AvailableExtension,
-    installed: Boolean,
-    busy: Boolean,
-    onInstall: () -> Unit
-) {
-    ExtensionsRow(
-        title = ext.name,
-        subtitle = buildString {
-            append("v${ext.versionName}")
-            append(" (${ext.versionCode})")
-            if (ext.lang.isNotBlank()) append(" - ${ext.lang}")
-        },
-        kindLabel = ExtensionKind.MANGA.label,
-        leading = {
-            if (ext.iconUrl.isNotBlank()) {
-                AsyncImage(
-                    model = ext.iconUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(Radius.controlShape)
-                )
-            } else {
-                ExtensionsIconTile(
-                    icon = Icons.Default.Extension,
-                    tint = MaterialTheme.colorScheme.primary,
-                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                )
-            }
-        },
-        trailing = {
-            FilledTonalButton(
-                onClick = onInstall,
-                enabled = !busy,
-                shape = Radius.chipShape,
-                contentPadding = PaddingValues(horizontal = Spacing.sm),
-                modifier = Modifier.height(32.dp)
-            ) {
-                Text(
-                    if (installed) stringResource(R.string.extensions_reinstall) else stringResource(R.string.extensions_install),
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-        }
-    )
-}
-
 /**
  * Section label with an optional trailing action, matching the label style the
  * settings screen already uses so this page doesn't invent a fourth one.
@@ -816,6 +783,7 @@ private fun ExtensionsRow(
     subtitleMaxLines: Int = 1,
     badge: String? = null,
     kindLabel: String? = null,
+    subtitleBadges: List<String> = emptyList(),
     onClick: (() -> Unit)? = null,
     leading: @Composable () -> Unit,
     trailing: @Composable () -> Unit = {}
@@ -869,15 +837,36 @@ private fun ExtensionsRow(
                     }
                 }
             }
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = subtitleColor
-                        ?: MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    maxLines = subtitleMaxLines,
-                    overflow = TextOverflow.Ellipsis
-                )
+            if (subtitle != null || subtitleBadges.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = subtitleColor
+                                ?: MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            maxLines = subtitleMaxLines,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
+                    // Badges that belong to the subtitle line (e.g. the ecosystem a repository
+                    // holds), placed right after its text.
+                    subtitleBadges.forEach { label ->
+                        Spacer(Modifier.width(Spacing.sm))
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = Radius.chipShape
+                        ) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
         trailing()
@@ -934,7 +923,7 @@ private fun ExtensionsRepoRow(
             stringResource(R.string.extensions_tap_to_retry)
         },
         subtitleColor = if (animeState?.error != null) scheme.error else null,
-        kindLabel = if (row.anime != null) ExtensionKind.ANIME.label else ExtensionKind.MANGA.label,
+        subtitleBadges = if (animeState?.error != null) emptyList() else repoKindBadges(row),
         onClick = if (isReady) onBrowse else null,
         leading = {
             Box(
@@ -1083,7 +1072,7 @@ private fun ExtensionsInstalledRow(
         title = extension.name,
         subtitle = subtitle,
         badge = if (extension.isNsfw) "NSFW" else null,
-        kindLabel = ExtensionKind.ANIME.label,
+        kindLabel = extensionKindFor(extension.packageName).label,
         onClick = onAppInfo,
         leading = {
             if (iconBitmap != null) {
@@ -1331,14 +1320,15 @@ private fun ExtensionsSearchField(query: String, onQueryChange: (String) -> Unit
 @Composable
 private fun ExtensionsAddRepoDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, ExtensionKind) -> Unit
+    onConfirm: (String) -> Unit,
+    isDetecting: Boolean = false,
+    error: String? = null,
 ) {
     var url by remember { mutableStateOf("") }
-    var kind by remember { mutableStateOf(ExtensionKind.MANGA) }
     val keyboard = LocalSoftwareKeyboardController.current
     val submit = {
-        if (url.isNotBlank()) {
-            onConfirm(url.trim(), kind)
+        if (url.isNotBlank() && !isDetecting) {
+            onConfirm(url.trim())
             url = ""
             keyboard?.hide()
         }
@@ -1349,23 +1339,6 @@ private fun ExtensionsAddRepoDialog(
         title = { Text(stringResource(R.string.extensions_add_repo)) },
         text = {
             Column {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    ExtensionKind.entries.forEach { candidate ->
-                        FilterChip(
-                            selected = kind == candidate,
-                            onClick = { kind = candidate },
-                            label = { Text(candidate.label) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            ),
-                            shape = Radius.chipShape
-                        )
-                    }
-                }
-                Spacer(Modifier.height(Spacing.md))
                 Text(
                     text = stringResource(R.string.extensions_add_repo_hint),
                     style = MaterialTheme.typography.bodySmall,
@@ -1378,6 +1351,7 @@ private fun ExtensionsAddRepoDialog(
                     placeholder = { Text("https://example.com/index.json") },
                     singleLine = true,
                     shape = Radius.controlShape,
+                    enabled = !isDetecting,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Uri,
                         imeAction = ImeAction.Done
@@ -1385,13 +1359,40 @@ private fun ExtensionsAddRepoDialog(
                     keyboardActions = KeyboardActions(onDone = { submit() }),
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (isDetecting) {
+                    Spacer(Modifier.height(Spacing.md))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(Spacing.sm))
+                        Text(
+                            text = stringResource(R.string.extensions_detecting_repo),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (error != null) {
+                    Spacer(Modifier.height(Spacing.sm))
+                    Text(
+                        text = error,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = submit, enabled = url.isNotBlank()) { Text(stringResource(R.string.extensions_add)) }
+            TextButton(onClick = submit, enabled = url.isNotBlank() && !isDetecting) {
+                Text(stringResource(R.string.extensions_add))
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            TextButton(onClick = onDismiss, enabled = !isDetecting) {
+                Text(stringResource(R.string.common_cancel))
+            }
         }
     )
 }
