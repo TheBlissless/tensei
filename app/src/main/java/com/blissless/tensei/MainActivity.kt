@@ -785,9 +785,8 @@ fun MainScreen(
 
     fun dismissDetailedAnimeAndRestoreMangaGrid() {
         showDetailedAnimeScreen = false
-        val restoreStackSizeBefore = mangaOverlayRestoreStack.size
         restoreMangaOverlayIfPending()
-        if (mangaOverlayRestoreStack.size < restoreStackSizeBefore && mangaDetailStack.isNotEmpty()) {
+        if (mangaDetailStack.isNotEmpty()) {
             showMangaDetailScreen = true
         }
     }
