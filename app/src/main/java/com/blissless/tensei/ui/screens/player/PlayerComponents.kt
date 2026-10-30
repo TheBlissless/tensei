@@ -330,6 +330,7 @@ internal fun AutoplayFullscreenRow(
     onAutoPlayChange: (Boolean) -> Unit,
     onFullscreenToggle: () -> Unit,
     isCompact: Boolean = false,
+    isOled: Boolean = false,
 ) {
     Row(
         modifier = Modifier
@@ -364,7 +365,7 @@ internal fun AutoplayFullscreenRow(
                             // Accent-coloured track: the switch floats over the video, so it uses
                             // the player's (always light) accent instead of the theme's primary.
                             checkedTrackColor = playerAccentColor(),
-                            checkedThumbColor = Color.White,
+                            checkedThumbColor = if (isOled) Color.Black else Color.White,
                             uncheckedTrackColor = Color.White.copy(alpha = 0.3f),
                             uncheckedThumbColor = Color.White
                         )

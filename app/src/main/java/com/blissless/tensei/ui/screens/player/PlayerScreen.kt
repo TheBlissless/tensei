@@ -172,6 +172,7 @@ fun PlayerScreen(
     currentQuality: String = "Auto",
     isLatestEpisode: Boolean = false,
     disableMaterialColors: Boolean = false,
+    isOled: Boolean = false,
     showBufferIndicator: Boolean = true,
     bufferAheadSeconds: Int = 30,
     swipeVolume: Boolean = false,
@@ -2090,6 +2091,7 @@ fun PlayerScreen(
                                     onAutoPlayChange = { onAutoPlayNextEpisodeChanged?.invoke(it) },
                                     onFullscreenToggle = { toggleFullscreen() },
                                     isCompact = isCompact,
+                                    isOled = isOled,
                                 )
                             }
                         }

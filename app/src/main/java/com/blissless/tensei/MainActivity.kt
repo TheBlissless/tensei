@@ -2762,6 +2762,7 @@ fun MainScreen(
                 onSwipeBrightnessChange = { viewModel.setSwipeBrightness(it) },
                 onSwipeSwapChange = { viewModel.setSwipeSwap(it) },
                 disableMaterialColors = disableMaterialColors,
+                isOled = isOled,
                 showBufferIndicator = showBufferIndicator,
                 bufferAheadSeconds = bufferAheadSeconds,
                 onGetCacheDataSourceFactory = { referer -> viewModel.getCacheDataSourceFactory(referer, extensionOkHttpClient, extensionVideoHeaders) },
