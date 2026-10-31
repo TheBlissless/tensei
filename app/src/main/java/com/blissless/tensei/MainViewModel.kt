@@ -1533,6 +1533,17 @@ private suspend fun loadHomeDataWithCache() {
         }
 
         queueSync(mediaId, "status", malId = malId, status = status, progress = progress, score = resolvedScore)
+
+        // Auto-complete: if the user set the status to CURRENT with a progress that reaches the
+        // total episode count of a FINISHED anime, flip it to COMPLETED. This covers the status
+        // dialog flow (HomeAnimeStatusDialog → onUpdate → updateAnimeStatus) which used to leave
+        // a 24/24 anime stuck at CURRENT with a wrong "Watching" badge. Mirrors manga's
+        // updateMangaStatus which calls reconcileCompletion at the end. Only fires when the user
+        // explicitly picked CURRENT; an explicit COMPLETED/PAUSED/DROPPED/PLANNING choice is
+        // honored as-is (reconcileAnimeCompletion's first guard returns early on those).
+        if (status == "CURRENT") {
+            reconcileAnimeCompletion(mediaId, progressOverride = progress ?: -1)
+        }
     }
 
     private fun moveAnimeBetweenLists(mediaId: Int, newStatus: String, newProgress: Int?) {
