@@ -1169,8 +1169,20 @@ private fun VerticalScrollReader(
     LaunchedEffect(chapter, chapterImages) {
         if (!restored && restoreProgress > 0f && chapterImages.isNotEmpty()) {
             delay(150)
-            val targetIndex = (restoreProgress * chapterImages.size)
-                .toInt().coerceIn(0, chapterImages.size - 1)
+            // Vertical scroll stores scrollProgress = currentScroll / maxScroll, where
+            // currentScroll is the TOP of the viewport (firstVisibleItemIndex-based) and
+            // maxScroll = total * itemSize - viewportHeight. When 1 page fills the screen
+            // (the common manga case), maxScroll = (total - 1) * itemSize, so the correct
+            // inverse is scrollProgress * (total - 1) — NOT scrollProgress * total.
+            //
+            // The +0.5f rounds to the NEAREST page index, which corresponds to the
+            // best-overlap page (the one the reader was actually displaying when the user
+            // exited). Without it, a scrollProgress of 2.6/74 (page 4 best-overlap in a
+            // 75-page chapter) truncates to index 2 (page 3) instead of index 3 (page 4).
+            // This mirrors the formula used by HomeScreen's currentPage computation.
+            val targetIndex = ((restoreProgress * (chapterImages.size - 1)) + 0.5f)
+                .toInt()
+                .coerceIn(0, chapterImages.size - 1)
             listState.scrollToItem(targetIndex)
             restored = true
         }
