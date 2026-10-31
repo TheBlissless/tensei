@@ -687,20 +687,43 @@ fun MainViewModel.fetchMangaUserProfile() {
  */
 fun MainViewModel.toggleMangaFavorite(mangaId: Int) {
     val token = authToken.value ?: return
-    // Optimistic update
-    val current = _favoritedMangaIds.value
-    _favoritedMangaIds.value = if (mangaId in current) current - mangaId else current + mangaId
+    // Optimistic update on BOTH the favorited-ids set (used by heart icons on detail screens)
+    // AND the favorites list (used by the profile screen's FavoritesContent). Mirrors the
+    // anime path's pattern in MainViewModelAniListFavoritesExt.toggleAniListFavorite.
+    //
+    // Critical: do NOT immediately re-fetch the canonical favorites list after the toggle.
+    // AniList's GraphQL endpoint is CDN-cached for several seconds, so the follow-up
+    // fetchUserMangaFavorites round-trip would return the OLD favorites (without the
+    // newly-added manga) and clobber the optimistic update — making the heart icon
+    // flip red for a split second then turn back off, even though the toggle succeeded.
+    // Trust the optimistic state; a later fetchMangaUserProfile (on app open / profile
+    // screen open) will reconcile with the canonical server-side list once the CDN cache
+    // has invalidated.
+    val willBeAdded = mangaId !in _favoritedMangaIds.value
+    val previousIds = _favoritedMangaIds.value
+    val previousList = _mangaFavorites.value
+    _favoritedMangaIds.value = if (willBeAdded) previousIds + mangaId else previousIds - mangaId
+    _mangaFavorites.value = if (willBeAdded) {
+        // Adding: keep the list as-is — the canonical entry will be filled in by a later
+        // fetchMangaUserProfile call. We don't have the manga's full payload here, and
+        // inserting a placeholder would just be immediately replaced.
+        previousList
+    } else {
+        // Removing: drop the entry from the rendered list immediately so the card
+        // disappears from the profile screen before any API round-trip.
+        previousList.filter { it.id != mangaId }
+    }
     viewModelScope.launch {
         val ok = mangaRepository?.toggleMangaFavorite(mangaId, token) ?: false
         if (!ok) {
-            // Revert on failure
-            _favoritedMangaIds.value = current
-        } else {
-            // Refresh the favorites list to stay in sync
-            val refreshed = mangaRepository?.fetchUserMangaFavorites(token) ?: emptyList()
-            _mangaFavorites.value = refreshed
-            _favoritedMangaIds.value = refreshed.map { it.id }.toSet()
+            // Revert on failure — restore both the id set and the list to their prior state.
+            // The user will see the heart flip back; consider surfacing a toast.
+            _favoritedMangaIds.value = previousIds
+            _mangaFavorites.value = previousList
         }
+        // Success: do NOT immediately re-fetch the favorites list. The optimistic update is
+        // already in place; trust it until the next natural refresh (app open / profile open)
+        // which will land after AniList's CDN cache has invalidated.
     }
 }
 
