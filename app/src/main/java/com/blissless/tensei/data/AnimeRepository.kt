@@ -1649,7 +1649,7 @@ class AnimeRepository(
         val response = graphqlMutation(mutation, mapOf("mediaId" to mediaId))
         return !response.isNullOrEmpty()
     }
-    
+
     suspend fun addAniListFavorite(mediaId: Int): Boolean {
         val mutation = $$"""
             mutation ($mediaId: Int) {
@@ -1658,8 +1658,13 @@ class AnimeRepository(
                 }
             }
         """.trimIndent()
-        
-        // Check if already favorited first
+
+        // Check if already favorited first. CRITICAL: this check must NOT use the cached
+        // graphqlRequest path (which caches user data for 1 hour). A cached isFavourite:false
+        // from a previous check would make the early return fire and skip the mutation — so
+        // a user who favorited then immediately unfavorited would have the un-favorite silently
+        // dropped (the cached response still said isFavourite:false from before the first toggle).
+        // The check is the same authed query but with useCache = false to always hit AniList.
         val checkQuery = $$"""
             query ($mediaId: Int) {
                 Media(id: $mediaId) {
@@ -1668,16 +1673,27 @@ class AnimeRepository(
                 }
             }
         """.trimIndent()
-        
-        val result = graphqlRequest(checkQuery, mapOf("mediaId" to mediaId))
-        if (result?.contains("\"isFavourite\":true") == true || result?.contains("\"isFavourite\": true") == true) {
+
+        val token = userPreferences.authToken.value
+        val checkResult = if (token != null) {
+            graphQLClient.execute(
+                query = checkQuery,
+                variables = mapOf("mediaId" to mediaId),
+                requiresAuth = true,
+                authToken = token,
+                clientIds = CLIENT_IDS,
+                useCache = false, // Bypass cache — isFavourite is per-user state that changes
+                parser = { it }
+            ).data
+        } else null
+        if (checkResult?.contains("\"isFavourite\":true") == true || checkResult?.contains("\"isFavourite\": true") == true) {
             return true // Already favorited
         }
-        
+
         val success = graphqlMutation(mutation, mapOf("mediaId" to mediaId)) != null
         return success
     }
-    
+
     suspend fun removeAniListFavorite(mediaId: Int): Boolean {
         val mutation = $$"""
             mutation ($mediaId: Int) {
@@ -1686,8 +1702,15 @@ class AnimeRepository(
                 }
             }
         """.trimIndent()
-        
-        // Check if not favorited first
+
+        // Check if not favorited first. CRITICAL: this check must NOT use the cached
+        // graphqlRequest path (which caches user data for 1 hour). A cached isFavourite:false
+        // from a previous check would make the early return fire and skip the mutation — so
+        // a user who favorited then immediately unfavorited would have the un-favorite silently
+        // dropped (the cached response still said isFavourite:false from before the first toggle,
+        // so the code would think "already not favorited" and skip the actual removeAniListFavorite
+        // mutation, leaving the favorite stuck on the user's AniList account).
+        // The check is the same authed query but with useCache = false to always hit AniList.
         val checkQuery = $$"""
             query ($mediaId: Int) {
                 Media(id: $mediaId) {
@@ -1696,19 +1719,34 @@ class AnimeRepository(
                 }
             }
         """.trimIndent()
-        
-        val result = graphqlRequest(checkQuery, mapOf("mediaId" to mediaId))
-        if (result?.contains("\"isFavourite\":false") == true || result?.contains("\"isFavourite\": false") == true) {
+
+        val token = userPreferences.authToken.value
+        val checkResult = if (token != null) {
+            graphQLClient.execute(
+                query = checkQuery,
+                variables = mapOf("mediaId" to mediaId),
+                requiresAuth = true,
+                authToken = token,
+                clientIds = CLIENT_IDS,
+                useCache = false, // Bypass cache — isFavourite is per-user state that changes
+                parser = { it }
+            ).data
+        } else null
+        if (checkResult?.contains("\"isFavourite\":false") == true || checkResult?.contains("\"isFavourite\": false") == true) {
             return true // Already not favorited
         }
-        
+
         val success = graphqlMutation(mutation, mapOf("mediaId" to mediaId)) != null
         return success
     }
-    
+
     suspend fun toggleAniListFavorite(mediaId: Int, addFavorite: Boolean): Boolean {
         if (addFavorite) {
-            // Check if already favorited
+            // Check if already favorited. CRITICAL: bypass the cache (same bug as
+            // addAniListFavorite / removeAniListFavorite — the isFavourite field is per-user
+            // state that changes, so the cached graphqlRequest path can return a stale
+            // isFavourite:false from before a previous toggle, making the early return fire
+            // and skip the mutation entirely).
             val checkQuery = $$"""
                 query ($mediaId: Int) {
                     Media(id: $mediaId) {
@@ -1717,14 +1755,25 @@ class AnimeRepository(
                     }
                 }
             """.trimIndent()
-            
-            val result = graphqlRequest(checkQuery, mapOf("mediaId" to mediaId))
-            
-            if (result?.contains("\"isFavourite\":true") == true || result?.contains("\"isFavourite\": true") == true) {
+
+            val token = userPreferences.authToken.value
+            val checkResult = if (token != null) {
+                graphQLClient.execute(
+                    query = checkQuery,
+                    variables = mapOf("mediaId" to mediaId),
+                    requiresAuth = true,
+                    authToken = token,
+                    clientIds = CLIENT_IDS,
+                    useCache = false, // Bypass cache — isFavourite is per-user state that changes
+                    parser = { it }
+                ).data
+            } else null
+
+            if (checkResult?.contains("\"isFavourite\":true") == true || checkResult?.contains("\"isFavourite\": true") == true) {
                 return true // Already favorited
             }
         }
-        
+
         val mutation = $$"""
             mutation ($mediaId: Int) {
                 ToggleFavourite(animeId: $mediaId) {
@@ -1732,7 +1781,7 @@ class AnimeRepository(
                 }
             }
         """.trimIndent()
-        
+
         val success = graphqlMutation(mutation, mapOf("mediaId" to mediaId)) != null
         return success
     }
