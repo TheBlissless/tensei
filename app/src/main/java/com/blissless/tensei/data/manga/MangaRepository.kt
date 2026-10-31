@@ -794,8 +794,16 @@ class MangaRepository {
     }
 
     suspend fun toggleMangaFavorite(mediaId: Int, token: String): Boolean {
+        // Selection must match what the Favourite.manga field actually exposes. The previous
+        // query asked for `manga { favourites }`, but `Favourite.manga` returns a
+        // `MediaConnection` (with `nodes`, `edges`, `pageInfo`) — there is NO `favourites`
+        // field on it. AniList rejected the query with a 400 GraphQL error
+        // ("Cannot query field 'favourites' on type 'MediaConnection'"), so the mutation never
+        // actually toggled the favorite on the server, and the local optimistic update got
+        // reverted (the heart would flip red for a moment then go grey again).
+        // Mirrors the anime mutation's selection (`anime { nodes { id } }`).
         val query = """
-            mutation (${'$'}mediaId: Int) { ToggleFavourite(mangaId: ${'$'}mediaId) { manga { favourites } } }
+            mutation (${'$'}mediaId: Int) { ToggleFavourite(mangaId: ${'$'}mediaId) { manga { nodes { id } } } }
         """.trimIndent()
         val raw = executeQuery(query, mapOf("mediaId" to mediaId), token, useCache = false)
         val ok = raw != null && !raw.contains("\"errors\"")
