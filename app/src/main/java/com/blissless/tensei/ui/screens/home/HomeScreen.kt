@@ -263,8 +263,14 @@ fun HomeScreen(
 
     val continueWatchingEpisodes = remember(allAnime, playbackPositions, startedAt) {
         val seen = mutableSetOf<String>()
+        // Don't show a Continue Watching card unless the user has actually
+        // started watching — playback position must be at least 10 seconds
+        // in. This mirrors CacheManager.PLAYBACK_FINISHED_TAIL_MS (the tail
+        // that marks an episode as finished) and prevents cards created by
+        // accidental taps or instant exits from cluttering the home screen.
+        val CONTINUE_WATCHING_MIN_POSITION_MS = 10_000L
         playbackPositions.filter { (key, pos) ->
-            pos >= 5000L && !key.endsWith("_offline")
+            pos >= CONTINUE_WATCHING_MIN_POSITION_MS && !key.endsWith("_offline")
         }.mapNotNull { (key, pos) ->
             val parts = key.split("_")
             if (parts.size >= 2) {
