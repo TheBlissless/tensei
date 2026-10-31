@@ -1716,7 +1716,12 @@ private fun MainViewModel.reconcileCompletion(mangaId: Int, progressOverride: Fl
     // Reading a chapter implies an active CURRENT manga. For dialog-driven changes only a
     // CURRENT manga is auto-completed, so an explicit PAUSED/DROPPED/PLANNING choice is never
     // overridden.
-    if (!reading && track.status != "CURRENT") return
+    // Already-COMPLETED is rejected above. Any other status (CURRENT / PLANNING / PAUSED /
+    // DROPPED) is eligible for auto-completion when the progress reaches the final chapter of
+    // a FINISHED manga — both the dialog path (reading = false) and the auto-tracking threshold
+    // path (reading = true) converge here. Mirrors reconcileAnimeCompletion on the anime side.
+    // (The `reading` parameter is preserved for callers that want to know the source, but no
+    // longer gates the auto-complete rule.)
     mangaTrackManager?.updateTrackingStatus(mangaId, "COMPLETED")
     loadLocalMangaTracking()
     queueMangaSync(mangaId, "status", status = "COMPLETED", progress = track.totalChapters)
@@ -1727,7 +1732,9 @@ private fun MainViewModel.reconcileAllCompletions() {
     val tracker = mangaTrackManager ?: return
     var changed = false
     for (track in tracker.allTracks()) {
-        if (track.status != "CURRENT") continue
+        // Sweep every non-COMPLETED track so an anime/manga the user finished elsewhere (e.g. on
+        // the AniList website) under a non-CURRENT status also gets auto-completed locally.
+        if (track.status == "COMPLETED") continue
         if (track.mediaStatus != "FINISHED") continue
         if (track.totalChapters <= 0 || track.progress < track.totalChapters) continue
         tracker.updateTrackingStatus(track.mangaId, "COMPLETED")
