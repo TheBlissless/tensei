@@ -1108,6 +1108,12 @@ private suspend fun loadHomeDataWithCache() {
         val cachedData = cacheManager.loadExploreDataFromCache()
         if (cachedData != null) {
             updateExploreState(cachedData)
+            // Always kick off a silent background refresh after restoring from cache
+            // so the explore screen (including episode counts for currently-airing
+            // anime) does not stay stale until the next manual refresh. The
+            // force = false path honors the 5-minute cooldown so we don't hammer
+            // AniList on rapid app re-opens.
+            fetchExploreData(silent = true)
         } else {
             fetchExploreData(force = true)
         }
