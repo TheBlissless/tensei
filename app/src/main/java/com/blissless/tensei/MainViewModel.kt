@@ -1192,6 +1192,12 @@ private suspend fun loadHomeDataWithCache() {
         _completed.value = grouped["COMPLETED"] ?: emptyList()
         _onHold.value = grouped["PAUSED"] ?: emptyList()
         _dropped.value = grouped["DROPPED"] ?: emptyList()
+
+        // Startup safety net: auto-complete any CURRENT anime whose progress has already reached
+        // the total episode count of a FINISHED series. This catches series the user finished
+        // elsewhere (AniList website, another client) whose status hasn't been refreshed locally.
+        reconcileAllAnimeCompletions()
+
         saveHomeDataToCache()
         return true
     }
@@ -1416,6 +1422,10 @@ private suspend fun loadHomeDataWithCache() {
         // Immediately update progress in logged-in lists
         updateProgressInLists(mediaId, progress)
 
+        // Auto-complete: if this progress update reaches the total episode count of a FINISHED
+        // anime, flip the status from CURRENT to COMPLETED (mirrors manga's reconcileCompletion).
+        reconcileAnimeCompletion(mediaId, progressOverride = progress)
+
         val cachedAnime = cacheManager.detailedAnimeCache.value[mediaId]
         val malId = cachedAnime?.malId
 
@@ -1612,6 +1622,109 @@ private suspend fun loadHomeDataWithCache() {
         }
 
         targetList.value += updatedAnime
+    }
+
+    /**
+     * Anime counterpart of manga's reconcileCompletion. When the user's progress has reached
+     * the total episode count of a FINISHED anime, the list status is auto-flipped from CURRENT
+     * to COMPLETED. Mirrors the manga rule (MainViewModelMangaExt.reconcileCompletion):
+     *
+     *  - already COMPLETED → no-op
+     *  - media status not FINISHED → no-op (don't auto-complete currently-airing shows;
+     *    a 12/12 progress on a RELEASING series just means caught up, not done)
+     *  - totalEpisodes <= 0 → no-op (unknown total, can't tell)
+     *  - effective progress < totalEpisodes → no-op
+     *  - status != CURRENT → no-op (an explicit PAUSED/DROPPED/PLANNING choice is never
+     *    overridden silently; only a series the user is actively watching gets auto-completed)
+     *
+     * This fixes the bug where a user marked 24/24 progress on a finished anime but the list
+     * status stayed CURRENT — the home screen kept it under "Currently Watching" and the
+     * detail screen showed an empty/missing status badge.
+     *
+     * `progressOverride` lets the caller pass the just-written progress without waiting for
+     * the in-memory list to reflect it.
+     */
+    private fun reconcileAnimeCompletion(mediaId: Int, progressOverride: Int = -1) {
+        // Find the anime across all logged-in lists to read its current listStatus, totalEpisodes,
+        // and media status. We don't consult userPreferences.localAnimeStatus here because the
+        // logged-in lists are the source of truth when the user is signed in; for offline-only
+        // users, completion is implied by progress == totalEpisodes without needing a status flip.
+        val allAnime = _currentlyWatching.value + _planningToWatch.value +
+                _completed.value + _onHold.value + _dropped.value
+        val anime = allAnime.find { it.id == mediaId } ?: return
+
+        if (anime.listStatus == "COMPLETED") return
+        if (anime.listStatus != "CURRENT") return
+        if (anime.totalEpisodes <= 0) return
+
+        // Media status FINISHED is required. The anime model's `status` field carries AniList's
+        // media status (FINISHED / RELEASING / NOT_YET_RELEASED / CANCELLED). The detailed cache
+        // is the freshest source; fall back to the list entry if the cache has been evicted.
+        val cachedAnime = cacheManager.detailedAnimeCache.value[mediaId]
+        val mediaStatus = cachedAnime?.status ?: anime.status
+        if (mediaStatus != "FINISHED") return
+
+        val effectiveProgress = if (progressOverride >= 0) progressOverride else anime.progress
+        if (effectiveProgress < anime.totalEpisodes) return
+
+        // Flip the status to COMPLETED. moveAnimeBetweenLists takes care of removing the entry
+        // from _currentlyWatching and adding it to _completed (instant UI update), then we queue
+        // the server-side status sync (which also carries progress so AniList/MAL stay consistent).
+        moveAnimeBetweenLists(mediaId, "COMPLETED", effectiveProgress)
+
+        // Update the local entry too so offline mirrors match (status list rebuild reads this).
+        val localEntry = userPreferences.getLocalAnimeStatus(mediaId)
+        if (localEntry != null) {
+            setLocalAnimeStatus(
+                mediaId,
+                localEntry.copy(status = "COMPLETED", progress = effectiveProgress)
+            )
+        }
+
+        queueSync(
+            mediaId,
+            "status",
+            malId = cachedAnime?.malId ?: anime.malId,
+            status = "COMPLETED",
+            progress = effectiveProgress,
+            score = anime.userScore
+        )
+    }
+
+    /**
+     * Startup safety net: sweep every CURRENT anime for the completion rule. Mirrors manga's
+     * reconcileAllCompletions. Called after fetchLists() so a series that the user finished
+     * outside the app (e.g. on the AniList website) but whose local listStatus hasn't been
+     * refreshed gets auto-completed once the freshly-fetched lists land.
+     */
+    private fun reconcileAllAnimeCompletions() {
+        val toComplete = mutableListOf<Pair<Int, Int>>()
+        for (anime in _currentlyWatching.value) {
+            if (anime.listStatus != "CURRENT") continue
+            if (anime.totalEpisodes <= 0) continue
+            if (anime.status != "FINISHED") continue
+            if (anime.progress < anime.totalEpisodes) continue
+            toComplete += anime.id to anime.progress
+        }
+        for ((mediaId, progress) in toComplete) {
+            moveAnimeBetweenLists(mediaId, "COMPLETED", progress)
+            val anime = _completed.value.find { it.id == mediaId }
+            val localEntry = userPreferences.getLocalAnimeStatus(mediaId)
+            if (localEntry != null) {
+                setLocalAnimeStatus(
+                    mediaId,
+                    localEntry.copy(status = "COMPLETED", progress = progress)
+                )
+            }
+            queueSync(
+                mediaId,
+                "status",
+                malId = anime?.malId,
+                status = "COMPLETED",
+                progress = progress,
+                score = anime?.userScore
+            )
+        }
     }
 
     fun removeAnimeFromList(mediaId: Int) {
