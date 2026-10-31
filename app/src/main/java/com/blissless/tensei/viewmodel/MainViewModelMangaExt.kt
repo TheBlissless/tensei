@@ -1744,7 +1744,7 @@ fun MainViewModel.setMangaSyncThreshold(percent: Int) {
     userPreferences.setMangaSyncThreshold(percent)
 }
 
-fun MainViewModel.updateMangaScrollProgress(mangaId: Int, scrollProgress: Float, mangaTitle: String = "", mangaCover: String = "", chapter: MangaChapter? = null) {
+fun MainViewModel.updateMangaScrollProgress(mangaId: Int, scrollProgress: Float, mangaTitle: String = "", mangaCover: String = "", chapter: MangaChapter? = null, force: Boolean = false) {
     // Guard against NaN/Infinity — same defensive pattern as oni's TrackingManager
     val safe = if (scrollProgress.isNaN() || scrollProgress.isInfinite()) 0f else scrollProgress
     // In-chapter resume card: created lazily on the FIRST real scroll (past page 1), so closing
@@ -1766,8 +1766,14 @@ fun MainViewModel.updateMangaScrollProgress(mangaId: Int, scrollProgress: Float,
     // stays within one interval of the actual position, which is plenty for resume. The chapter is
     // stored alongside the fraction so Continue Reading stays attached to the chapter the scroll
     // was made in.
+    //
+    // The throttle is bypassed when force = true, which the reader uses on dispose so the
+    // Continue Reading card reflects the page the user was actually on when they exited —
+    // without this, a page change followed by an exit within 500ms would leave the persisted
+    // scrollProgress at the PREVIOUS page (the snapshotFlow only emits on change, so a steady
+    // position never re-fires the throttled write).
     val now = SystemClock.elapsedRealtime()
-    if (safe <= 0f || now - lastMangaScrollPersistTime >= MANGA_SCROLL_PERSIST_INTERVAL_MS) {
+    if (force || safe <= 0f || now - lastMangaScrollPersistTime >= MANGA_SCROLL_PERSIST_INTERVAL_MS) {
         mangaTrackManager?.updateScrollProgress(mangaId, safe, chapter)
         lastMangaScrollPersistTime = now
     }

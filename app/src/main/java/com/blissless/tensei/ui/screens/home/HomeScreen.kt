@@ -299,7 +299,14 @@ fun HomeScreen(
     val activeMangaContinueReading = mangaContinueReading.filter { manga ->
         val pageTotal = manga.currentChapterPages
         val scrollProgress = manga.scrollProgress.coerceIn(0f, 1f)
-        pageTotal > 1 && ((scrollProgress * pageTotal).toInt() + 1) in 1 until pageTotal
+        // Compute the best-overlap page (the one the reader was displaying when the user
+        // exited). scrollProgress is stored as currentScroll / maxScroll where currentScroll
+        // is the TOP of the viewport; multiplying by (total - 1) and rounding to nearest
+        // recovers the best-overlap page index (see ReaderScreen vertical restore comment
+        // for the full derivation). Only show the card once the user has reached at least
+        // page 2; the upper bound hides it once they've scrolled to the last page.
+        val currentPage = ((scrollProgress * (pageTotal - 1)) + 0.5f).toInt() + 1
+        pageTotal > 1 && currentPage in 2 until pageTotal
     }
 
     val hasOfflineContent = !isLoggedIn && (localFavorites.isNotEmpty() || localAnimeStatus.isNotEmpty())
@@ -1514,7 +1521,12 @@ private fun MangaContinueReadingCard(
     // The saved scroll fraction maps to the item index the reader restores to
     // (0-based); the on-screen page number is that index + 1.
     val currentPage = if (pageTotal > 0) {
-        ((scrollProgress * pageTotal).toInt() + 1).coerceIn(1, pageTotal)
+        // scrollProgress is stored as currentScroll / maxScroll (top-of-viewport fraction).
+        // Multiplying by (total - 1) and rounding to nearest recovers the best-overlap page
+        // index — the page the reader was actually showing when the user exited. See
+        // ReaderScreen vertical restore for the full derivation. Without this, a chapter
+        // scrolled to show page 4 would display "page 3" on the card (off-by-one).
+        ((scrollProgress * (pageTotal - 1) + 0.5f).toInt() + 1).coerceIn(1, pageTotal)
     } else {
         null
     }

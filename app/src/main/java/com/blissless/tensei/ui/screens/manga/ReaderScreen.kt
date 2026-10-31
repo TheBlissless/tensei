@@ -225,6 +225,29 @@ fun MangaReaderScreen(
     val currentChapter = chapters.getOrNull(currentChapterIndex)
     val isFirstChapter = currentChapterIndex == 0
     val isLastChapter = currentChapterIndex >= chapters.lastIndex
+
+    // Force-persist the latest scrollProgress + chapter on reader exit. The throttled
+    // writer inside updateMangaScrollProgress can otherwise leave the persisted
+    // scrollProgress at a stale page (snapshotFlow only emits on change, so a steady
+    // position never re-fires the throttled write). rememberUpdatedState captures the
+    // latest values so onDispose reads them at exit time, not at composition time.
+    val latestScrollProgress by rememberUpdatedState(scrollProgress)
+    val latestChapter by rememberUpdatedState(currentChapter)
+    DisposableEffect(manga.id) {
+        onDispose {
+            val chapter = latestChapter
+            if (chapter != null && latestScrollProgress > 0f) {
+                viewModel.updateMangaScrollProgress(
+                    mangaId = manga.id,
+                    scrollProgress = latestScrollProgress,
+                    mangaTitle = manga.title,
+                    mangaCover = manga.cover,
+                    chapter = chapter,
+                    force = true,
+                )
+            }
+        }
+    }
     // Index of the chapter the saved scroll position belongs to. Progress races ahead once the
     // sync threshold is crossed (a completed chapter), while the user may still be inside it —
     // so resume must target the scroll's chapter, not progress+1 (the "Ch. 21 · Page 26/27" bug).
@@ -672,7 +695,13 @@ fun MangaReaderScreen(
                         headers = chapterImageHeaders,
                         initialPage = currentPageIndex.coerceIn(0, (displayedImages?.size ?: 1) - 1),
                         restorePage = if (pendingResumeProgress >= 0f && displayedImages != null && displayedImages!!.size > 1) {
-                            val page = (pendingResumeProgress * (displayedImages!!.size - 1)).toInt().coerceIn(0, displayedImages!!.size - 1)
+                            // Pager mode stores scrollProgress = pageIndex / (total - 1) exactly,
+                            // so multiplying back by (total - 1) recovers the index modulo IEEE
+                            // 754 float precision. The +0.5f rounds to nearest so e.g. 2.9999998
+                            // (from 3/7) restores to 3, not 2.
+                            val page = ((pendingResumeProgress * (displayedImages!!.size - 1)) + 0.5f)
+                                .toInt()
+                                .coerceIn(0, displayedImages!!.size - 1)
                             pendingResumeProgress = -1f
                             page
                         } else -1,
