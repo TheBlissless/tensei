@@ -469,13 +469,13 @@ class MangaRepository {
 
     suspend fun fetchUserMangaLists(userId: Int, token: String): Map<String, List<MangaMedia>>? {
         val query = """
-            query (${'$'}userId: Int) {
-                MediaListCollection(userId: ${'$'}userId, type: MANGA) {
+            query (${'$'}userId: Int, ${'$'}sort: [MediaListSort]) {
+                MediaListCollection(userId: ${'$'}userId, type: MANGA, sort: ${'$'}sort) {
                     lists { name status entries { id mediaId progress progressVolumes score status media { id idMal title { romaji english } coverImage { extraLarge large } bannerImage chapters volumes status averageScore genres seasonYear format } } }
                 }
             }
         """.trimIndent()
-        val raw = executeQuery(query, mapOf("userId" to userId), token) ?: return null
+        val raw = executeQuery(query, mapOf("userId" to userId, "sort" to listOf("UPDATED_TIME_DESC")), token) ?: return null
         return try {
             val response = json.decodeFromString<MangaUserListResponse>(raw)
             response.data.MediaListCollection.lists.associate { list ->

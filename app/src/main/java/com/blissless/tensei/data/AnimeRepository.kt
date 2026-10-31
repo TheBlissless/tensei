@@ -247,8 +247,8 @@ class AnimeRepository(
 
     suspend fun fetchMediaLists(userId: Int): MediaListResponse? {
         val query = $$"""
-            query ($userId: Int) {
-                MediaListCollection(userId: $userId, type: ANIME) {
+            query ($userId: Int, $sort: [MediaListSort]) {
+                MediaListCollection(userId: $userId, type: ANIME, sort: $sort) {
                     lists {
                         name
                         status
@@ -277,7 +277,7 @@ class AnimeRepository(
             }
         """.trimIndent()
 
-        return graphqlRequest(query, mapOf("userId" to userId))?.let {
+        return graphqlRequest(query, mapOf("userId" to userId, "sort" to listOf("UPDATED_TIME_DESC")))?.let {
             try {
                 json.decodeFromString<MediaListResponse>(it)
             } catch (_: Exception) {
