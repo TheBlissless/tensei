@@ -314,20 +314,33 @@ fun SearchScreen(
     val mangaCurrentlyReadingList by viewModel.mangaCurrentlyReading.collectAsState()
     val mangaPlanningToReadList by viewModel.mangaPlanningToRead.collectAsState()
     val mangaCompletedList by viewModel.mangaCompleted.collectAsState()
+    // PAUSED and DROPPED manga were previously missing from the manga track maps, so a
+    // manga the user had put On Hold or Dropped would render in search results without a
+    // status badge (while anime with the same status DID get a badge — anime's savedAnimeMap
+    // at line 289 already includes all 5 statuses). Including them here makes the search
+    // result badges symmetric between anime and manga.
+    val mangaPausedList by viewModel.mangaPaused.collectAsState()
+    val mangaDroppedList by viewModel.mangaDropped.collectAsState()
 
-    val mangaTrackMap = remember(mangaCurrentlyReadingList, mangaPlanningToReadList, mangaCompletedList) {
+    val mangaTrackMap = remember(mangaCurrentlyReadingList, mangaPlanningToReadList, mangaCompletedList, mangaPausedList, mangaDroppedList) {
         val map = mutableMapOf<Int, String>()
         mangaCurrentlyReadingList.forEach { map[it.id] = "CURRENT" }
         mangaPlanningToReadList.forEach { map[it.id] = "PLANNING" }
         mangaCompletedList.forEach { map[it.id] = "COMPLETED" }
+        mangaPausedList.forEach { map[it.id] = "PAUSED" }
+        mangaDroppedList.forEach { map[it.id] = "DROPPED" }
         map
     }
 
-    val mangaTrackByMalMap = remember(mangaCurrentlyReadingList, mangaPlanningToReadList, mangaCompletedList) {
+    val mangaTrackByMalMap = remember(mangaCurrentlyReadingList, mangaPlanningToReadList, mangaCompletedList, mangaPausedList, mangaDroppedList) {
         val map = mutableMapOf<Int, String>()
         mangaCurrentlyReadingList.forEach { it.malId?.let { m -> map[m] = "CURRENT" } }
         mangaPlanningToReadList.forEach { it.malId?.let { m -> map[m] = "PLANNING" } }
         mangaCompletedList.forEach { it.malId?.let { m -> map[m] = "COMPLETED" } }
+        // Match the mangaTrackMap fix above: include PAUSED and DROPPED so MAL-fallback
+        // cards (used when AniList search/detail is down) also resolve their status badge.
+        mangaPausedList.forEach { it.malId?.let { m -> map[m] = "PAUSED" } }
+        mangaDroppedList.forEach { it.malId?.let { m -> map[m] = "DROPPED" } }
         map
     }
 
