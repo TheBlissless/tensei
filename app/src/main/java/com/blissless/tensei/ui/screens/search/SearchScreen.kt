@@ -1372,19 +1372,32 @@ private fun SearchPosterCard(
                         .height(3.dp)
                         .background(statusTint),
                 )
-                SearchArtworkChip(
-                    text = statusText,
-                    contentColor = statusTint,
-                    modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
-                )
             }
 
-            score?.let {
-                SearchArtworkChip(
-                    text = "\u2605 ${String.format(Locale.US, "%.1f", it)}",
-                    contentColor = ratingColorOnArtwork(),
-                    modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.sm),
-                )
+            // Group the status chip + rating chip in a single Row at TopEnd so the status
+            // badge sits immediately LEFT of the rating badge (per the user's expected layout)
+            // rather than in opposite corners. When only one of them is present, the Row
+            // naturally collapses to just that chip. When neither is present, the Row is
+            // empty and the corner stays clean.
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(Spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (hasStatus) {
+                    SearchArtworkChip(
+                        text = statusText,
+                        contentColor = statusTint,
+                    )
+                }
+                score?.let {
+                    SearchArtworkChip(
+                        text = "\u2605 ${String.format(Locale.US, "%.1f", it)}",
+                        contentColor = ratingColorOnArtwork(),
+                    )
+                }
             }
 
             typeMarker?.let { isAnime ->

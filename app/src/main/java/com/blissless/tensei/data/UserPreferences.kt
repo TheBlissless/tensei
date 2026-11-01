@@ -342,10 +342,13 @@ class UserPreferences(context: Context) {
             if (_disableMaterialColors.value) ColorMode.SEMI_MONOCHROME.value else ColorMode.MATERIAL.value
         ) ?: ColorMode.SEMI_MONOCHROME.value
         _preferredCategory.value = sharedPreferences.getString(KEY_PREFERRED_CATEGORY, "sub") ?: "sub"
-        _showStatusColors.value = sharedPreferences.getBoolean(KEY_SHOW_STATUS_COLORS, false)
+        // Status color badges default to ON so users see their list status (Watching / Planning
+        // / Completed / On Hold / Dropped) on anime and manga cards out of the box. Users
+        // who prefer a cleaner look can still turn them OFF in Settings → Display.
+        _showStatusColors.value = sharedPreferences.getBoolean(KEY_SHOW_STATUS_COLORS, true)
         _showAnimeCardButtons.value = sharedPreferences.getBoolean(KEY_SHOW_ANIME_CARD_BUTTONS, false)
         _showMangaCardButtons.value = sharedPreferences.getBoolean(KEY_SHOW_MANGA_CARD_BUTTONS, false)
-        _showMangaStatusColors.value = sharedPreferences.getBoolean(KEY_SHOW_MANGA_STATUS_COLORS, false)
+        _showMangaStatusColors.value = sharedPreferences.getBoolean(KEY_SHOW_MANGA_STATUS_COLORS, true)
         _preferEnglishTitles.value = sharedPreferences.getBoolean(KEY_PREFER_ENGLISH_TITLES, true)
         _advancedSearch.value = sharedPreferences.getBoolean(KEY_ADVANCED_SEARCH, false)
 
