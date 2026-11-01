@@ -2062,7 +2062,13 @@ private fun SheetTitle(
  */
 @Composable
 private fun resolvedStatusLabel(status: String?, isManga: Boolean, show: Boolean): String? {
-    if (!show || status == null) return null
+    // The label is returned whenever the media has a tracked status, INDEPENDENTLY of the
+    // show-status-colors setting. The setting only gates the colored stripe at the top of
+    // the card (via resolvedStatusTint returning Color.Transparent when off); the chip
+    // itself still renders with a white fallback color so the user can always see which of
+    // their tracked media a search result is. Previously this helper returned null when
+    // `show == false`, which made the chip disappear entirely along with the stripe.
+    if (status == null) return null
     return (if (isManga) MangaStatusLabels[status] else StatusLabels[status]) ?: status
 }
 
