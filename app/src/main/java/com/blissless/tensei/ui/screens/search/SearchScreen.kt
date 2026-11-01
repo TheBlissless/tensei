@@ -703,6 +703,7 @@ fun SearchScreen(
                                 meta = mangaMeta(manga),
                                 statusLabel = resolvedStatusLabel(trackStatus, isManga = true, show = showMangaStatusColors),
                                 statusTint = resolvedStatusTint(trackStatus, showMangaStatusColors),
+                                statusKey = trackStatus,
                                 onClick = { commitRecent(filters.query); onMangaClick(manga) }
                             )
                         }
@@ -728,6 +729,7 @@ fun SearchScreen(
                                         meta = animeMeta(a),
                                         statusLabel = resolvedStatusLabel(trackStatus, isManga = false, show = showAnimeStatusColors),
                                         statusTint = resolvedStatusTint(trackStatus, showAnimeStatusColors),
+                                        statusKey = trackStatus,
                                         typeMarker = true,
                                         onClick = {
                                             commitRecent(filters.query)
@@ -750,6 +752,7 @@ fun SearchScreen(
                                         meta = mangaMeta(m),
                                         statusLabel = resolvedStatusLabel(trackStatus, isManga = true, show = showMangaStatusColors),
                                         statusTint = resolvedStatusTint(trackStatus, showMangaStatusColors),
+                                        statusKey = trackStatus,
                                         typeMarker = false,
                                         onClick = { commitRecent(filters.query); onMangaClick(m) }
                                     )
@@ -775,6 +778,7 @@ fun SearchScreen(
                                 meta = animeMeta(anime),
                                 statusLabel = resolvedStatusLabel(trackStatus, isManga = false, show = showAnimeStatusColors),
                                 statusTint = resolvedStatusTint(trackStatus, showAnimeStatusColors),
+                                statusKey = trackStatus,
                                 onClick = {
                                     commitRecent(filters.query)
                                     keyboardController?.hide()
@@ -1322,6 +1326,13 @@ private fun SearchPosterCard(
     meta: String,
     statusLabel: String?,
     statusTint: Color,
+    // The raw status key ("CURRENT" / "PLANNING" / "COMPLETED" / "PAUSED" / "DROPPED").
+    // Used to compute the chip's text color theme-awarely: full monochrome collapses to
+    // white (onArtworkColor), semi-monochrome and material keep the proper status hue.
+    // This is decoupled from `statusTint` (which is Color.Transparent when the show-status-
+    // colors SETTING is OFF) so the chip keeps its color even when the setting is off —
+    // the setting only gates the 3dp line at the top of the card, not the chip.
+    statusKey: String? = null,
     onClick: () -> Unit,
     typeMarker: Boolean? = null,
 ) {
@@ -1373,7 +1384,13 @@ private fun SearchPosterCard(
             val statusText = statusLabel
             val hasStatusText = statusText != null
             val hasStatusColor = hasStatusText && statusTint != Color.Transparent
-            val effectiveStatusTint = if (hasStatusColor) statusTint else onArtworkColor()
+            // Chip color is computed theme-awarely from the raw statusKey, NOT from statusTint.
+            // statusColorOnArtwork already handles the monochrome theme internally:
+            //   - full MONOCHROME → onArtworkColor() (white)
+            //   - SEMI_MONOCHROME / MATERIAL → the proper status hue (green for Completed etc.)
+            // This means the chip always shows the correct color regardless of the show-status-
+            // colors SETTING (which only gates the 3dp line at TopCenter via hasStatusColor).
+            val statusChipColor = if (statusKey != null) statusColorOnArtwork(statusKey) else onArtworkColor()
 
             if (hasStatusColor) {
                 Box(
@@ -1390,7 +1407,7 @@ private fun SearchPosterCard(
                 // the left and the rating chip on the right.
                 SearchArtworkChip(
                     text = statusText,
-                    contentColor = effectiveStatusTint,
+                    contentColor = statusChipColor,
                     modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
                 )
             }
@@ -1615,6 +1632,7 @@ private fun SearchDiscovery(
                                 meta = animeMeta(anime),
                                 statusLabel = resolvedStatusLabel(trackStatus, isManga = false, show = showAnimeStatusColors),
                                 statusTint = resolvedStatusTint(trackStatus, showAnimeStatusColors),
+                                statusKey = trackStatus,
                                 onClick = { onAnimeClick(anime) },
                             )
                         }
@@ -1651,6 +1669,7 @@ private fun SearchDiscovery(
                                 meta = mangaMeta(manga),
                                 statusLabel = resolvedStatusLabel(trackStatus, isManga = true, show = showMangaStatusColors),
                                 statusTint = resolvedStatusTint(trackStatus, showMangaStatusColors),
+                                statusKey = trackStatus,
                                 onClick = { onMangaClick(manga) },
                             )
                         }
