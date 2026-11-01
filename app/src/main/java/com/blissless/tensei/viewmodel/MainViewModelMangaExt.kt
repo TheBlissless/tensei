@@ -957,15 +957,47 @@ private suspend fun MainViewModel.loadMangaChaptersInternal(mangaId: Int, title:
     if (extChapters != null && extChapters.isNotEmpty()) {
         _mangaExtensionTitle.value = matchedTitle
         // Build ChapterInfo list with oni's URL scheme: anilist_${mediaId}_ch_${number}
-        // Sort by extension's index (oldest-first, chapter 1 at index 0)
-        chapters = extChapters.sortedBy { it.index }.mapIndexed { idx, ch ->
-            MangaChapter(
-                url = "anilist_${mangaId}_ch_${ch.number}",
-                title = if (ch.title.isNotBlank()) "Chapter ${ch.number}: ${ch.title}" else "Chapter ${ch.number}",
-                chapterId = "anilist_${mangaId}_ch_${ch.number}",
-                chapterNumber = ch.number.toFloatOrNull() ?: idx.toFloat()
-            )
-        }
+        //
+        // Filter + sort fix (Blue Lock ch 367 → "chapter2" bug):
+        // Extensions often return special/extras/omake chapters mixed in with the main
+        // chapter list. These specials typically have titles like "Volume 2, Chapter 2",
+        // "Side Story", "Bonus", "Extra", "Prologue", "Oneshot" — and their `number`
+        // field may be 0, a fraction (367.5), a duplicate of a main chapter, or plain
+        // text the toFloatOrNull() parses to null. Sorted by extension `index`, these
+        // specials ended up AFTER the last main chapter (e.g. ch 367), so the reader's
+        // "Next Chapter" button at the bottom would pick the special's title, and
+        // extractChapterNum() would fall back to extracting ANY number from the title
+        // (often "2" from "Volume 2, Chapter 2") → "chapter2" shown as the next chapter
+        // even though 367 was the actual last main chapter.
+        //
+        // The fix has two parts:
+        //   1. Filter out chapters whose title matches obvious special/extras markers
+        //      (case-insensitive). These are NOT main chapters and shouldn't be in the
+        //      reader's sequential navigation.
+        //   2. Sort the remaining chapters by their parsed chapter NUMBER (with the
+        //      extension's `index` as a stable tiebreaker) instead of by `index` alone.
+        //      This way ch 367 (the highest-numbered main chapter) lands at the end of
+        //      the list → isLastChapter == true → the Next Chapter button doesn't show.
+        val specialMarkers = listOf(
+            "volume", "special", "side story", "bonus", "extra", "omake",
+            "prologue", "epilogue", "oneshot", "one-shot", "doujinshi",
+            "extra chapter", "bonus chapter", "side chapter"
+        )
+        val filteredExtChapters = extChapters.filter { ch ->
+            val combined = "${ch.number} ${ch.title}".lowercase()
+            specialMarkers.none { combined.contains(it) }
+        }.ifEmpty { extChapters } // never return an empty list — fall back to original
+
+        chapters = filteredExtChapters
+            .sortedWith(compareBy({ it.number.toFloatOrNull() ?: Float.MAX_VALUE }, { it.index }))
+            .mapIndexed { idx, ch ->
+                MangaChapter(
+                    url = "anilist_${mangaId}_ch_${ch.number}",
+                    title = if (ch.title.isNotBlank()) "Chapter ${ch.number}: ${ch.title}" else "Chapter ${ch.number}",
+                    chapterId = "anilist_${mangaId}_ch_${ch.number}",
+                    chapterNumber = ch.number.toFloatOrNull() ?: idx.toFloat()
+                )
+            }
     } else if (extTotalChapters > 0) {
         // The extension reports the CURRENT release count (totalChapters) but returned no
         // chapter entries for this title (e.g. the source page only exposes the count).
