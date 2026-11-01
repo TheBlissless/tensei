@@ -131,6 +131,8 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 import java.util.Calendar
 import java.util.Locale
+import com.blissless.tensei.viewmodel.mangaDropped
+import com.blissless.tensei.viewmodel.mangaPaused
 
 val ALL_GENRES = listOf(
     "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
