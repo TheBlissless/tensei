@@ -655,6 +655,12 @@ fun SearchScreen(
                             trendingAnime = trendingAnime,
                             trendingManga = trendingManga,
                             preferEnglishTitles = preferEnglishTitles,
+                            savedAnimeMap = savedAnimeMap,
+                            savedAnimeByMalMap = savedAnimeByMalMap,
+                            mangaTrackMap = mangaTrackMap,
+                            mangaTrackByMalMap = mangaTrackByMalMap,
+                            showAnimeStatusColors = showAnimeStatusColors,
+                            showMangaStatusColors = showMangaStatusColors,
                             onQuerySelect = { filters = filters.copy(query = it) },
                             onClearRecent = {
                                 recentStore.clear()
@@ -1517,6 +1523,16 @@ private fun SearchDiscovery(
     trendingAnime: List<ExploreAnime>,
     trendingManga: List<MangaExploreMedia>,
     preferEnglishTitles: Boolean,
+    // Status tracking state — passed through from the parent so the trending cards on the
+    // discovery view can render the same status badges as the actual search-result cards.
+    // Without these, the discovery view's cards always showed statusLabel = null (no badge)
+    // even when the user had the media in their lists.
+    savedAnimeMap: Map<Int, String>,
+    savedAnimeByMalMap: Map<Int, String>,
+    mangaTrackMap: Map<Int, String>,
+    mangaTrackByMalMap: Map<Int, String>,
+    showAnimeStatusColors: Boolean,
+    showMangaStatusColors: Boolean,
     onQuerySelect: (String) -> Unit,
     onClearRecent: () -> Unit,
     onGenreSelect: (String) -> Unit,
@@ -1570,14 +1586,19 @@ private fun SearchDiscovery(
                     horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
                     items(trendingAnime, key = { it.id }) { anime ->
+                        // Look up the user's list status for this anime (by AniList id, with
+                        // MAL-id fallback for MAL-source results). Mirrors the actual search
+                        // result grid path so the discovery trending cards render the same
+                        // status badges.
+                        val trackStatus = savedAnimeMap[anime.id] ?: savedAnimeByMalMap[anime.malId ?: anime.id]
                         Box(modifier = Modifier.width(132.dp)) {
                             SearchPosterCard(
                                 title = animeTitle(anime, preferEnglishTitles),
                                 cover = anime.cover,
                                 score = anime.averageScore?.let { it / 10.0 },
                                 meta = animeMeta(anime),
-                                statusLabel = null,
-                                statusTint = Color.Transparent,
+                                statusLabel = resolvedStatusLabel(trackStatus, isManga = false, show = showAnimeStatusColors),
+                                statusTint = resolvedStatusTint(trackStatus, showAnimeStatusColors),
                                 onClick = { onAnimeClick(anime) },
                             )
                         }
@@ -1602,14 +1623,18 @@ private fun SearchDiscovery(
                     items(trendingManga, key = { it.id }) { manga ->
                         val title = if (preferEnglishTitles && !manga.title.english.isNullOrBlank()) manga.title.english
                         else manga.title.romaji ?: stringResource(R.string.explore_unknown)
+                        // Look up the user's list status for this manga (by AniList id, with
+                        // MAL-id fallback). Mirrors the actual search result grid path so the
+                        // discovery trending cards render the same status badges.
+                        val trackStatus = mangaTrackMap[manga.id] ?: mangaTrackByMalMap[manga.idMal]
                         Box(modifier = Modifier.width(132.dp)) {
                             SearchPosterCard(
                                 title = title,
                                 cover = manga.coverImage?.large ?: manga.coverImage?.medium ?: "",
                                 score = manga.averageScore?.let { it / 10.0 },
                                 meta = mangaMeta(manga),
-                                statusLabel = null,
-                                statusTint = Color.Transparent,
+                                statusLabel = resolvedStatusLabel(trackStatus, isManga = true, show = showMangaStatusColors),
+                                statusTint = resolvedStatusTint(trackStatus, showMangaStatusColors),
                                 onClick = { onMangaClick(manga) },
                             )
                         }
