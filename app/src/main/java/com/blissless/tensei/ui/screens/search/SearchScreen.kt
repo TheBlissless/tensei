@@ -133,6 +133,8 @@ import java.util.Calendar
 import java.util.Locale
 import com.blissless.tensei.viewmodel.mangaDropped
 import com.blissless.tensei.viewmodel.mangaPaused
+import com.blissless.tensei.ui.theme.onArtworkColor
+
 
 val ALL_GENRES = listOf(
     "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror",
@@ -1358,16 +1360,22 @@ private fun SearchPosterCard(
                     .background(artworkGradient(0f, 0.72f)),
             )
 
-            // A status is only shown when the card actually has one AND the user has enabled
-            // the show-status-colors setting (callers pass a transparent tint otherwise), so
-            // untracked cards and cards when the setting is off get neither a stripe nor a
-            // chip — never a grey line. The setting gate is checked explicitly here so the
-            // 3dp status stripe at TopCenter only renders when the setting is ON, even if
-            // the card's media happens to be in the user's list.
+            // The status chip in the top-left corner is ALWAYS rendered when the card's media
+            // is in the user's list (statusText != null), independent of the show-status-colors
+            // setting. When the setting is OFF, statusTint arrives as Color.Transparent from
+            // resolvedStatusTint, so we fall back to onArtworkColor() (white) so the chip text
+            // is still readable against the cover art.
+            //
+            // The 3dp status stripe at TopCenter, on the other hand, only renders when the
+            // show-status-colors setting is ON (statusTint != Color.Transparent) — that gate
+            // is kept because the stripe is purely a color indication and a transparent stripe
+            // would be a no-op anyway.
             val statusText = statusLabel
-            val hasStatus = statusText != null && statusTint != Color.Transparent
+            val hasStatusText = statusText != null
+            val hasStatusColor = hasStatusText && statusTint != Color.Transparent
+            val effectiveStatusTint = if (hasStatusColor) statusTint else onArtworkColor()
 
-            if (hasStatus) {
+            if (hasStatusColor) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -1375,12 +1383,14 @@ private fun SearchPosterCard(
                         .height(3.dp)
                         .background(statusTint),
                 )
+            }
+            if (hasStatusText) {
                 // Status badge in the LEFT corner (TopStart) with the same Spacing.sm padding
                 // as the rating badge uses at TopEnd — symmetric corners, the status chip on
                 // the left and the rating chip on the right.
                 SearchArtworkChip(
                     text = statusText,
-                    contentColor = statusTint,
+                    contentColor = effectiveStatusTint,
                     modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
                 )
             }
