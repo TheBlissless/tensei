@@ -70,6 +70,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import com.blissless.tensei.viewmodel.toggleMalFavoriteById
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -406,9 +407,19 @@ fun UserProfileScreen(
                             onShowDetailedAnime(anime.malId, anime.malId)
                         }
                     },
-                    onRemoveFavorite = if (loginProvider == LoginProvider.ANILIST || loginProvider == LoginProvider.BOTH) {
-                        { viewModel.toggleAniListFavorite(it.id) }
-                    } else { null },
+                        // Provide a remove callback for ALL logged-in providers:
+                        //   - ANILIST / BOTH mode: route through toggleAniListFavorite, which handles
+                        //     the AniList API push (and the BOTH-mode MAL-local mirror update via
+                        //     Edit 2a). The favorite's `id` here is the AniList id (line 248-249).
+                        //   - MAL-only mode: route through toggleMalFavoriteById, which is local-only
+                        //     (no MAL favorite-write API exists). Without this branch, MAL-only users
+                        //     had no way to remove their local anime favorites from the profile screen
+                        //     — the remove button was suppressed entirely.
+                        onRemoveFavorite = when (loginProvider) {
+                            LoginProvider.ANILIST, LoginProvider.BOTH -> { viewModel.toggleAniListFavorite(it.id) }
+                            LoginProvider.MAL -> { viewModel.toggleMalFavoriteById(it.id) }
+                            else -> null
+                        },
                     onMangaClick = { manga ->
                         onMangaClick(
                             MangaMedia(
