@@ -443,8 +443,13 @@ fun UserProfileScreen(
                         //     had no way to remove their local anime favorites from the profile screen
                         //     — the remove button was suppressed entirely.
                         onRemoveFavorite = when (loginProvider) {
-                            LoginProvider.ANILIST, LoginProvider.BOTH -> { viewModel.toggleAniListFavorite(it.id) }
-                            LoginProvider.MAL -> { viewModel.toggleMalFavoriteById(it.id) }
+                            // Each branch returns a lambda (ProfileFavorite) -> Unit. The explicit
+                            // `fav ->` parameter is required because a bare `{ ... }` after `->`
+                            // in a when-branch is parsed as a code block (returning Unit), not a
+                            // lambda — without the parameter, `it` is unresolved and the type
+                            // mismatch surfaces as "actual type is Unit?".
+                            LoginProvider.ANILIST, LoginProvider.BOTH -> { fav -> viewModel.toggleAniListFavorite(fav.id) }
+                            LoginProvider.MAL -> { fav -> viewModel.toggleMalFavoriteById(fav.id) }
                             else -> null
                         },
                     onMangaClick = { manga ->
