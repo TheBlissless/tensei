@@ -266,7 +266,8 @@ fun DetailedAnimeScreen(
                 anime.cover,
                 anime.banner,
                 anime.year,
-                anime.averageScore
+                anime.averageScore,
+                titleEnglish = anime.titleEnglish
             )
         }
     }

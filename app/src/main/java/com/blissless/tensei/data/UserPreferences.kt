@@ -690,7 +690,8 @@ class UserPreferences(context: Context) {
         cover: String = "",
         banner: String? = null,
         year: Int? = null,
-        averageScore: Int? = null
+        averageScore: Int? = null,
+        titleEnglish: String? = null
     ) {
         val currentFavorites = _localFavorites.value.toMutableMap()
         val existingFavorite = currentFavorites[mediaId]
@@ -698,7 +699,7 @@ class UserPreferences(context: Context) {
         if (existingFavorite != null) {
             // Update metadata if title was empty before
             if (existingFavorite.title.isEmpty() && title.isNotEmpty()) {
-                currentFavorites[mediaId] = StoredFavorite(mediaId, title, cover, banner, year, averageScore)
+                currentFavorites[mediaId] = StoredFavorite(mediaId, title, cover, banner, year, averageScore, titleEnglish)
             } else {
                 // Remove favorite
                 currentFavorites.remove(mediaId)
@@ -708,7 +709,7 @@ class UserPreferences(context: Context) {
             if (currentFavorites.size >= 10) {
                 return
             }
-            currentFavorites[mediaId] = StoredFavorite(mediaId, title, cover, banner, year, averageScore)
+            currentFavorites[mediaId] = StoredFavorite(mediaId, title, cover, banner, year, averageScore, titleEnglish)
         }
 
         _localFavorites.value = currentFavorites

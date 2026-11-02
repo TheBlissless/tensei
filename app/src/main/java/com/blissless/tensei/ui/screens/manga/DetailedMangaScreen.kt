@@ -249,7 +249,7 @@ fun DetailedMangaScreen(
         if (isLoggedIn) {
             viewModel.toggleMangaFavorite(manga.id)
         } else {
-            viewModel.toggleOfflineFavorite(manga.id, manga.title, manga.cover, manga.banner, manga.year, manga.averageScore)
+            viewModel.toggleOfflineFavorite(manga.id, manga.title, manga.cover, manga.banner, manga.year, manga.averageScore, titleEnglish = manga.titleEnglish)
         }
     }
     val onFavoriteClick: () -> Unit = {

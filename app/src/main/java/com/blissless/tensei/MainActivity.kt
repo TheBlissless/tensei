@@ -899,6 +899,32 @@ fun MainScreen(
         invalidateCurrentStreamCache()
     }
 
+    /**
+     * Fetch the TMDB episode title for a given (anime, episode). Used as the source of truth
+     * for the player's episode title — preferred over the anime's title (which would duplicate
+     * the animeName shown in the top bar and produce e.g. "Black Clover 2nd Season . Ep 1"
+     * where the per-episode title should be).
+     *
+     * Reads from the in-memory cache first; on a miss, fetches from TMDB and caches the result.
+     * Returns a sanitized title on success, or a localized "Episode N" placeholder on failure.
+     *
+     * Declared here (above playTorrent and the loadAndPlayEpisode* functions) so the magnet /
+     * stream / aniyomi playback paths can call it without forward-reference errors — Kotlin
+     * local functions are only visible after their declaration in source order.
+     */
+    suspend fun getTmdbEpisodeTitle(anime: AnimeMedia, episode: Int): String {
+        val cachedEpisodes = viewModel.getCachedTmdbEpisodes(anime.id)
+        if (cachedEpisodes != null) {
+            val title = cachedEpisodes.find { it.episode == episode }?.title
+            if (!title.isNullOrEmpty()) return sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
+        }
+        return try {
+            val tmdbEpisodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format, animeEpisodes = anime.totalEpisodes.takeIf { it > 0 })
+            val title = tmdbEpisodes.find { it.episode == episode }?.title
+            sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
+        } catch (_: Exception) { context.getString(R.string.app_episode_number, episode) }
+    }
+
     // Async playback methods — inlined here because they launch coroutines
     // that write state asynchronously. The sync pattern doesn't work for
     // async methods because syncFromPlayback() would run before the
@@ -1043,7 +1069,15 @@ fun MainScreen(
 
                         currentVideoUrl = "http://127.0.0.1:$port/$fileName"
                         currentReferer = ""
-                        currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: context.getString(R.string.app_episode_number, episode)
+                        // Don't fall back to the anime's title here — see comment in the
+                        // magnet path above (duplicates the animeName shown in the top bar).
+                        currentEpisodeTitle = context.getString(R.string.app_episode_number, episode)
+                        scope.launch {
+                            val tmdbTitle = getTmdbEpisodeTitle(anime, episode)
+                            if (currentAnime?.id == anime.id && currentEpisode == episode) {
+                                currentEpisodeTitle = tmdbTitle
+                            }
+                        }
                         currentSubtitleTracks = extensionSubtitles
                         currentSubtitleUrl = pickTenseiSubtitleUrl(extensionSubtitles)
                         currentQualityOptions = emptyList()
@@ -1122,7 +1156,15 @@ fun MainScreen(
 
                     currentVideoUrl = playUrl
                     currentReferer = playHeaders["Referer"] ?: ""
-                    currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: context.getString(R.string.app_episode_number, episode)
+                    // Don't fall back to the anime's title here — see comment in the
+                    // magnet path above (duplicates the animeName shown in the top bar).
+                    currentEpisodeTitle = context.getString(R.string.app_episode_number, episode)
+                    scope.launch {
+                        val tmdbTitle = getTmdbEpisodeTitle(anime, episode)
+                        if (currentAnime?.id == anime.id && currentEpisode == episode) {
+                            currentEpisodeTitle = tmdbTitle
+                        }
+                    }
                     currentSubtitleTracks = playSubs
                     currentSubtitleUrl = pickTenseiSubtitleUrl(playSubs)
                     currentQualityOptions = emptyList()
@@ -1196,7 +1238,15 @@ fun MainScreen(
 
                 currentVideoUrl = playUrl
                 currentReferer = playHeaders["Referer"] ?: ""
-                currentEpisodeTitle = sanitizeEpisodeTitle(anime.title) ?: context.getString(R.string.app_episode_number, episode)
+                // Don't fall back to the anime's title here — see comment in the
+                // magnet path above (duplicates the animeName shown in the top bar).
+                currentEpisodeTitle = context.getString(R.string.app_episode_number, episode)
+                scope.launch {
+                    val tmdbTitle = getTmdbEpisodeTitle(anime, episode)
+                    if (currentAnime?.id == anime.id && currentEpisode == episode) {
+                        currentEpisodeTitle = tmdbTitle
+                    }
+                }
                 currentSubtitleTracks = playSubs
                 currentSubtitleUrl = pickTenseiSubtitleUrl(playSubs)
                 currentQualityOptions = emptyList()
@@ -1333,19 +1383,6 @@ fun MainScreen(
             return
         }
         loadAndPlayEpisodeAniyomi(anime, episode, isAutoRefresh)
-    }
-
-    suspend fun getTmdbEpisodeTitle(anime: AnimeMedia, episode: Int): String {
-        val cachedEpisodes = viewModel.getCachedTmdbEpisodes(anime.id)
-        if (cachedEpisodes != null) {
-            val title = cachedEpisodes.find { it.episode == episode }?.title
-            if (!title.isNullOrEmpty()) return sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
-        }
-        return try {
-            val tmdbEpisodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format, animeEpisodes = anime.totalEpisodes.takeIf { it > 0 })
-            val title = tmdbEpisodes.find { it.episode == episode }?.title
-            sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
-        } catch (_: Exception) { context.getString(R.string.app_episode_number, episode) }
     }
 
     fun fetchAndCacheEpisode(ep: Int) {

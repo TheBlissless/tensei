@@ -1849,8 +1849,8 @@ private suspend fun loadHomeDataWithCache() {
         updateOfflineLists()
     }
 
-    fun toggleOfflineFavorite(animeId: Int, title: String, cover: String, banner: String?, year: Int?, averageScore: Int?) {
-        userPreferences.toggleLocalFavorite(animeId, title, cover, banner, year, averageScore)
+    fun toggleOfflineFavorite(animeId: Int, title: String, cover: String, banner: String?, year: Int?, averageScore: Int?, titleEnglish: String? = null) {
+        userPreferences.toggleLocalFavorite(animeId, title, cover, banner, year, averageScore, titleEnglish)
         updateOfflineLists()
     }
 

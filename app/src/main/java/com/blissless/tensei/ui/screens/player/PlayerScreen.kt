@@ -1446,6 +1446,48 @@ fun PlayerScreen(
                                             }
                                         }
                                     }
+                                } else {
+                                    // Compact (portrait phone) layout: show a single condensed
+                                    // line with the episode title (or anime name as fallback) and
+                                    // "Episode X/Y". Skips the large title row to keep the top
+                                    // bar minimal on narrow screens, but still surfaces the
+                                    // episode title so the user can identify what they're watching
+                                    // without expanding to fullscreen. The episode title takes
+                                    // priority because it varies per episode (the anime name is
+                                    // already on the lock-screen notification + recents).
+                                    Column(modifier = Modifier.weight(1f, fill = false)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            val compactTitle = episodeTitle.takeUnless { it.isNullOrEmpty() }
+                                                ?: animeName.takeIf { it.isNotEmpty() }
+                                            if (!compactTitle.isNullOrEmpty()) {
+                                                Text(
+                                                    text = compactTitle,
+                                                    color = Color.White,
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f, fill = false)
+                                                )
+                                            }
+                                            Text(
+                                                text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
+                                                color = Color.White.copy(alpha = 0.7f),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                maxLines = 1
+                                            )
+                                            if (isFetchingTimestamps || isChangingServer) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(10.dp),
+                                                    strokeWidth = 1.5.dp,
+                                                    color = if (disableMaterialColors) Color.White else playerAccentColor()
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
 
                             }
@@ -2096,7 +2138,40 @@ fun PlayerScreen(
                             }
                         }
                         if (isCompact) {
-                            Spacer(modifier = Modifier.height(2.dp))
+                            // Compact bottom title row: surfaces the episode title (or anime
+                            // name as fallback) above the speed/fullscreen row so the user
+                            // can identify what they're watching in portrait mode without
+                            // expanding to fullscreen. Mirrors the compact top bar's title
+                            // row, but sits in the bottom controls area where it's always
+                            // visible alongside the scrubber.
+                            val compactBottomTitle = episodeTitle.takeUnless { it.isNullOrEmpty() }
+                                ?: animeName.takeIf { it.isNotEmpty() }
+                            if (!compactBottomTitle.isNullOrEmpty()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = compactBottomTitle,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                            } else {
+                                Spacer(modifier = Modifier.height(2.dp))
+                            }
                         }
                     }
                 }

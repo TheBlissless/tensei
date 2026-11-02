@@ -49,7 +49,11 @@ fun OfflineFavoritesDialog(
     favorites: Map<Int, StoredFavorite>,
     onDismiss: () -> Unit,
     onAnimeClick: (ExploreAnime) -> Unit,
-    onRemoveFavorite: (Int) -> Unit
+    onRemoveFavorite: (Int) -> Unit,
+    // When true, the dialog prefers the favorite's `titleEnglish` (if non-blank) over `title`.
+    // Mirrors the same fallback pattern used everywhere else in the app for the
+    // "Prefer English titles" setting. Default true for callers that haven't been updated.
+    preferEnglishTitles: Boolean = true
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -112,7 +116,8 @@ fun OfflineFavoritesDialog(
                                         )
                                         onAnimeClick(exploreAnime)
                                     },
-                                    onRemove = { onRemoveFavorite(fav.id) }
+                                    onRemove = { onRemoveFavorite(fav.id) },
+                                    preferEnglishTitles = preferEnglishTitles
                                 )
                             }
                         }
@@ -126,7 +131,8 @@ fun OfflineFavoritesDialog(
 @Composable
 private fun OfflineFavoriteItem(
     favorite: StoredFavorite,
-    onClick: () -> Unit, onRemove: () -> Unit
+    onClick: () -> Unit, onRemove: () -> Unit,
+    preferEnglishTitles: Boolean = true
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { onClick() },
@@ -145,15 +151,25 @@ private fun OfflineFavoriteItem(
             ) {
                 if (favorite.cover.isNotEmpty()) {
                     AsyncImage(
-                        model = favorite.cover, contentDescription = favorite.title,
+                        model = favorite.cover,
+                        contentDescription = if (preferEnglishTitles && !favorite.titleEnglish.isNullOrBlank()) favorite.titleEnglish else favorite.title,
                         contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()
                     )
                 }
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
+                // Apply the "Prefer English titles" setting: use titleEnglish when the
+                // setting is on AND the favorite has a non-blank English title stored;
+                // fall back to the romaji title (favorite.title) otherwise. Legacy
+                // favorites persisted before titleEnglish existed fall through cleanly.
+                val displayTitle = if (preferEnglishTitles && !favorite.titleEnglish.isNullOrBlank()) {
+                    favorite.titleEnglish
+                } else {
+                    favorite.title
+                }
                 Text(
-                    favorite.title.ifEmpty { stringResource(R.string.comp_anime_fallback) },
+                    displayTitle.ifEmpty { stringResource(R.string.comp_anime_fallback) },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,

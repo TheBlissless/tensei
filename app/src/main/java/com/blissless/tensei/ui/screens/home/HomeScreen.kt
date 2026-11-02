@@ -1290,7 +1290,8 @@ fun HomeScreen(
             favorites = localFavorites,
             onDismiss = { showOfflineFavoritesDialog = false },
             onAnimeClick = { anime -> onShowAnimeDialog(anime, null) },
-            onRemoveFavorite = { id -> viewModel.toggleLocalFavorite(id) }
+            onRemoveFavorite = { id -> viewModel.toggleLocalFavorite(id) },
+            preferEnglishTitles = preferEnglishTitles
         )
     }
 

@@ -1050,7 +1050,12 @@ data class StoredFavorite(
     val cover: String,
     val banner: String? = null,
     val year: Int? = null,
-    val averageScore: Int? = null
+    val averageScore: Int? = null,
+    // English title — stored alongside `title` (which is the romaji title from AniList) so
+    // the "Prefer English titles" setting can be honored for local favorites when the user
+    // is logged out. null for legacy favorites persisted before this field existed; the
+    // dialog falls back to `title` in that case.
+    val titleEnglish: String? = null
 )
 
 @Serializable

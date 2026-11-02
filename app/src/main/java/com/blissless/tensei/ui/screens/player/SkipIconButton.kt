@@ -30,7 +30,13 @@ fun SkipIconButton(
     ) {
         IconButton(
             onClick = onClick,
-            modifier = Modifier.size(if (isCompact) 36.dp else 48.dp).background(backgroundColor, shape = MaterialTheme.shapes.small)
+            // In compact (portrait phone) mode, drop the colored background box around the
+            // icon — the icon stands on its own against the video, matching the rest of the
+            // compact controls (which use Color.Transparent backgrounds). The non-compact
+            // (fullscreen) layout keeps the background box for visibility against busy scenes.
+            modifier = Modifier
+                .size(if (isCompact) 36.dp else 48.dp)
+                .then(if (isCompact) Modifier else Modifier.background(backgroundColor, shape = MaterialTheme.shapes.small))
         ) {
             Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(if (isCompact) 20.dp else 28.dp))
         }
