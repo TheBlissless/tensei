@@ -1447,31 +1447,39 @@ fun PlayerScreen(
                                         }
                                     }
                                 } else {
-                                    // Compact (portrait phone) layout: show a single condensed
-                                    // line with the episode title (or anime name as fallback) and
-                                    // "Episode X/Y". Skips the large title row to keep the top
-                                    // bar minimal on narrow screens, but still surfaces the
-                                    // episode title so the user can identify what they're watching
-                                    // without expanding to fullscreen. The episode title takes
-                                    // priority because it varies per episode (the anime name is
-                                    // already on the lock-screen notification + recents).
+                                    // Compact (portrait phone) layout: mirrors the non-compact
+                                    // (fullscreen) layout — a 2-line Column with the anime name
+                                    // on top, then a Row with the episode title + "·" + "Episode X/Y".
+                                    // Previously this was a single condensed line that only showed
+                                    // one of (episode title | anime name), which was less informative
+                                    // than the fullscreen layout. Now both layouts show the same
+                                    // information, just with smaller typography in compact mode to
+                                    // fit the narrower top bar.
                                     Column(modifier = Modifier.weight(1f, fill = false)) {
+                                        if (animeName.isNotEmpty()) {
+                                            Text(
+                                                text = animeName,
+                                                color = Color.White,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            val compactTitle = episodeTitle.takeUnless { it.isNullOrEmpty() }
-                                                ?: animeName.takeIf { it.isNotEmpty() }
-                                            if (!compactTitle.isNullOrEmpty()) {
+                                            if (!episodeTitle.isNullOrEmpty()) {
                                                 Text(
-                                                    text = compactTitle,
-                                                    color = Color.White,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    fontWeight = FontWeight.SemiBold,
+                                                    text = episodeTitle,
+                                                    color = Color.White.copy(alpha = 0.7f),
+                                                    style = MaterialTheme.typography.labelSmall,
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis,
                                                     modifier = Modifier.weight(1f, fill = false)
                                                 )
+                                                Text("·", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
                                             }
                                             Text(
                                                 text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
@@ -2138,40 +2146,14 @@ fun PlayerScreen(
                             }
                         }
                         if (isCompact) {
-                            // Compact bottom title row: surfaces the episode title (or anime
-                            // name as fallback) above the speed/fullscreen row so the user
-                            // can identify what they're watching in portrait mode without
-                            // expanding to fullscreen. Mirrors the compact top bar's title
-                            // row, but sits in the bottom controls area where it's always
-                            // visible alongside the scrubber.
-                            val compactBottomTitle = episodeTitle.takeUnless { it.isNullOrEmpty() }
-                                ?: animeName.takeIf { it.isNotEmpty() }
-                            if (!compactBottomTitle.isNullOrEmpty()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Text(
-                                        text = compactBottomTitle,
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
-                                        color = Color.White.copy(alpha = 0.7f),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        maxLines = 1
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                            } else {
-                                Spacer(modifier = Modifier.height(2.dp))
-                            }
+                            // The compact bottom title row (episode title + Ep X/Y) has been
+                            // removed — the same information is now shown in the compact top
+                            // bar (which mirrors the fullscreen 2-line layout: anime name on
+                            // top, episode title + "·" + "Episode X/Y" on the bottom). Keeping
+                            // it in both places was redundant and crowded the bottom controls
+                            // area. A small spacer is kept so the speed/fullscreen row doesn't
+                            // sit flush against the scrubber.
+                            Spacer(modifier = Modifier.height(2.dp))
                         }
                     }
                 }
