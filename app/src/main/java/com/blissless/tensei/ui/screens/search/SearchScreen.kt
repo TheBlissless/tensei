@@ -679,6 +679,64 @@ fun SearchScreen(
                             },
                             onMangaClick = onMangaClick,
                         )
+                    } else {
+                        // Simple search pre-search view: surface the user's last 3 searches as
+                        // tappable pills. Mirrors the advanced search's recent-searches row
+                        // (SearchDiscovery) but stripped down — no trending rails, no genre
+                        // chips, no clear button (the user can clear from the advanced search
+                        // screen). Limited to 3 entries so the screen stays focused for users
+                        // who only want to repeat a recent query.
+                        val recentThree = recentSearches.take(3)
+                        if (recentThree.isNotEmpty()) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    start = Spacing.gutter,
+                                    end = Spacing.gutter,
+                                    top = Spacing.md,
+                                    bottom = navigationBarBottomPadding() + Spacing.lg,
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                            ) {
+                                item {
+                                    TenseiSectionHeader(
+                                        title = stringResource(R.string.search_recent),
+                                        icon = Icons.Default.History,
+                                    )
+                                }
+                                item {
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                    ) {
+                                        recentThree.forEach { query ->
+                                            DiscoveryPill(
+                                                icon = Icons.Default.History,
+                                                label = query,
+                                                isOled = isOled,
+                                                onClick = {
+                                                    filters = filters.copy(query = query)
+                                                    triggerSearchOrDiscovery()
+                                                },
+                                            )
+                                        }
+                                        // Always provide a clear-all affordance so the user can
+                                        // wipe their search history without having to switch to
+                                        // advanced search.
+                                        DiscoveryPill(
+                                            icon = Icons.Default.Clear,
+                                            label = stringResource(R.string.search_clear_recent),
+                                            isOled = isOled,
+                                            onClick = {
+                                                recentStore.clear()
+                                                recentSearches = emptyList()
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
