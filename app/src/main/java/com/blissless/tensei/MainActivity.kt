@@ -2730,7 +2730,22 @@ fun MainScreen(
                     val trackingPercent = viewModel.trackingPercentage.value
                     if (percentage >= trackingPercent && anime.id > 0) {
                         viewModel.updateAnimeProgress(anime.id, currentEpisode)
-                        viewModel.clearPlaybackPosition(anime.id, currentEpisode)
+                        // Keep the Continue Watching card after auto-sync: do NOT clear the
+                        // playback position here. The savePlaybackPosition call (which fires
+                        // on every progress tick via onSavePosition above) already handles the
+                        // "user watched to the very end" case — it auto-clears the position
+                        // when the playback is within PLAYBACK_FINISHED_TAIL_MS (10s) of the
+                        // duration. Removing this clearPlaybackPosition call mirrors the manga
+                        // side (onMangaScrollProgress explicitly KEEPS the scroll position after
+                        // the threshold is crossed, see the comment there about "the chapter's
+                        // stop position is deliberately KEPT here"). This means a user who
+                        // crosses the 85% threshold but exits before the last 10 seconds will
+                        // see a Continue Watching card that resumes mid-episode — which matches
+                        // their mental model of "I haven't finished this yet, I want to come
+                        // back to it". The episode's progress is still incremented to the next
+                        // episode via updateAnimeProgress above, so the home screen's progress
+                        // chip (e.g. "5 / 12") and the detail screen's chapter list (e.g. ep 5
+                        // marked as watched) reflect the auto-sync correctly.
                         if (!hasPrefetchedNextOnTracking && currentEpisode < released) {
                             hasPrefetchedNextOnTracking = true
                             prefetchExtensionNextEpisode()
