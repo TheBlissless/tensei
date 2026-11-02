@@ -218,6 +218,11 @@ fun DetailedAnimeScreen(
     val magnetExtensions by viewModel.availableMagnetExtensions.collectAsState()
     val localFavorites by viewModel.localFavorites.collectAsState()
     val aniListFavorites by viewModel.aniListFavorites.collectAsState()
+    // MAL-local favorites — consulted so the heart icon reflects locally-stored anime favorites
+    // even when loginProvider == MAL (no AniList sync happens, so _aniListFavorites is empty).
+    // In ANILIST / BOTH mode this list is typically a subset of aniListFavorites, so OR-ing
+    // them is safe and won't cause false positives.
+    val malFavorites by viewModel.malFavorites.collectAsState()
     val localAnimeStatus by viewModel.localAnimeStatus.collectAsState()
     val currentlyWatching by viewModel.currentlyWatching.collectAsState()
     val planningToWatch by viewModel.planningToWatch.collectAsState()
@@ -226,8 +231,15 @@ fun DetailedAnimeScreen(
     val dropped by viewModel.dropped.collectAsState()
     val localFavExists = localFavorites.containsKey(anime.id)
     val aniListIsFavorite = aniListFavorites.any { it.id == anime.id }
+    val malIsFavorite = malFavorites.any { it.id == anime.id || it.malId == anime.id }
+    // Heart icon source of truth: true if the anime is favorited via ANY of the available
+    // sources — the passed-in isFavorite (computed upstream from aniListFavoriteIds),
+    // the in-memory AniList list, the MAL-local list, or the offline local store. The
+    // OR-ing covers MAL-only mode (where _aniListFavorites is empty but _malFavorites has
+    // the user's favorites), BOTH-mode (both lists have the entry), and ANILIST-only mode
+    // (only _aniListFavorites has the entry).
     val effectiveIsFavorite = when {
-        isLoggedIn -> isFavorite || aniListIsFavorite
+        isLoggedIn -> isFavorite || aniListIsFavorite || malIsFavorite
         else -> localFavExists
     }
 
