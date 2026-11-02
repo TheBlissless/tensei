@@ -1993,16 +1993,30 @@ fun DetailedAnimeScreen(
                     // was null) — a surprising side effect for a rating action. Now we route
                     // through updateAnimeScore, which only touches the score field locally
                     // and queues a score-only AniList/MAL sync.
-                    viewModel.updateAnimeScore(anime.id, score, malId = anime.malId)
+                    //
+                    // score is Int? (from AnimeRatingSheet's onScoreSaved: (Int?) -> Unit
+                    // signature — the sheet passes null when the user clears the rating). We
+                    // guard null here and skip the update entirely in that case; a future
+                    // improvement could route null through a dedicated clearScore path.
+                    if (score != null) {
+                        viewModel.updateAnimeScore(anime.id, score, malId = anime.malId)
+                    }
                 } else {
                     // Offline / logged-out: update the local entry's score only, preserving
                     // the existing status and progress. If the anime has no local entry yet,
                     // create one with status = "CURRENT" as a sensible default (the user is
                     // rating it, so they presumably intend to track it — better than leaving
                     // it untracked and having the score silently dropped on next app restart).
-                    val existingEntry = viewModel.localAnimeStatus.collectAsState().value[anime.id]
+                    //
+                    // Reads from the screen-scoped `localAnimeStatus` (collected at the top of
+                    // DetailedAnimeScreen via collectAsState) — NOT from a fresh collectAsState()
+                    // call here, because this lambda is a click handler (not a @Composable scope)
+                    // and collectAsState() can only be called from a composable.
+                    val existingEntry = localAnimeStatus[anime.id]
                     if (existingEntry != null) {
-                        viewModel.setLocalAnimeStatus(anime.id, existingEntry.copy(score = score))
+                        if (score != null) {
+                            viewModel.setLocalAnimeStatus(anime.id, existingEntry.copy(score = score))
+                        }
                     } else {
                         viewModel.setLocalAnimeStatus(
                             anime.id,
