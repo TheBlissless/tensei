@@ -720,6 +720,23 @@ fun MainViewModel.toggleMangaFavorite(mangaId: Int) {
             // The user will see the heart flip back; consider surfacing a toast.
             _favoritedMangaIds.value = previousIds
             _mangaFavorites.value = previousList
+        } else {
+            // BOTH-mode mirror: if the user is logged into BOTH AniList and MAL, also patch
+            // the MAL-local manga favorites store so it stays in sync with what the user
+            // just did. Without this, a manga favorite added during BOTH-mode would be
+            // missing from the MAL-local store, and if the user later switches to MAL-only
+            // mode (e.g. by logging out of AniList), their just-added manga favorite would
+            // disappear. The MAL-local store is the fallback source of truth when AniList
+            // isn't available, so it must mirror the user's intent even when the AniList
+            // API is the primary write target. toggleMalMangaFavorite is local-only (no MAL
+            // API call) so this is cheap and won't trigger any network traffic.
+            //
+            // Done inside the success branch (not unconditionally) so we don't mirror a
+            // favorite whose AniList push failed — that would leave the MAL-local store
+            // ahead of the actual AniList state.
+            if (isBothActive) {
+                toggleMalMangaFavorite(mangaId)
+            }
         }
         // Success: do NOT immediately re-fetch the favorites list. The optimistic update is
         // already in place; trust it until the next natural refresh (app open / profile open)

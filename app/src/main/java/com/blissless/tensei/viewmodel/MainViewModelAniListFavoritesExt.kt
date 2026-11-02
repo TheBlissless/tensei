@@ -200,8 +200,20 @@ fun MainViewModel.toggleAniListFavorite(mediaId: Int, anime: AnimeMedia? = null)
 
         // Queue the API call for debounced sync with the desired state
         queueSync(mediaId, "favorite", favoriteAdded = willBeAdded)
+
+        // BOTH-mode mirror: if the user is logged into BOTH AniList and MAL, also patch the
+        // MAL-local favorites store so it stays in sync with what the user just did. Without
+        // this, a favorite added during BOTH-mode would be missing from the MAL-local store,
+        // and if the user later switches to MAL-only mode (e.g. by logging out of AniList),
+        // their just-added favorite would disappear. The MAL-local store is the fallback
+        // source of truth when AniList isn't available, so it must mirror the user's intent
+        // even when the AniList API is the primary write target. toggleMalFavoriteById is
+        // local-only (no MAL API call) so this is cheap and won't trigger any network traffic.
+        if (isBothActive) {
+            toggleMalFavoriteById(mediaId)
+        }
     }
-}
+}}
 
 // ============================================
 // PREFETCHING - Streams for adjacent episodes
