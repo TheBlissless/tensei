@@ -223,10 +223,14 @@ fun SearchScreen(
 ) {
     var searchType by remember { mutableStateOf("both") }
 
-    // Non-advanced mode always searches both anime and manga and hides the
-    // type switch, filters and discovery UI.
+    // When the user switches between simple and advanced search, the type selection (anime /
+    // manga / both) is preserved rather than reset to "both". Previously, switching to simple
+    // search forced searchType = "both" and hid the type switch — meaning a simple-search user
+    // couldn't search anime-only or manga-only. Now the SearchTypeSegmented control is rendered
+    // on both simple and advanced search screens, and the user's selection persists across the
+    // mode switch.
     LaunchedEffect(advancedSearch) {
-        if (!advancedSearch) searchType = "both"
+        // No-op — preserve the existing searchType selection.
     }
     var filters by remember { mutableStateOf(SearchFilters()) }
     var results by remember { mutableStateOf<List<ExploreAnime>>(emptyList()) }
@@ -620,19 +624,23 @@ fun SearchScreen(
                 focusRequester = focusRequester,
             )
 
-            if (advancedSearch) {
-                SearchTypeSegmented(
-                    selected = searchType,
-                    isOled = isOled,
-                    onSelect = { value ->
-                        if (value != searchType) {
-                            searchType = value
-                            resetResultState()
-                            triggerSearchOrDiscovery()
-                        }
+            // SearchTypeSegmented is now rendered for BOTH simple and advanced search. The user
+            // can switch between anime / manga / both regardless of which search mode they're in.
+            // The filter chips below remain advanced-only because they're tied to the
+            // SearchFilterSheet UI that doesn't fit on the simple search screen.
+            SearchTypeSegmented(
+                selected = searchType,
+                isOled = isOled,
+                onSelect = { value ->
+                    if (value != searchType) {
+                        searchType = value
+                        resetResultState()
+                        triggerSearchOrDiscovery()
                     }
-                )
+                }
+            )
 
+            if (advancedSearch) {
                 Spacer(Modifier.height(Spacing.sm))
 
                 SearchFilterChipRow(
