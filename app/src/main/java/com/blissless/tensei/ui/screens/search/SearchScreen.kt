@@ -648,6 +648,7 @@ fun SearchScreen(
                     activeFilterCount = activeFilterCount,
                     isOled = isOled,
                     onOpenSheet = { activeSheet = it },
+                    onReset = { clearAllFilters() },
                 )
 
                 Spacer(Modifier.height(Spacing.sm))
@@ -1183,6 +1184,13 @@ private fun SearchFilterChipRow(
     activeFilterCount: Int,
     isOled: Boolean,
     onOpenSheet: (SearchSheet) -> Unit,
+    // Wired to clearAllFilters() at the call site. Previously the Reset chip called
+    // onOpenSheet(SearchSheet.NONE), which is a no-op — the when(activeSheet) block
+    // handles NONE as `Unit`, so the button did nothing. Now it actually clears the
+    // active filters (sort / format / status / genres / tags / year) while preserving
+    // the current query, then the calling composable re-runs the search via
+    // clearAllFilters → resetResultState.
+    onReset: () -> Unit,
 ) {
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
@@ -1245,11 +1253,17 @@ private fun SearchFilterChipRow(
         }
         if (activeFilterCount > 0) {
             item {
+                // Reset chip — wired to onReset (clears all filters). Previously this called
+                // onOpenSheet(SearchSheet.NONE) which is a no-op. Now it actually clears the
+                // active filters when tapped. Visually distinct as a destructive action: the
+                // border + icon + text all use tenseiColors.destructive so the user knows this
+                // wipes the active filter selection. The container stays transparent so it
+                // doesn't compete visually with the active FilterChips next to it.
                 Surface(
                     shape = CircleShape,
                     color = Color.Transparent,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    onClick = { onOpenSheet(SearchSheet.NONE) },
+                    border = BorderStroke(1.dp, tenseiColors.destructive.copy(alpha = 0.5f)),
+                    onClick = onReset,
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = Spacing.md, vertical = Spacing.sm),
@@ -1258,14 +1272,14 @@ private fun SearchFilterChipRow(
                         Icon(
                             imageVector = Icons.Default.RestartAlt,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = tenseiColors.destructive,
                             modifier = Modifier.size(16.dp),
                         )
                         Spacer(Modifier.width(Spacing.xs))
                         Text(
                             text = stringResource(R.string.search_reset),
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = tenseiColors.destructive,
                         )
                     }
                 }
