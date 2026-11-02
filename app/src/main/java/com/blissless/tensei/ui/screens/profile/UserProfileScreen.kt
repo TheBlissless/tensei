@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import com.blissless.tensei.viewmodel.malMangaFavorites
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
@@ -196,6 +197,11 @@ fun UserProfileScreen(
     val userCreatedAt by viewModel.userCreatedAt.collectAsState()
 
     val mangaFavorites by viewModel.mangaFavorites.collectAsState()
+    // MAL-local manga favorites — collected so the profile's manga favorites grid can render
+    // them in MAL-only mode (where _mangaFavorites is empty because no AniList sync happens).
+    // In ANILIST / BOTH mode this set is typically a subset of the AniList-sourced list, so
+    // merging them is safe (the distinctBy { it.id } below deduplicates).
+    val malMangaFavoriteIds by viewModel.malMangaFavorites.collectAsState()
     val mangaActivity by viewModel.mangaActivity.collectAsState()
     val mangaUserProfile by viewModel.mangaUserProfile.collectAsState()
 
@@ -393,9 +399,30 @@ fun UserProfileScreen(
                 } else {
                     val allManga = mangaReading + mangaPlanning + mangaFinished + mangaHeld + mangaAbandoned
                     val mangaScoreLookup = allManga.associate { it.id to it.userScore }
-                    val enrichedMangaFavorites = mangaFavorites.map { mf ->
-                        mf.copy(userScore = mf.userScore ?: mangaScoreLookup[mf.id])
-                    }
+                    // Build MangaFavorite entries for MAL-local manga favorites by looking them
+                    // up in the tracked manga lists (which carry the full metadata). Without this,
+                    // MAL-only users would see an empty manga favorites grid even though they've
+                    // favorited manga via the detail-screen heart. In ANILIST / BOTH mode this
+                    // list is empty (or a subset of mangaFavorites), so the merge + distinctBy
+                    // below is a no-op.
+                    val malLocalMangaFavorites = allManga
+                        .filter { it.id in malMangaFavoriteIds }
+                        .map { mm ->
+                            MangaFavorite(
+                                id = mm.id,
+                                title = MangaTitle(romaji = mm.title, english = mm.titleEnglish),
+                                coverImage = MediaCoverImage(extraLarge = mm.cover),
+                                chapters = mm.totalChapters.takeIf { it > 0 },
+                                averageScore = mm.averageScore,
+                                userScore = mm.userScore,
+                                idMal = mm.malId
+                            )
+                        }
+                    val enrichedMangaFavorites = (mangaFavorites + malLocalMangaFavorites)
+                        .distinctBy { it.id }
+                        .map { mf ->
+                            mf.copy(userScore = mf.userScore ?: mangaScoreLookup[mf.id])
+                        }
                     FavoritesContent(
                     favorites = favorites,
                     mangaFavorites = enrichedMangaFavorites,
