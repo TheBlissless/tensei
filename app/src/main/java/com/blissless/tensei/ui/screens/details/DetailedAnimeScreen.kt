@@ -1987,26 +1987,42 @@ fun DetailedAnimeScreen(
             onDismiss = { showRatingSheet = false },
             onScoreSaved = { score ->
                 if (isLoggedIn) {
-                    viewModel.updateAnimeStatus(anime.id, statusToCheck ?: "CURRENT", null, score)
+                    // Score-only update — does NOT flip the list status. Previously this called
+                    // updateAnimeStatus with status = statusToCheck ?: "CURRENT", which moved
+                    // the anime to Currently Watching if it had no list status (statusToCheck
+                    // was null) — a surprising side effect for a rating action. Now we route
+                    // through updateAnimeScore, which only touches the score field locally
+                    // and queues a score-only AniList/MAL sync.
+                    viewModel.updateAnimeScore(anime.id, score, malId = anime.malId)
                 } else {
-                    viewModel.setLocalAnimeStatus(
-                        anime.id,
-                        LocalAnimeEntry(
-                            id = anime.id,
-                            status = statusToCheck ?: "CURRENT",
-                            progress = statusProgress,
-                            totalEpisodes = anime.episodes,
-                            title = anime.title,
-                            cover = anime.cover,
-                            banner = anime.banner,
-                            year = anime.year,
-                            averageScore = anime.averageScore,
-                            score = score
+                    // Offline / logged-out: update the local entry's score only, preserving
+                    // the existing status and progress. If the anime has no local entry yet,
+                    // create one with status = "CURRENT" as a sensible default (the user is
+                    // rating it, so they presumably intend to track it — better than leaving
+                    // it untracked and having the score silently dropped on next app restart).
+                    val existingEntry = viewModel.localAnimeStatus.collectAsState().value[anime.id]
+                    if (existingEntry != null) {
+                        viewModel.setLocalAnimeStatus(anime.id, existingEntry.copy(score = score))
+                    } else {
+                        viewModel.setLocalAnimeStatus(
+                            anime.id,
+                            LocalAnimeEntry(
+                                id = anime.id,
+                                status = "CURRENT",
+                                progress = statusProgress,
+                                totalEpisodes = anime.episodes,
+                                title = anime.title,
+                                cover = anime.cover,
+                                banner = anime.banner,
+                                year = anime.year,
+                                averageScore = anime.averageScore,
+                                score = score
+                            )
                         )
-                    )
+                    }
                 }
                 showRatingSheet = false
-            }
+            },
         )
     }
 }

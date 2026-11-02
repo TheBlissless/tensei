@@ -1477,6 +1477,45 @@ private suspend fun loadHomeDataWithCache() {
         updateInList(_dropped) { it.copy(userScore = score) }
     }
 
+    /**
+     * Score-only update for an anime — does NOT change the user's list status. Mirrors manga's
+     * updateMangaScore. Previously, the rating dialog (AnimeRatingSheet → onScoreSaved) routed
+     * through updateAnimeStatus with status = statusToCheck ?: "CURRENT", which:
+     *   - moved the anime to Currently Watching if it had no list status (statusToCheck == null)
+     *   - moved the anime back to whatever status it had (still a redundant moveAnimeBetweenLists
+     *     call that re-rendered the row and triggered status-side-effect reconcileAnimeCompletion)
+     * Now the rating dialog routes through this function, which:
+     *   - updates the local entry's score only (preserving status + progress)
+     *   - updates the in-memory list's score only (no list-shuffling)
+     *   - queues a "score"-only sync (which executePendingSyncs already handles via
+     *     repository.updateScore + malApiService.updateAnimeStatus(malId, null, score, null))
+     */
+    fun updateAnimeScore(mediaId: Int, score: Int, malId: Int? = null) {
+        // Resolve the MAL id from the cache if the caller didn't provide one — needed so the
+        // MAL-side score update can run in BOTH mode.
+        val resolvedMalId = malId ?: cacheManager.detailedAnimeCache.value[mediaId]?.malId
+
+        // Update the local entry's score only — preserve the existing status and progress so
+        // an anime the user rated without being in any list doesn't get auto-bucketed into
+        // Currently Watching, and an anime in (e.g.) Planning doesn't get yanked out.
+        val currentEntry = userPreferences.getLocalAnimeStatus(mediaId)
+        if (currentEntry != null) {
+            setLocalAnimeStatus(
+                mediaId,
+                currentEntry.copy(score = score)
+            )
+        }
+
+        // Update the in-memory list's score without moving the entry between lists.
+        updateScoreInLists(mediaId, score)
+
+        // Queue a score-only sync (no status mutation). executePendingSyncs' "score" branch
+        // calls repository.updateScore (AniList SaveMediaListEntry with score only) and
+        // malApiService.updateAnimeStatus(malId, null, score, null) — both score-only mutations
+        // that don't touch status.
+        queueSync(mediaId, "score", malId = resolvedMalId, score = score)
+    }
+
     fun updateAnimeStatus(mediaId: Int, status: String, progress: Int? = null, score: Int? = null) {
         val currentEntry = userPreferences.getLocalAnimeStatus(mediaId)
         val cachedAnime = cacheManager.detailedAnimeCache.value[mediaId]
