@@ -1,6 +1,6 @@
 package com.blissless.tensei.ui.screens.search
 
-import android.widget.Toast
+import com.blissless.tensei.ui.components.TenseiEmptyState
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
@@ -748,7 +748,7 @@ fun SearchScreen(
                     }
                 }
 
-                filteredResults.isEmpty() && filteredMangaResults.isEmpty() -> SearchEmptyState()
+                filteredResults.isEmpty() && filteredMangaResults.isEmpty() -> SearchEmptyState(onClearFilters = { clearAllFilters() })
 
                 searchType == "manga" -> {
                     ResultsGrid(
@@ -1582,32 +1582,18 @@ private fun SearchResultsSkeleton() {
 }
 
 @Composable
-private fun SearchEmptyState() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(top = 96.dp, start = Spacing.xxxl, end = Spacing.xxxl),
-        ) {
-            Icon(
-                imageVector = Icons.Default.Search,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                modifier = Modifier.size(44.dp),
-            )
-            Spacer(Modifier.height(Spacing.md))
-            Text(
-                text = stringResource(R.string.search_no_results),
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(Modifier.height(Spacing.xs))
-            Text(
-                text = stringResource(R.string.search_try_adjusting),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-    }
+private fun SearchEmptyState(onClearFilters: () -> Unit) {
+    // Uses the canonical TenseiEmptyState component (matching the rest of the app's empty
+    // states) instead of a hand-rolled Box + Column + Icon + Text stack. The action button
+    // lets the user clear any active filters in one tap when a search returns no results.
+    TenseiEmptyState(
+        icon = Icons.Default.Search,
+        title = stringResource(R.string.search_no_results),
+        message = stringResource(R.string.search_try_adjusting),
+        actionLabel = stringResource(R.string.search_clear_filters),
+        onAction = onClearFilters,
+        modifier = Modifier.fillMaxSize(),
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────

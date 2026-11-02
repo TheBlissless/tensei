@@ -21,6 +21,7 @@
     <string name="search_any">Beliebig</string>
     <string name="search_no_results">Keine Ergebnisse gefunden</string>
     <string name="search_try_adjusting">Versuche, deine Suche anzupassen</string>
+    <string name="search_clear_filters">Filter entfernen</string>
     <string name="search_discover_manga">Manga entdecken</string>
     <string name="search_discover_both">Anime &amp; Manga entdecken</string>
     <string name="search_discover_anime">Anime entdecken</string>

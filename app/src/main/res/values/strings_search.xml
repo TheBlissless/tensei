@@ -20,7 +20,8 @@
     <string name="search_sort">Sort</string>
     <string name="search_any">Any</string>
     <string name="search_no_results">No results found</string>
-    <string name="search_try_adjusting">Try adjusting your search</string>
+    <string name="search_try_adjusting">Try adjusting your search or clearing filters</string>
+    <string name="search_clear_filters">Clear filters</string>
     <string name="search_discover_manga">Discover Manga</string>
     <string name="search_discover_both">Discover Anime &amp; Manga</string>
     <string name="search_discover_anime">Discover Anime</string>
