@@ -213,7 +213,7 @@ fun MainViewModel.toggleAniListFavorite(mediaId: Int, anime: AnimeMedia? = null)
             toggleMalFavoriteById(mediaId)
         }
     }
-}}
+}
 
 // ============================================
 // PREFETCHING - Streams for adjacent episodes

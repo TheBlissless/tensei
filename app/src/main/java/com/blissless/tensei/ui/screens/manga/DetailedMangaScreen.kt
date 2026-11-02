@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import android.content.Intent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import com.blissless.tensei.viewmodel.malMangaFavorites
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState

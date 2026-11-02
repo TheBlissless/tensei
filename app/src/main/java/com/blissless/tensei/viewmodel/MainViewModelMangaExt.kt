@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
 import com.blissless.tensei.api.myanimelist.MalMangaListEntry
+import com.blissless.tensei.api.myanimelist.LoginProvider
 import com.blissless.tensei.MainViewModel
 import com.blissless.tensei.R
 import com.blissless.tensei.data.manga.MangaDexManager
