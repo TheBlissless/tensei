@@ -686,6 +686,22 @@ fun MainViewModel.fetchMangaUserProfile() {
  * Updates the local favorited-ids set immediately for responsive UI, then calls AniList.
  */
 fun MainViewModel.toggleMangaFavorite(mangaId: Int) {
+    // Branch on login provider, mirroring the anime path's toggleAniListFavorite:
+    //   - MAL-only mode: route to toggleMalMangaFavorite (local-only — MAL has no favorite-
+    //     write API). Without this branch, MAL-only users couldn't favorite manga at all
+    //     because the early `authToken.value ?: return` below would silently no-op.
+    //   - ANILIST / BOTH mode: run the AniList path (toggleMangaFavorite mutation).
+    //     BOTH-mode additionally patches the MAL-local mirror inside the success branch
+    //     below so the store stays consistent if the user later switches to MAL-only.
+    if (_loginProvider.value == LoginProvider.MAL) {
+        toggleMalMangaFavorite(mangaId)
+        // Optimistic update of the AniList-side state too so the heart icon fills even
+        // in MAL-only mode (DetailedMangaScreen reads _favoritedMangaIds for the heart).
+        // Without this, the heart would stay outlined even after a successful local add.
+        val current = _favoritedMangaIds.value
+        _favoritedMangaIds.value = if (mangaId in current) current - mangaId else current + mangaId
+        return
+    }
     val token = authToken.value ?: return
     // Optimistic update on BOTH the favorited-ids set (used by heart icons on detail screens)
     // AND the favorites list (used by the profile screen's FavoritesContent). Mirrors the

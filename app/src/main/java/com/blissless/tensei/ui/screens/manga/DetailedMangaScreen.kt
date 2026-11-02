@@ -232,8 +232,14 @@ fun DetailedMangaScreen(
     val mangaSourceMethod by viewModel.mangaSourceMethod.collectAsState()
     val defaultExternalMangaExtension by viewModel.defaultExternalMangaExtension.collectAsState()
     val favoritedMangaIds by viewModel.favoritedMangaIds.collectAsState()
-    // Reactive favorite state from AniList (overrides the static isFavorite parameter)
-    val isMangaFavorited = manga.id in favoritedMangaIds
+    // MAL-local favorites — consulted when loginProvider == MAL so the heart reflects
+    // locally-stored manga favorites even when AniList isn't the active provider. In
+    // ANILIST / BOTH mode this set is typically a subset of favoritedMangaIds (the AniList
+    // source of truth) so OR-ing them is safe and won't cause false positives.
+    val malMangaFavoriteIds by viewModel.malMangaFavorites.collectAsState()
+    // Reactive favorite state — true if the manga is favorited via EITHER provider's local
+    // store. Overrides the static isFavorite parameter passed in from the call site.
+    val isMangaFavorited = manga.id in favoritedMangaIds || manga.id in malMangaFavoriteIds
     var showRemoveFavoriteDialog by remember { mutableStateOf(false) }
 
     // Un-favouriting is destructive and trivially undoable only by re-tapping, so route it
