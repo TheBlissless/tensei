@@ -46,18 +46,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.OndemandVideo
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -85,6 +84,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -1062,6 +1062,33 @@ private fun searchSheetColor(isOled: Boolean): Color =
     if (isOled) MaterialTheme.colorScheme.surfaceContainerHigh
     else MaterialTheme.colorScheme.surfaceContainerLow
 
+/**
+ * Theme-aware accent for the "Browse Genres" section header (and any other accent that
+ * should follow the same rule). Mirrors the player's `playerAccentColor()` logic so the
+ * search screen's accent matches the scrubber / floating controls in the player:
+ *   - monochrome (full)        → neutral grey (Color(0xFFCFCFCF), same as player)
+ *   - semi-monochrome           → the app's accent blue (Color(0xFF60A5FA), same as player)
+ *   - Material                  → MaterialTheme.colorScheme.primary when it's light enough
+ *                                  to read on a surface, else falls back to the accent blue
+ *
+ * Local to the search screen to avoid coupling the search package to the player package —
+ * the player's `playerAccentColor()` is `internal` and conceptually belongs to playback UI,
+ * not search. If this logic ever needs to be shared more broadly it should be promoted to
+ * a `tenseiAccentColor()` helper in the theme package.
+ */
+@Composable
+private fun tenseiAccentColor(): Color {
+    val colors = tenseiColors
+    return when {
+        colors.monochrome -> Color(0xFFCFCFCF)
+        colors.semiMonochrome -> Color(0xFF60A5FA)
+        else -> {
+            val primary = MaterialTheme.colorScheme.primary
+            if (primary.luminance() > 0.35f) primary else Color(0xFF60A5FA)
+        }
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Header + controls
 // ─────────────────────────────────────────────────────────────────────────
@@ -1162,9 +1189,14 @@ private fun SearchTypeSegmented(
     // at a glance without reading the label. The selected segment's container colour
     // animates between transparent and primary via animateColorAsState for a smooth
     // transition (was previously an instant colour flip).
+    //
+    // Icon choices match the bottom navigation bar (Icons.Rounded.Movie for anime,
+    // Icons.Rounded.MenuBook for manga) so the user sees the same icon for "Anime" / "Manga"
+    // everywhere in the app — search, nav bar, and any other surface. "Both" uses the
+    // Layers icon because there's no canonical "both" icon in the nav bar.
     val options = listOf(
-        Triple("anime", R.string.search_tab_anime, Icons.Default.OndemandVideo),
-        Triple("manga", R.string.search_tab_manga, Icons.AutoMirrored.Filled.MenuBook),
+        Triple("anime", R.string.search_tab_anime, Icons.Rounded.Movie),
+        Triple("manga", R.string.search_tab_manga, Icons.Rounded.MenuBook),
         Triple("both", R.string.search_tab_both, Icons.Default.Layers),
     )
     Surface(
@@ -1537,7 +1569,7 @@ private fun SearchPosterCard(
                 TenseiScrimChip(
                     text = stringResource(if (isAnime) R.string.search_tab_anime else R.string.search_tab_manga),
                     color = Color.White,
-                    leadingIcon = if (isAnime) Icons.Default.PlayArrow else Icons.AutoMirrored.Filled.MenuBook,
+                    leadingIcon = if (isAnime) Icons.Rounded.Movie else Icons.Rounded.MenuBook,
                     modifier = Modifier.align(Alignment.BottomStart).padding(Spacing.sm),
                 )
             }
@@ -1757,7 +1789,7 @@ private fun SearchDiscovery(
             TenseiSectionHeader(
                 title = stringResource(R.string.search_browse_genres),
                 icon = Icons.Default.Tune,
-                accent = tenseiColors.completed,
+                accent = tenseiAccentColor(),
             )
         }
         item {

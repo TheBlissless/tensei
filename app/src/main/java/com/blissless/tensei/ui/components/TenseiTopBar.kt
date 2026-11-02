@@ -230,19 +230,41 @@ fun TenseiScrimChip(
     modifier: Modifier = Modifier,
     color: Color = Color.White,
     containerColor: Color = Color.Black.copy(alpha = 0.62f),
+    leadingIcon: ImageVector? = null,
 ) {
     Surface(
         modifier = modifier,
         shape = Radius.chipShape,
         color = containerColor,
     ) {
-        Text(
-            text = text,
-            style = TenseiType.badge,
-            color = color,
-            maxLines = 1,
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
-        )
+        if (leadingIcon != null) {
+            Row(
+                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = leadingIcon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(12.dp),
+                )
+                Spacer(Modifier.width(Spacing.xxs))
+                Text(
+                    text = text,
+                    style = TenseiType.badge,
+                    color = color,
+                    maxLines = 1,
+                )
+            }
+        } else {
+            Text(
+                text = text,
+                style = TenseiType.badge,
+                color = color,
+                maxLines = 1,
+                modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
+            )
+        }
     }
 }
 

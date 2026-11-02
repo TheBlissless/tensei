@@ -5,6 +5,9 @@
     <string name="search_close">Schließen</string>
     <string name="search_clear">Löschen</string>
     <string name="search_query_hint">Anime suchen...</string>
+    <string name="search_query_hint_anime">Anime suchen...</string>
+    <string name="search_query_hint_manga">Manga suchen...</string>
+    <string name="search_query_hint_both">Anime &amp; Manga suchen...</string>
     <string name="search_tab_anime">Anime</string>
     <string name="search_tab_manga">Manga</string>
     <string name="search_tab_both">Beides</string>
