@@ -51,22 +51,35 @@ fun MainViewModel.fetchAniListFavorites() {
     viewModelScope.launch {
         repository.fetchUserFavorites(userId)?.let { response ->
             val apiFavorites = response.data.User.favourites.anime.nodes
-            // Merge API favorites with locally stored favorites to preserve offline additions
+            // Merge API favorites with locally stored favorites. CRITICAL: the local set is the
+            // source of truth for "what the user currently wants favorited", because AniList's
+            // GraphQL endpoint is CDN-cached for several seconds. Without this gate, a sequence
+            // like:
+            //   1. User removes favorite → local set drops the id
+            //   2. User reopens Profile within ~5 s → fetchAniListFavorites runs
+            //   3. API still returns the removed anime (CDN-stale)
+            //   4. mergedFavorites starts from apiFavorites → re-adds the removed anime
+            // would silently re-add a just-removed favorite.
+            //
+            // The fix: intersect the API response with the local set. Any API entry NOT in the
+            // local set is a stale-CDN echo of a removed favorite and must be dropped. Local-only
+            // entries (added but not yet propagated to AniList) are appended at the end.
             val localFavoriteIds = userPreferences.aniListFavorites.value
-            val mergedFavorites = apiFavorites.map { apiFav ->
-                apiFav.copy(userScore = apiFav.userScore ?: animeUserScore(apiFav.id))
-            }.map { apiFav ->
-                val isLocalFavorite = localFavoriteIds.contains(apiFav.id)
-                if (isLocalFavorite) {
-                    // Keep local version which might have more up-to-date info
+            val mergedFavorites = apiFavorites
+                .filter { it.id in localFavoriteIds }
+                .map { apiFav ->
+                    apiFav.copy(userScore = apiFav.userScore ?: animeUserScore(apiFav.id))
+                }
+                .map { apiFav ->
+                    // Prefer the local in-memory entry's userScore (it may be more recent than
+                    // the API's, which lags by the CDN TTL).
                     val localFav = _aniListFavorites.value.find { it.id == apiFav.id }
                     localFav?.copy(userScore = localFav.userScore ?: apiFav.userScore) ?: apiFav
-                } else {
-                    apiFav
                 }
-            }.toMutableList()
+                .toMutableList()
 
-            // Add any favorites that were added locally but not on API yet
+            // Add any favorites that were added locally but not on API yet (e.g. added offline,
+            // or added but the AniList CDN cache hasn't invalidated to reflect the new state).
             localFavoriteIds.forEach { localId ->
                 if (mergedFavorites.none { it.id == localId }) {
                     val localOnly = _aniListFavorites.value.find { it.id == localId }
