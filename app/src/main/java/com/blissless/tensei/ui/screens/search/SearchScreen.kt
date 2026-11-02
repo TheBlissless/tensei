@@ -5,6 +5,8 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -49,6 +51,8 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.OndemandVideo
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
@@ -105,6 +109,7 @@ import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.data.models.MediaTag
 import com.blissless.tensei.data.models.toDetailedAnimeData
 import com.blissless.tensei.ui.components.SkeletonBlock
+import com.blissless.tensei.ui.components.TenseiScrimChip
 import com.blissless.tensei.ui.components.TenseiSectionHeader
 import com.blissless.tensei.ui.components.shimmer
 import com.blissless.tensei.ui.screens.details.DetailedAnimeScreen
@@ -622,6 +627,11 @@ fun SearchScreen(
                     keyboardController?.hide()
                 },
                 focusRequester = focusRequester,
+                placeholder = when (searchType) {
+                    "anime" -> stringResource(R.string.search_query_hint_anime)
+                    "manga" -> stringResource(R.string.search_query_hint_manga)
+                    else -> stringResource(R.string.search_query_hint_both)
+                },
             )
 
             // SearchTypeSegmented is now rendered for BOTH simple and advanced search. The user
@@ -1065,6 +1075,10 @@ private fun SearchHeader(
     onCancel: () -> Unit,
     onSearchAction: () -> Unit,
     focusRequester: FocusRequester,
+    // searchType-aware placeholder — switches between "Search anime..." / "Search manga..."
+    // / "Search anime & manga..." based on the active tab. Defaulted to the legacy
+    // search_query_hint string so any caller that doesn't pass it still compiles.
+    placeholder: String = "",
 ) {
     Row(
         modifier = Modifier
@@ -1114,7 +1128,7 @@ private fun SearchHeader(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (query.isEmpty()) {
                                 Text(
-                                    text = stringResource(R.string.search_query_hint),
+                                    text = placeholder.ifEmpty { stringResource(R.string.search_query_hint) },
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                     style = MaterialTheme.typography.bodyLarge,
                                 )
@@ -1144,10 +1158,14 @@ private fun SearchTypeSegmented(
     isOled: Boolean,
     onSelect: (String) -> Unit,
 ) {
+    // Each option now carries a leading icon so the user can identify Anime / Manga / Both
+    // at a glance without reading the label. The selected segment's container colour
+    // animates between transparent and primary via animateColorAsState for a smooth
+    // transition (was previously an instant colour flip).
     val options = listOf(
-        "anime" to R.string.search_tab_anime,
-        "manga" to R.string.search_tab_manga,
-        "both" to R.string.search_tab_both,
+        Triple("anime", R.string.search_tab_anime, Icons.Default.OndemandVideo),
+        Triple("manga", R.string.search_tab_manga, Icons.AutoMirrored.Filled.MenuBook),
+        Triple("both", R.string.search_tab_both, Icons.Default.Layers),
     )
     Surface(
         modifier = Modifier
@@ -1157,16 +1175,31 @@ private fun SearchTypeSegmented(
         color = searchContainerColor(isOled),
     ) {
         Row(modifier = Modifier.padding(Spacing.xs)) {
-            options.forEach { (value, labelRes) ->
+            options.forEach { (value, labelRes, icon) ->
                 val isSelected = selected == value
+                val containerColor by animateColorAsState(
+                    targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    animationSpec = tween(durationMillis = 200),
+                    label = "segmentedContainer",
+                )
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = Radius.chipShape,
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    color = containerColor,
                     contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                     onClick = { onSelect(value) },
                 ) {
-                    Box(modifier = Modifier.height(38.dp), contentAlignment = Alignment.Center) {
+                    Row(
+                        modifier = Modifier.height(Sizes.controlHeight).fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(Spacing.xs))
                         Text(
                             text = stringResource(labelRes),
                             style = MaterialTheme.typography.labelLarge,
@@ -1485,25 +1518,25 @@ private fun SearchPosterCard(
                 // Status badge in the LEFT corner (TopStart) with the same Spacing.sm padding
                 // as the rating badge uses at TopEnd — symmetric corners, the status chip on
                 // the left and the rating chip on the right.
-                SearchArtworkChip(
+                TenseiScrimChip(
                     text = statusText,
-                    contentColor = statusChipColor,
+                    color = statusChipColor,
                     modifier = Modifier.align(Alignment.TopStart).padding(Spacing.sm),
                 )
             }
 
             score?.let {
-                SearchArtworkChip(
+                TenseiScrimChip(
                     text = "\u2605 ${String.format(Locale.US, "%.1f", it)}",
-                    contentColor = ratingColorOnArtwork(),
+                    color = ratingColorOnArtwork(),
                     modifier = Modifier.align(Alignment.TopEnd).padding(Spacing.sm),
                 )
             }
 
             typeMarker?.let { isAnime ->
-                SearchArtworkChip(
+                TenseiScrimChip(
                     text = stringResource(if (isAnime) R.string.search_tab_anime else R.string.search_tab_manga),
-                    contentColor = Color.White,
+                    color = Color.White,
                     leadingIcon = if (isAnime) Icons.Default.PlayArrow else Icons.AutoMirrored.Filled.MenuBook,
                     modifier = Modifier.align(Alignment.BottomStart).padding(Spacing.sm),
                 )
@@ -1530,40 +1563,12 @@ private fun SearchPosterCard(
     }
 }
 
-@Composable
-private fun SearchArtworkChip(
-    text: String,
-    contentColor: Color,
-    modifier: Modifier = Modifier,
-    leadingIcon: ImageVector? = null,
-) {
-    Surface(
-        modifier = modifier,
-        shape = Radius.chipShape,
-        color = Color.Black.copy(alpha = 0.6f),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = Spacing.sm, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (leadingIcon != null) {
-                Icon(
-                    imageVector = leadingIcon,
-                    contentDescription = null,
-                    tint = contentColor,
-                    modifier = Modifier.size(12.dp),
-                )
-                Spacer(Modifier.width(Spacing.xxs))
-            }
-            Text(
-                text = text,
-                style = TenseiType.badge,
-                color = contentColor,
-                maxLines = 1,
-            )
-        }
-    }
-}
+// SearchArtworkChip has been removed — it was a private duplicate of TenseiScrimChip
+// (in ui/components/TenseiTopBar.kt). The three call sites in SearchPosterCard above now
+// call TenseiScrimChip directly, which was extended with an optional leadingIcon parameter
+// to support the type-marker chip (Anime/Manga icon next to the label). All other existing
+// TenseiScrimChip callers (HomeComponents, CharacterStaffScreen, RelatedMediaCard) are
+// unaffected — the leadingIcon parameter defaults to null.
 
 @Composable
 private fun SearchResultsSkeleton() {
@@ -1650,6 +1655,7 @@ private fun SearchDiscovery(
                 TenseiSectionHeader(
                     title = stringResource(R.string.search_recent),
                     icon = Icons.Default.History,
+                    accent = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             item {
@@ -1677,6 +1683,7 @@ private fun SearchDiscovery(
                 TenseiSectionHeader(
                     title = stringResource(R.string.search_trending_anime),
                     icon = Icons.Default.Whatshot,
+                    accent = tenseiColors.airing,
                 )
             }
             item {
@@ -1713,6 +1720,7 @@ private fun SearchDiscovery(
                 TenseiSectionHeader(
                     title = stringResource(R.string.search_trending_manga),
                     icon = Icons.Default.Whatshot,
+                    accent = tenseiColors.favorite,
                 )
             }
             item {
@@ -1749,6 +1757,7 @@ private fun SearchDiscovery(
             TenseiSectionHeader(
                 title = stringResource(R.string.search_browse_genres),
                 icon = Icons.Default.Tune,
+                accent = tenseiColors.completed,
             )
         }
         item {
