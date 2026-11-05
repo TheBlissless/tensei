@@ -642,6 +642,9 @@ fun MangaReaderScreen(
                     },
                     onCancelLoadChapters = {
                         viewModel.cancelMangaChapterLoad()
+                        // There is nothing to display after cancelling, so leave the reader
+                        // instead of falling through to the "No chapters found" retry screen.
+                        onClose()
                     },
                     onBack = {
                         handleReaderBack()
@@ -1544,6 +1547,9 @@ fun MangaChapterListWithGroups(
             // does not want an autoscroll: either way there is no row to jump to, so
             // the list stays where it is (on top).
             if (nextChapterToRead !in chapters.indices) return@LaunchedEffect
+            // Nothing read yet: the first chapter is already the top row. Jumping to and
+            // centering it makes the freshly opened list visibly bounce, so leave it alone.
+            if (nextChapterToRead == 0) return@LaunchedEffect
             val targetGroupIndex = filteredGroups.indexOfFirst { (_, groupList) ->
                 groupList.any { it.first == nextChapterToRead }
             }
@@ -1563,6 +1569,29 @@ fun MangaChapterListWithGroups(
                 android.util.Log.w("MangaChapterList", "AUTOSCROLL row not found in group $groupKey for index $nextChapterToRead")
                 return@LaunchedEffect
             }
+            val rowHeightPx = with(listDensity) { MangaChapterRowHeightDp.toPx() }
+
+            // If the target row is already fully on screen (typical when the next unread
+            // chapter is near the top of a freshly opened list), leave the scroll position
+            // alone. Jumping to it and then centering it is what made the list bounce.
+            // Make sure the first layout exists before measuring it.
+            var layoutAttempts = 0
+            while (layoutAttempts < 10 && listState.layoutInfo.visibleItemsInfo.isEmpty()) {
+                layoutAttempts++
+                delay(16)
+            }
+            val initialLayout = listState.layoutInfo
+            val initialViewportHeight = initialLayout.viewportSize.height
+            val initialGroupItem = initialLayout.visibleItemsInfo.firstOrNull { it.index == targetItem }
+            if (initialViewportHeight > 0 && initialGroupItem != null) {
+                val initialNonRowHeightPx =
+                    (initialGroupItem.size - groupList.size * rowHeightPx).coerceAtLeast(0f)
+                val rowTop = initialGroupItem.offset + initialNonRowHeightPx + rowInGroup * rowHeightPx
+                if (rowTop >= 0f && rowTop + rowHeightPx <= initialViewportHeight) {
+                    return@LaunchedEffect
+                }
+            }
+
             // Jump straight to the target chapter's group (instant, single frame — no
             // scroll-down-then-scroll-back-up dance), then glide it to roughly the
             // vertical center. The target row sits inside the auto-expanded group, so
@@ -1583,7 +1612,6 @@ fun MangaChapterListWithGroups(
                 android.util.Log.w("MangaChapterList", "AUTOSCROLL measure failed viewport=$viewportHeight item=${groupItem?.index}")
                 return@LaunchedEffect
             }
-            val rowHeightPx = with(listDensity) { MangaChapterRowHeightDp.toPx() }
             // Non-row portion of the group (header + padding) comes straight from the
             // MEASURED group height, so a wrong header constant can't throw it off.
             val nonRowHeightPx = (groupItem.size - groupList.size * rowHeightPx).coerceAtLeast(0f)
