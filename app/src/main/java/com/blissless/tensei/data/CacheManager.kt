@@ -207,7 +207,7 @@ class CacheManager(private val sharedPreferences: SharedPreferences) {
     private val TMDB_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000L
     private val TMDB_CACHE_PREFS = "tmdb_episode_cache"
     private val TMDB_PERSISTENT_IDS_PREFS = "tmdb_persistent_ids"
-    private val TMDB_CACHE_VERSION = 4
+    private val TMDB_CACHE_VERSION = 5
     private val TMDB_CACHE_VERSION_PREFS = "tmdb_cache_version"
     private val _persistentTmdbIds = mutableSetOf<Int>()
 

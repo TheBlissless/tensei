@@ -347,6 +347,16 @@ internal suspend fun AnimeRepository.calculateEpisodeOffset(
         tmdbResultsCount: Int = 1
     ): Pair<Int, Int> {
         
+        val normalizedOriginal = normalizeTitle(animeTitle)
+        val normalizedTmdbName = normalizeTitle(tmdbName ?: "")
+        // A TMDB entry whose name exactly matches the anime is the show itself, not
+        // a combined/franchise entry that starts with a prequel season. In that case
+        // the TMDB episode pool already starts at this show's episode 1, so applying
+        // the AniList prequel offset would skip ahead. Example: TMDB #12971
+        // "Dragon Ball Z" already contains all 291 episodes, while AniList lists
+        // Dragon Ball's 153 episodes as a prequel.
+        val isExactShowMatch = normalizedTmdbName == normalizedOriginal
+
         // Always fetch AniList episode count first - it's the most reliable for anime
         val recursiveOffset = calculateRecursiveOffset(animeId)
         val aniListMedia = fetchAnimeRelationsForOffset(animeId)
@@ -354,7 +364,7 @@ internal suspend fun AnimeRepository.calculateEpisodeOffset(
         
         // If AniList has episode count, use it (more reliable for long-running anime like Detective Conan)
         if (totalEps > 0) {
-            return Pair(recursiveOffset, totalEps)
+            return Pair(if (isExactShowMatch) 0 else recursiveOffset, totalEps)
         }
 
         // AniList doesn't know the episode count yet (common for a currently-airing
@@ -374,9 +384,7 @@ internal suspend fun AnimeRepository.calculateEpisodeOffset(
 
         // Fallback to TMDB only if AniList doesn't have episode count
         // If TMDB name exactly matches the original title, skip Aniwatch fallback and use offset 0
-        val normalizedOriginal = normalizeTitle(animeTitle)
-        val normalizedTmdbName = normalizeTitle(tmdbName ?: "")
-        if (normalizedTmdbName == normalizedOriginal) {
+        if (isExactShowMatch) {
             return Pair(0, tvDetails.number_of_episodes)
         }
         
