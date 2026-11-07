@@ -235,36 +235,3 @@ fun TenseiDisclosureHeader(
 }
 
 /** Compact label used inside dense lists where a full header is too heavy. */
-@Composable
-fun TenseiInlineHeader(
-    title: String,
-    modifier: Modifier = Modifier,
-    icon: ImageVector? = null,
-    accent: Color = MaterialTheme.colorScheme.primary,
-    onClick: (() -> Unit)? = null,
-) {
-    Row(
-        modifier = modifier.then(
-            if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
-        ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-    ) {
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height(16.dp)
-                .background(accent, SectionStripeShape)
-        )
-        if (icon != null) {
-            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(15.dp))
-        }
-        Text(
-            text = title,
-            style = TenseiType.sectionLabel,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}

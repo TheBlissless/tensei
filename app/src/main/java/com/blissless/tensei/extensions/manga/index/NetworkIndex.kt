@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package com.blissless.tensei.extensions.manga.index
 
 import kotlinx.serialization.SerialName

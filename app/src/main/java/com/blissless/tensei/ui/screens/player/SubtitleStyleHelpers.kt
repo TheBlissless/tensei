@@ -35,7 +35,7 @@ fun loadSubtitleProfileData(context: Context): SubtitleProfileData {
     val activeIndex = prefs.getInt("subtitle_active_profile", 0)
     if (saved != null) {
         try {
-            val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+            val json = com.blissless.tensei.util.TenseiJson.default
             val data = json.decodeFromString(SubtitleProfileData.serializer(), saved)
             return if (activeIndex in data.profiles.indices) data.copy(activeProfileIndex = activeIndex)
             else data
@@ -118,14 +118,6 @@ fun applySubtitleStyle(subtitleView: androidx.media3.ui.SubtitleView, settings: 
  *
  * @param ms Duration in milliseconds
  * @return Formatted time string (H:MM:SS if hours > 0, otherwise M:SS)
+ * @see com.blissless.tensei.util.formatPlaybackTime
  */
-fun formatTime(ms: Long): String {
-    val seconds = (ms / 1000) % 60
-    val minutes = (ms / (1000 * 60)) % 60
-    val hours = ms / (1000 * 60 * 60)
-    return if (hours > 0) {
-        String.format(java.util.Locale.US, "%d:%02d:%02d", hours, minutes, seconds)
-    } else {
-        String.format(java.util.Locale.US, "%d:%02d", minutes, seconds)
-    }
-}
+fun formatTime(ms: Long): String = com.blissless.tensei.util.formatPlaybackTime(ms)

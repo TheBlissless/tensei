@@ -2,14 +2,14 @@ package com.blissless.tensei.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.viewModelScope
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.CachedExtensionStream
 import com.blissless.tensei.data.models.CachedHoster
 import com.blissless.tensei.data.models.CachedTrack
 import com.blissless.tensei.data.models.CachedVideo
-import com.blissless.tensei.stream.LocalProxyServer
+import com.blissless.tensei.player.proxy.LocalProxyServer
 import eu.kanade.tachiyomi.animesource.AnimeCatalogueSource
 import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
 import eu.kanade.tachiyomi.animesource.model.Hoster
@@ -26,6 +26,7 @@ import okhttp3.Headers
 import okhttp3.OkHttpClient
 import com.blissless.tensei.util.ErrorHandler
 import kotlinx.coroutines.flow.MutableStateFlow
+import com.blissless.tensei.viewmodel.ExtensionStreamResult
 
 /**
  * Extension playback logic for [MainViewModel].
@@ -57,7 +58,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
     anime: AnimeMedia,
     episodeNumber: Int,
     defaultPackage: String,
-): MainViewModel.ExtensionStreamResult? {
+): ExtensionStreamResult? {
     val epTag = "AnimeDownload"
     _lastExtensionPlaybackError.value = null
     // NOTE: Previously we read `getCachedExtensionStream(anime.id, episodeNumber)`
@@ -403,7 +404,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
             } else {
                 extensionClient  // direct URL: still use extension client for proper headers/cookies
             }
-            MainViewModel.ExtensionStreamResult(
+            ExtensionStreamResult(
                 url = effectiveVideoUrl,
                 referer = referer,
                 subtitleUrl = sortedSubs.firstOrNull()?.url,
@@ -428,7 +429,7 @@ suspend fun MainViewModel.playEpisodeWithExtension(
 suspend fun MainViewModel.fetchExtensionHosterVideos(
     source: AnimeCatalogueSource,
     hoster: Hoster,
-): MainViewModel.ExtensionStreamResult? {
+): ExtensionStreamResult? {
     val epTag = "AnimeDownload"
     return withContext(Dispatchers.IO) {
         try {
@@ -561,7 +562,7 @@ suspend fun MainViewModel.fetchExtensionHosterVideos(
                 }
             }
 
-            MainViewModel.ExtensionStreamResult(
+            ExtensionStreamResult(
                 url = effectiveVideoUrl,
                 referer = referer,
                 subtitleUrl = sortedSubs.firstOrNull()?.url,

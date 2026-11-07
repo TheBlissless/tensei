@@ -98,7 +98,7 @@ fun ExploreAnimeHorizontalList(
     onRemoveFromLocalStatus: (ExploreAnime) -> Unit = {},
     listIndex: Int = 0,
     isVisible: Boolean = true,
-    viewModel: com.blissless.tensei.MainViewModel? = null
+    viewModel: com.blissless.tensei.viewmodel.MainViewModel? = null
 ) {
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -212,11 +212,6 @@ fun ExploreAnimeHorizontalList(
             }
         }
     }
-}
-
-private fun easeOutCubic(t: Float): Float {
-    val t1 = t - 1
-    return t1 * t1 * t1 + 1
 }
 
 @Composable

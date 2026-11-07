@@ -196,46 +196,8 @@ fun TenseiEmptyState(
 }
 
 /** Centred progress indicator for a screen with no skeleton to show. */
-@Composable
-fun TenseiLoadingState(
-    modifier: Modifier = Modifier,
-    label: String? = null,
-) {
-    Column(
-        modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        CircularProgressIndicator(
-            strokeWidth = 3.dp,
-            modifier = Modifier.size(32.dp),
-        )
-        if (label != null) {
-            Spacer(Modifier.height(Spacing.md))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
 
 /** Small inline spinner used as a grid/list footer ("loading more"). */
-@Composable
-fun TenseiInlineLoader(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = Spacing.lg),
-        contentAlignment = Alignment.Center,
-    ) {
-        CircularProgressIndicator(
-            strokeWidth = 2.dp,
-            modifier = Modifier.size(22.dp),
-        )
-    }
-}
 
 /** Placeholder block used by skeleton loaders. */
 @Composable

@@ -119,7 +119,7 @@
              Declared statically so it works even when the app process
              isn't running yet (cold start). -->
         <receiver
-            android:name=".extensions.AnimeExtensionInstallReceiver"
+            android:name=".extensions.anime.AnimeExtensionInstallReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.PACKAGE_ADDED" />
@@ -135,14 +135,8 @@
              Not required for LEGACY or PRIVATE installers but harmless
              to declare. -->
         <service
-            android:name=".extensions.AnimeExtensionInstallService"
+            android:name=".extensions.anime.AnimeExtensionInstallService"
             android:exported="false" />
-
-        <activity
-            android:name=".stream.PlayerActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-            android:theme="@style/Theme.MyApplication" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -82,12 +82,6 @@ fun statusColorOnArtwork(status: String?): Color =
 fun ratingColorOnArtwork(): Color =
     if (tenseiColors.monochrome) onArtworkColor() else tenseiColors.rating
 
-/** Low-alpha background for a badge built from [statusColor]. */
-@Composable
-@ReadOnlyComposable
-fun statusContainerColor(status: String?, strength: Float = 0.16f): Color =
-    statusColor(status).copy(alpha = strength)
-
 /**
  * The five list statuses resolved through [statusColor].
  *
@@ -110,8 +104,3 @@ val SurfaceWhite = Color(0xFFF8F8F8)
 /** The jigsaw piece blue of the app icon — brand accent for on-dark surfaces. */
 val AppIconBlue = Color(0xFF1B6BA4)
 
-val GlassWhite = Color(0x1AFFFFFF)
-val GlassBlack = Color(0x1A000000)
-
-val SurfaceElevatedLight = Color(0xFFFAFAFA)
-val SurfaceElevatedDark = Color(0xFF1E1E1E)

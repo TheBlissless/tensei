@@ -232,7 +232,7 @@ class MagnetExtensionClient(private val context: Context) {
 
                 if (value is JSONObject) {
                     hasMultipleQualities = true
-                    val qualityMap = value as JSONObject
+                    val qualityMap = value
                     val qKeys = qualityMap.keys()
                     var bestQuality = ""
                     var bestMagnet = ""
@@ -254,9 +254,9 @@ class MagnetExtensionClient(private val context: Context) {
                     }
                     episodes.add(MagnetEpisode(epNumber, bestMagnet, bestQuality))
                 } else if (value is String) {
-                    episodes.add(MagnetEpisode(epNumber, value as String, ""))
+                    episodes.add(MagnetEpisode(epNumber, value, ""))
                 } else {
-                    Log.w(TAG, "parseMagnets: unexpected value type for key='$epNum': ${value?.javaClass?.name}")
+                    Log.w(TAG, "parseMagnets: unexpected value type for key='$epNum': ${value.javaClass.name}")
                 }
             }
 
@@ -353,14 +353,14 @@ internal fun parseStreamUrlResult(jsonData: String): StreamUrlResult? {
         if (json.has("error")) {
             null
         } else {
-            val url = json.optString("url", null)?.ifBlank { null } ?: return null
+            val url = json.optString("url", "").ifBlank { null } ?: return null
             val headers = parseHeaders(json.optJSONObject("headers"))
             val subtitles = parseSubtitles(json.optJSONArray("subtitles"))
             val streams = mutableListOf<StreamEntry>()
             json.optJSONArray("streams")?.let { arr ->
                 for (i in 0 until arr.length()) {
                     val stream = arr.optJSONObject(i) ?: continue
-                    val streamUrl = stream.optString("url", null)?.ifBlank { null } ?: continue
+                    val streamUrl = stream.optString("url", "").ifBlank { null } ?: continue
                     val streamLang = stream.optString("lang", "")
                     val isDefault = stream.optBoolean("default", false)
                     val streamHeaders = parseHeaders(stream.optJSONObject("headers"))
@@ -392,7 +392,7 @@ private fun parseSubtitles(arr: JSONArray?): List<Track> {
     val subtitles = mutableListOf<Track>()
     for (i in 0 until arr.length()) {
         val sub = arr.optJSONObject(i) ?: continue
-        val subUrl = sub.optString("url", null)?.ifBlank { null } ?: continue
+        val subUrl = sub.optString("url", "").ifBlank { null } ?: continue
         val lang = sub.optString("label", sub.optString("language", ""))
         if (lang.isNotBlank()) {
             subtitles.add(Track(subUrl, lang))

@@ -51,10 +51,13 @@
     <string name="comp_stream_error">Stream Error</string>
     <string name="comp_ok">OK</string>
     <string name="comp_update_available">Update Available</string>
-    <string name="comp_update_version">Version %1$s is now available.</string>
-    <string name="comp_update_download_prompt">Would you like to download and install it?</string>
+    <string name="comp_update_whats_new">What\'s new</string>
+    <string name="comp_update_download_install">Download &amp; Install</string>
+    <string name="comp_update_downloading">Downloading… %1$d%%</string>
+    <string name="comp_update_not_now">Not now</string>
+    <string name="comp_update_try_again">Try again</string>
+    <string name="comp_update_size_line">≈ %1$s · %2$s APK</string>
     <string name="comp_update">Update</string>
-    <string name="comp_later">Later</string>
     <string name="comp_nav_schedule">Schedule</string>
     <string name="comp_nav_home">Home</string>
     <string name="comp_nav_anime">Anime</string>

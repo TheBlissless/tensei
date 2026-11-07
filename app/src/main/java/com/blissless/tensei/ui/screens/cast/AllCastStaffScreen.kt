@@ -50,12 +50,14 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.R
 import com.blissless.tensei.data.models.CharacterData
 import com.blissless.tensei.data.models.DetailedAnimeStaffEdge
 import com.blissless.tensei.ui.components.StaffEdgeJobText
 import com.blissless.tensei.ui.components.StaffJobLinesUnlimited
+import com.blissless.tensei.viewmodel.fetchAllCharacters
+import com.blissless.tensei.viewmodel.fetchAllStaff
 
 @Composable
 fun AllCastScreen(

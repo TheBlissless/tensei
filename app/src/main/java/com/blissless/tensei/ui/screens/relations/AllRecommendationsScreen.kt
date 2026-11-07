@@ -41,12 +41,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeRelation
 import com.blissless.tensei.ui.components.RelatedMediaCard
 import com.blissless.tensei.ui.components.asRelatedMedia
 import kotlinx.coroutines.delay
+import com.blissless.tensei.viewmodel.fetchAnimeRecommendations
 
 @Composable
 fun AllRecommendationsScreen(

@@ -79,17 +79,17 @@ object MangaExtensionInstaller {
         withContext(Dispatchers.IO) {
             runCatching {
                 val response = client.newCall(GET(apkUrl)).awaitSuccess()
-                val temp = File.createTempFile("manga_extension", ".apk", context.cacheDir)
+                val tempApk = File.createTempFile("manga_extension", ".apk", context.cacheDir)
                 try {
-                    temp.writeBytes(response.body.bytes())
+                    tempApk.writeBytes(response.body.bytes())
 
-                    val pkgInfo = MangaExtensionLoader.archivePackageInfo(context, temp)
+                    val pkgInfo = MangaExtensionLoader.archivePackageInfo(context, tempApk)
                         ?: throw IllegalStateException("downloaded file is not a valid apk")
                     if (!MangaExtensionLoader.isExtension(pkgInfo)) {
                         throw IllegalStateException("apk is not a manga extension")
                     }
 
-                    runCatching { installAsPackage(context, temp, pkgInfo) }
+                    runCatching { installAsPackage(context, tempApk, pkgInfo) }
                         .fold(
                             onSuccess = {
                                 "Installed ${pkgInfo.packageName}"
@@ -97,12 +97,12 @@ object MangaExtensionInstaller {
                             onFailure = { e ->
                                 if (e is InstallCancelledException) throw e
                                 Log.w(TAG, "package install unavailable (${e.message}); installing privately")
-                                copyToPrivate(context, temp, pkgInfo)
+                                copyToPrivate(context, tempApk, pkgInfo)
                                 "Installed ${pkgInfo.packageName} (private)"
                             },
                         )
                 } finally {
-                    temp.delete()
+                    tempApk.delete()
                 }
             }
         }

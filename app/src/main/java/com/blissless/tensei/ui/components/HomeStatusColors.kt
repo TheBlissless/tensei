@@ -18,18 +18,3 @@ object HomeStatusColors {
     fun getContainerColor(status: String?): Color =
         statusColor(status).copy(alpha = 0.16f)
 }
-
-@Deprecated(
-    "Use statusColor() from com.blissless.tensei.ui.theme",
-    ReplaceWith("com.blissless.tensei.ui.theme.statusColor(status)")
-)
-@Composable
-fun getStatusColor(status: String?): Color = statusColor(status)
-
-@Deprecated(
-    "Use statusContainerColor() from com.blissless.tensei.ui.theme",
-    ReplaceWith("com.blissless.tensei.ui.theme.statusContainerColor(status)")
-)
-@Composable
-fun getStatusContainerColor(status: String?): Color =
-    statusColor(status).copy(alpha = 0.16f)

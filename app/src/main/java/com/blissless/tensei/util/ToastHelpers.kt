@@ -45,33 +45,11 @@ fun rememberToast(): (String) -> Unit {
 /**
  * Returns a memoized lambda that shows a Toast with the given duration.
  */
-@Composable
-fun rememberToastWithDuration(duration: Int = Toast.LENGTH_SHORT): (String) -> Unit {
-    val context = LocalContext.current
-    return remember(context) {
-        { message: String ->
-            Toast.makeText(context, message, duration).show()
-        }
-    }
-}
 
 /**
  * Returns a pair of lambdas: (showShort, showLong).
  * Useful when a composable needs both short and long toasts.
  */
-@Composable
-fun rememberToasts(): Pair<(String) -> Unit, (String) -> Unit> {
-    val context = LocalContext.current
-    return remember(context) {
-        val short = { message: String ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-        }
-        val long = { message: String ->
-            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-        }
-        short to long
-    }
-}
 
 /**
  * Non-composable helper for showing a toast from a Context.

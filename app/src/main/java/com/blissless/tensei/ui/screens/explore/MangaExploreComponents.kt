@@ -1,0 +1,695 @@
+package com.blissless.tensei.ui.screens.explore
+
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SentimentSatisfied
+import androidx.compose.material.icons.filled.SignalWifiOff
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.blissless.tensei.viewmodel.MainViewModel
+import com.blissless.tensei.R
+import com.blissless.tensei.data.models.MangaExploreMedia
+import com.blissless.tensei.ui.components.SectionTitle
+import com.blissless.tensei.ui.components.AppIconCircle
+import com.blissless.tensei.ui.components.CarouselPageDots
+import com.blissless.tensei.ui.components.ExploreTopBarRow
+import com.blissless.tensei.ui.components.SearchCircleAction
+import com.blissless.tensei.ui.components.rememberCinematicAnimation
+import com.blissless.tensei.ui.screens.manga.MangaStatusDialog
+import com.blissless.tensei.ui.theme.statusColor
+import com.blissless.tensei.ui.theme.tenseiColors
+import com.blissless.tensei.util.ErrorHandler
+import com.blissless.tensei.viewmodel.fetchMangaExplore
+import com.blissless.tensei.viewmodel.isLoadingManga
+import com.blissless.tensei.viewmodel.mangaCompleted
+import com.blissless.tensei.viewmodel.mangaCurrentlyReading
+import com.blissless.tensei.viewmodel.mangaExploreSections
+import com.blissless.tensei.viewmodel.mangaExploreSource
+import com.blissless.tensei.viewmodel.mangaPlanningToRead
+import com.blissless.tensei.viewmodel.removeMangaTracking
+import com.blissless.tensei.viewmodel.retryMangaExploreFromMalFallback
+import com.blissless.tensei.viewmodel.selectedExtensionAuthority
+import com.blissless.tensei.viewmodel.mangaSourceMethod
+import com.blissless.tensei.viewmodel.defaultExternalMangaExtension
+import com.blissless.tensei.viewmodel.updateMangaProgress
+import com.blissless.tensei.viewmodel.updateMangaStatus
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
+import kotlin.time.Duration.Companion.milliseconds
+import java.util.Locale
+import com.blissless.tensei.ui.components.RailCardTitle
+import com.blissless.tensei.ui.components.TenseiErrorBanner
+import com.blissless.tensei.ui.theme.Radius
+import com.blissless.tensei.ui.theme.Sizes
+import com.blissless.tensei.ui.theme.Spacing
+import com.blissless.tensei.ui.components.easeOutCubic
+
+// Explore-section components for the manga screen: horizontal rows and the
+// featured carousel.
+
+
+
+@Composable
+internal fun MangaExploreHorizontalRow(
+    mangaList: List<MangaExploreMedia>,
+    isOled: Boolean,
+    preferEnglishTitles: Boolean,
+    showMangaCardButtons: Boolean = false,
+    showMangaStatusColors: Boolean = false,
+    mangaStatusMap: Map<Int, String> = emptyMap(),
+    onMangaClick: (MangaExploreMedia) -> Unit,
+    onStatusClick: (MangaExploreMedia) -> Unit = {},
+    onReadClick: (MangaExploreMedia) -> Unit = {},
+    listIndex: Int = 0,
+    isVisible: Boolean = true
+) {
+    val context = LocalContext.current
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val cameraDistancePx = with(density) { 12.dp.toPx() }
+    val translationYOffset = with(density) { (-40).dp.toPx() }
+
+    val isScrolling by remember {
+        derivedStateOf { listState.isScrollInProgress }
+    }
+
+    val cinematicProgress = rememberCinematicAnimation("mangaExplore", isVisible, true)
+    // Normalised stagger, same as the grid screens: the delay shifts a section's
+    // start but progress must still reach 1 when the shared animation ends.
+    // The old `(progress * 1000 - delay) / 1000` capped out at 1 - delay/1000,
+    // so late sections (Sci-Fi, Seinen) settled at ~0.55-0.6: cards stayed scaled
+    // down and read as extra padding around every cover.
+    val staggerMs = minOf(listIndex, 18) * 50f / 1000f
+    val effectiveProgress = ((cinematicProgress - staggerMs) / (1f - staggerMs)).coerceIn(0f, 1f)
+    val easedProgress = easeOutCubic(effectiveProgress)
+
+    LazyRow(
+        state = listState,
+        contentPadding = PaddingValues(horizontal = Spacing.railGutter),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.railItem),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        itemsIndexed(
+            mangaList,
+            key = { _, manga -> manga.id }
+        ) { index, manga ->
+            val title = if (preferEnglishTitles && !manga.title.english.isNullOrBlank()) manga.title.english
+                       else manga.title.romaji ?: stringResource(R.string.explore_unknown)
+            val coverUrl = manga.coverImage?.extraLarge ?: manga.coverImage?.large ?: manga.coverImage?.medium ?: ""
+            val status = mangaStatusMap[manga.id]
+            val hasStatus = status != null
+            val resolvedStatusColor = statusColor(status)
+            // No status -> no top stripe and no tinted bookmark; the status button then
+            // mirrors the read button so the pair reads consistently in every theme.
+            val statusIndicatorColor = if (showMangaStatusColors && hasStatus) resolvedStatusColor else Color.Transparent
+            val playButtonContainerColor = Color.Black.copy(alpha = 0.5f)
+            val buttonContainerColor = if (showMangaStatusColors && hasStatus) {
+                resolvedStatusColor.copy(alpha = 0.8f)
+            } else {
+                playButtonContainerColor
+            }
+            // Mirrors the anime explore rows: a per-card center-offset 3D tilt while
+            // scrolling plus a staggered cinematic fade/slide-in when the screen appears.
+            val layoutInfo by remember { derivedStateOf { listState.layoutInfo } }
+            val visibleItems = layoutInfo.visibleItemsInfo
+            val itemInfo = visibleItems.find { it.index == index }
+
+            val centerOffset = if (itemInfo != null) {
+                val itemCenter = itemInfo.offset + itemInfo.size / 2
+                val screenCenter = (layoutInfo.viewportSize.width / 2).toFloat()
+                (itemCenter - screenCenter) / screenCenter
+            } else {
+                0f
+            }
+
+            val animatedOffset by animateFloatAsState(
+                targetValue = if (isScrolling) centerOffset.coerceIn(-1.5f, 1.5f) else 0f,
+                animationSpec = if (isScrolling) {
+                    spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
+                } else {
+                    spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                },
+                label = "mangaCenterOffset"
+            )
+
+            val baseScale = 1f - (animatedOffset.absoluteValue * 0.25f).coerceAtMost(0.25f)
+            val baseAlpha = 1f - (animatedOffset.absoluteValue * 0.4f).coerceAtMost(0.6f)
+            val translationXVal = animatedOffset * -20f
+            val rotationYVal = (animatedOffset * 15f).coerceIn(-15f, 15f)
+
+            val introScale = 0.3f + easedProgress * 0.7f
+            val introTranslationY = translationYOffset * (1f - easedProgress)
+
+            val finalScale = baseScale * introScale
+            val finalAlpha = baseAlpha * easedProgress
+
+            // Same geometry as the anime rail so both tabs read as one system.
+            Column(
+                modifier = Modifier
+                    .width(Sizes.railPosterWidth)
+                    .graphicsLayer {
+                        scaleX = finalScale
+                        scaleY = finalScale
+                        alpha = finalAlpha
+                        translationX = translationXVal
+                        translationY = introTranslationY
+                        rotationY = rotationYVal
+                        cameraDistance = cameraDistancePx
+                    }
+            ) {
+                Card(
+                    shape = Radius.posterShape,
+                    modifier = Modifier.height(Sizes.railPosterHeight).clip(Radius.posterShape).clickable { onMangaClick(manga) }
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (coverUrl.isNotEmpty()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context).data(coverUrl).build(),
+                                contentDescription = title,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) { Text(stringResource(R.string.explore_na), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        }
+                        Box(modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(50.dp)
+                            .background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))))
+                        Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(80.dp)
+                            .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)))))
+
+                        if (statusIndicatorColor != Color.Transparent) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .background(statusIndicatorColor)
+                            )
+                        }
+
+                        manga.averageScore?.let { score ->
+                            Surface(
+                                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color.Black.copy(alpha = 0.65f)
+                            ) {
+                                Text(
+                                    "★ ${String.format(Locale.US, "%.1f", score / 10.0)}",
+                                    color = tenseiColors.rating,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+
+                        manga.chapters?.let { ch ->
+                            Surface(
+                                modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color.Black.copy(alpha = 0.65f)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.explore_chapter_short, ch),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                        }
+
+                        if (showMangaCardButtons) {
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                FilledTonalIconButton(
+                                    onClick = { onStatusClick(manga) },
+                                    modifier = Modifier.size(34.dp),
+                                    shape = Radius.chipShape,
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = buttonContainerColor,
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    AnimatedContent(
+                                        targetState = hasStatus,
+                                        transitionSpec = {
+                                            (scaleIn(animationSpec = tween(200)) + fadeIn())
+                                                .togetherWith(scaleOut(animationSpec = tween(200)) + fadeOut())
+                                        },
+                                        label = "mangaBookmarkIcon"
+                                    ) { statusExists ->
+                                        Icon(
+                                            imageVector = if (statusExists) Icons.Filled.Bookmark else Icons.Outlined.BookmarkAdd,
+                                            contentDescription = if (statusExists) stringResource(R.string.explore_change_status) else stringResource(R.string.explore_add_status),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.weight(1f))
+
+                                FilledTonalIconButton(
+                                    onClick = { onReadClick(manga) },
+                                    modifier = Modifier.size(34.dp),
+                                    shape = Radius.chipShape,
+                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                        containerColor = playButtonContainerColor,
+                                        contentColor = Color.White
+                                    )
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = stringResource(R.string.explore_read),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+RailCardTitle(title = title)
+            }
+        }
+    }
+}
+
+
+/**
+ * Featured carousel for manga, mirroring the anime featured carousel visual pattern.
+ * Renders a tall pager with title, score, format and a "Read Now" button.
+ * Uses the portrait cover image (coverImage.extraLarge / large).
+ */
+@Composable
+internal fun MangaFeaturedCarousel(
+    mangaList: List<MangaExploreMedia>,
+    onStatusClick: (MangaExploreMedia) -> Unit,
+    onReadClick: (MangaExploreMedia) -> Unit,
+    onInfoClick: (MangaExploreMedia) -> Unit,
+    mangaStatusMap: Map<Int, String> = emptyMap(),
+    preferEnglishTitles: Boolean = true,
+    appIcon: String = "default",
+    onSearchClick: () -> Unit = {},
+    autoScrollEnabled: Boolean = true,
+    isVisible: Boolean = true,
+    isDialogOpen: Boolean = false
+) {
+    if (mangaList.isEmpty()) return
+
+    val actualCount = mangaList.size
+    val pagerState = rememberPagerState(
+        initialPage = actualCount * 100,
+        pageCount = { actualCount * 200 }
+    )
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
+    var autoScrollJob by remember { mutableStateOf<Job?>(null) }
+    var headerVisible by remember { mutableStateOf(true) }
+    var pageWhenScrollStarted by remember { mutableIntStateOf(pagerState.currentPage) }
+    var timerResetSignal by remember { mutableIntStateOf(0) }
+
+    val currentPageOffsetFraction by remember { derivedStateOf { pagerState.currentPageOffsetFraction } }
+
+    LaunchedEffect(pagerState.isScrollInProgress, currentPageOffsetFraction) {
+        if (pagerState.isScrollInProgress) {
+            pageWhenScrollStarted = pagerState.currentPage
+        } else if (pagerState.currentPage != pageWhenScrollStarted) {
+            headerVisible = false
+            delay(80.milliseconds)
+            headerVisible = true
+            pageWhenScrollStarted = pagerState.currentPage
+        }
+    }
+
+    LaunchedEffect(isDragged) {
+        if (isDragged) {
+            timerResetSignal++
+        }
+    }
+
+    LaunchedEffect(autoScrollEnabled, isVisible, isDialogOpen, timerResetSignal) {
+        if (autoScrollEnabled && isVisible && !isDialogOpen) {
+            while (true) {
+                delay(4500.milliseconds)
+
+                headerVisible = false
+                delay(80.milliseconds)
+                headerVisible = true
+
+                autoScrollJob = scope.launch {
+                    try {
+                        val targetPage = pagerState.currentPage + 1
+                        pagerState.animateScrollToPage(targetPage)
+                    } catch (e: Exception) {
+                        ErrorHandler.ignore("MangaFeaturedCarousel", "best-effort operation failed", e)
+                    }
+                }
+                autoScrollJob?.join()
+
+                delay(300.milliseconds)
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { autoScrollJob?.cancel() }
+    }
+
+    Box(modifier = Modifier.fillMaxWidth().height(560.dp)) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            pageSpacing = 0.dp,
+            userScrollEnabled = true,
+            beyondViewportPageCount = 0
+        ) { page ->
+            val manga = mangaList[page % actualCount]
+            val coverUrl = manga.coverImage?.extraLarge
+                ?: manga.coverImage?.large
+                ?: ""
+
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                if (coverUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(coverUrl)
+                            .memoryCacheKey(coverUrl)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                Box(
+                    modifier = Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Black.copy(alpha = 0.35f),
+                                Color.Black.copy(alpha = 0.05f),
+                                Color.Black.copy(alpha = 0.65f),
+                                Color.Black.copy(alpha = 0.95f)
+                            )
+                        )
+                    )
+                )
+            }
+        }
+
+        // Top header with app logo and search icon
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Black.copy(alpha = 0.7f),
+                            Color.Transparent
+                        )
+                    )
+                )
+                .align(Alignment.TopCenter)
+        ) {
+            ExploreTopBarRow(
+                leading = {
+                    AppIconCircle(
+                        appIcon = appIcon,
+                        containerColor = Color.White.copy(alpha = 0.12f)
+                    )
+                },
+                center = {
+                    CarouselPageDots(
+                        count = actualCount,
+                        currentIndex = pagerState.currentPage % actualCount
+                    )
+                },
+                trailing = {
+                    SearchCircleAction(
+                        onClick = onSearchClick,
+                        containerColor = Color.White.copy(alpha = 0.12f),
+                        contentColor = Color.White
+                    )
+                }
+            )
+        }
+
+        Box(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.xl).align(Alignment.BottomCenter),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            val currentManga by remember {
+                derivedStateOf { mangaList[pagerState.currentPage % actualCount] }
+            }
+
+            AnimatedVisibility(
+                visible = headerVisible,
+                enter = fadeIn(animationSpec = tween(400, easing = FastOutSlowInEasing)) +
+                        slideInVertically(
+                            animationSpec = tween(400, easing = FastOutSlowInEasing),
+                            initialOffsetY = { it / 2 }
+                        ),
+                exit = fadeOut(animationSpec = tween(150, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(
+                            animationSpec = tween(150, easing = FastOutSlowInEasing),
+                            targetOffsetY = { it / 2 }
+                        )
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val displayTitle =
+                        if (preferEnglishTitles && !currentManga.title.english.isNullOrBlank()) currentManga.title.english!!
+                        else currentManga.title.romaji ?: stringResource(R.string.explore_unknown)
+                    Text(
+                        text = displayTitle,
+                        color = Color.White,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val avgScore = currentManga.averageScore
+                        val format = currentManga.format
+                        val releaseYear = currentManga.seasonYear ?: currentManga.startDate?.year
+                        releaseYear?.let { year ->
+                            Text(text = year.toString(), color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
+                            Text(text = " • ", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (avgScore != null) {
+                            val scoreValue = avgScore / 10.0
+                            Text(
+                                text = "★ ${"%.1f".format(scoreValue)}",
+                                color = tenseiColors.rating,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(text = " • ", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.bodyMedium)
+                        }
+                        val formatText = when (format?.uppercase()) {
+                            "NOVEL" -> stringResource(R.string.explore_format_novel)
+                            "ONE_SHOT" -> stringResource(R.string.explore_format_one_shot)
+                            "DOUJIN" -> stringResource(R.string.explore_format_doujin)
+                            "MANHWA" -> stringResource(R.string.explore_format_manhwa)
+                            "MANHUA" -> stringResource(R.string.explore_format_manhua)
+                            else -> stringResource(R.string.explore_format_manga)
+                        }
+                        Text(text = formatText, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val currentStatus = mangaStatusMap[currentManga.id]
+                        val isSaved = currentStatus != null
+                        val savedStatusColor = if (isSaved) statusColor(currentStatus) else Color.White
+
+                        IconButton(
+                            onClick = { onStatusClick(currentManga) },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = savedStatusColor.copy(alpha = 0.15f),
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        if (isSaved) Icons.Default.Bookmark else Icons.Outlined.BookmarkAdd,
+                                        contentDescription = stringResource(R.string.explore_save),
+                                        tint = savedStatusColor,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Button(
+                            onClick = { onReadClick(currentManga) },
+                            modifier = Modifier
+                                .width(Sizes.heroActionButtonWidth)
+                                .height(50.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            contentPadding = PaddingValues(horizontal = Spacing.md),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White.copy(alpha = 0.15f),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(
+                                Icons.Outlined.PlayArrow,
+                                contentDescription = stringResource(R.string.explore_read),
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                stringResource(R.string.explore_read_now),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { onInfoClick(currentManga) },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White.copy(alpha = 0.12f),
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Outlined.Info,
+                                        contentDescription = stringResource(R.string.explore_info),
+                                        tint = Color.White,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

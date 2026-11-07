@@ -85,10 +85,10 @@ class TorrentStreamServer(private val saveDir: File) {
             val headers = mutableMapOf<String, String>()
             var line: String?
             while (reader.readLine().also { line = it } != null && line!!.isNotEmpty()) {
-                val idx = line!!.indexOf(':')
+                val idx = line.indexOf(':')
                 if (idx > 0) {
-                    headers[line!!.substring(0, idx).trim().lowercase()] =
-                        line!!.substring(idx + 1).trim()
+                    headers[line.substring(0, idx).trim().lowercase()] =
+                        line.substring(idx + 1).trim()
                 }
             }
 

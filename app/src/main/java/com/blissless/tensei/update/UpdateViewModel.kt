@@ -26,6 +26,7 @@ import okhttp3.Request
 import java.io.File
 import android.graphics.BitmapFactory
 import com.blissless.tensei.R
+import com.blissless.tensei.util.compareVersions
 import com.blissless.tensei.util.ErrorHandler
 
 data class UpdateUiState(
@@ -44,7 +45,7 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         .followSslRedirects(true)
         .build()
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = com.blissless.tensei.util.TenseiJson.default
 
     private val _uiState = MutableStateFlow(UpdateUiState())
     val uiState: StateFlow<UpdateUiState> = _uiState.asStateFlow()
@@ -137,7 +138,7 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
 
     fun downloadUpdate() {
         val release = _uiState.value.release ?: return
-        val targetAbi = getDeviceAbi()
+        val targetAbi = deviceAbi()
         val asset = release.assets.find { it.name.contains(targetAbi, ignoreCase = true) }
             ?: release.assets.firstOrNull { it.name.endsWith(".apk") }
             ?: run {
@@ -202,10 +203,13 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
                     bytesRead += read
                     if (totalBytes > 0) {
                         val progress = (bytesRead.toFloat() / totalBytes).coerceIn(0f, 1f)
-                        _uiState.value = _uiState.value.copy(downloadProgress = progress)
                         val percent = (progress * 100).toInt()
+                        // Throttle both the state flow and the notification to whole
+                        // percent steps: emitting per 8KB chunk made the update dialog
+                        // recompose thousands of times over a ~60MB APK for no visible gain.
                         if (percent != lastNotified) {
                             lastNotified = percent
+                            _uiState.value = _uiState.value.copy(downloadProgress = progress)
                             showDownloadNotification(percent)
                         }
                     }
@@ -228,29 +232,6 @@ class UpdateViewModel(application: Application) : AndroidViewModel(application) 
         } catch (e: Exception) {
             _uiState.value = _uiState.value.copy(error = getApplication<Application>().getString(R.string.runtime_update_installer_failed, e.message))
         }
-    }
-
-    private fun getDeviceAbi(): String {
-        val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
-        return when {
-            abi.startsWith("arm64") -> "arm64-v8a"
-            abi.startsWith("armeabi") -> "armeabi-v7a"
-            abi.startsWith("x86_64") -> "x86_64"
-            abi.startsWith("x86") -> "x86"
-            else -> abi
-        }
-    }
-
-    private fun compareVersions(v1: String, v2: String): Int {
-        val parts1 = v1.split(".").map { it.toIntOrNull() ?: 0 }
-        val parts2 = v2.split(".").map { it.toIntOrNull() ?: 0 }
-        val maxLen = maxOf(parts1.size, parts2.size)
-        for (i in 0 until maxLen) {
-            val p1 = parts1.getOrElse(i) { 0 }
-            val p2 = parts2.getOrElse(i) { 0 }
-            if (p1 != p2) return p1 - p2
-        }
-        return 0
     }
 }
 

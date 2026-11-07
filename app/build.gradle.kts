@@ -22,8 +22,8 @@ android {
         applicationId = "com.blissless.tensei"
         minSdk = 26
         targetSdk = 37
-        versionCode = 35
-        versionName = "1.4.7"
+        versionCode = 33
+        versionName = "1.4.8"
 
         externalNativeBuild {
             cmake {
@@ -146,7 +146,15 @@ tasks.matching { it.name == "assembleRelease" }.configureEach {
 }
 
 dependencies {
-    implementation(files("libs/discord_partner_sdk.aar"))
+    // The Discord Social SDK (Rich Presence) is proprietary and must be downloaded
+    // manually from the Discord Developer Portal (https://discord.com/developers)
+    // and placed at app/libs/discord_partner_sdk.aar. The build works without it;
+    // Discord Rich Presence is simply disabled at runtime in that case.
+    // See README.md -> "Building" for details.
+    val discordSdkAar = file("libs/discord_partner_sdk.aar")
+    if (discordSdkAar.exists()) {
+        implementation(files(discordSdkAar))
+    }
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)

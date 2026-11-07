@@ -119,7 +119,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.zIndex
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.AnimeRelation
@@ -127,9 +127,9 @@ import com.blissless.tensei.data.models.DetailedAnimeData
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.LocalAnimeEntry
 import com.blissless.tensei.data.models.TagData
-import com.blissless.tensei.dialogs.AnimeRatingSheet
-import com.blissless.tensei.dialogs.HomeAnimeStatusDialog
-import com.blissless.tensei.dialogs.userScoreToDisplay
+import com.blissless.tensei.ui.dialogs.AnimeRatingSheet
+import com.blissless.tensei.ui.dialogs.HomeAnimeStatusDialog
+import com.blissless.tensei.ui.dialogs.userScoreToDisplay
 import com.blissless.tensei.ui.components.DetailRailSkeleton
 import com.blissless.tensei.ui.components.DetailTextCardSkeleton
 import com.blissless.tensei.ui.components.RelatedMediaCard
@@ -154,6 +154,11 @@ import kotlin.time.Duration.Companion.milliseconds
 // Extension functions on MainViewModel (defined in com.blissless.tensei.viewmodel)
 import com.blissless.tensei.viewmodel.loadAvailableMagnetExtensions
 import com.blissless.tensei.viewmodel.toggleAniListFavorite
+import com.blissless.tensei.viewmodel.toggleOfflineFavorite
+import com.blissless.tensei.viewmodel.setLocalAnimeStatus
+import com.blissless.tensei.viewmodel.fetchDetailedAnimeData
+import com.blissless.tensei.viewmodel.updateAnimeStatus
+import com.blissless.tensei.viewmodel.updateAnimeScore
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -464,58 +469,13 @@ fun DetailedAnimeScreen(
         else -> displayData.format ?: stringResource(R.string.anime_detail_unknown)
     }
 
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val currentOffset = offsetY.value
-
-                if (currentOffset > 0) {
-                    if (available.y < 0) {
-                        scope.launch {
-                            offsetY.snapTo((currentOffset + available.y).coerceAtLeast(0f))
-                        }
-                        return available
-                    }
-                    if (available.y > 0) {
-                        scope.launch {
-                            offsetY.snapTo(currentOffset + available.y)
-                        }
-                        return available
-                    }
-                }
-
-                if (isAtTop && currentOffset <= 10f && available.y > 0) {
-                    scope.launch { offsetY.snapTo(available.y) }
-                    return available
-                }
-
-                return Offset.Zero
-            }
-
-            override suspend fun onPreFling(available: Velocity): Velocity {
-                val currentOffset = offsetY.value
-
-                if (currentOffset == 0f) return Velocity.Zero
-
-                // The sheet can only reach offsetY > 0 while the list is at the top (see
-                // onPreScroll), so the old "isAtTop" gate here was redundant AND flaky: right
-                // after scrolling back to the top the flag lags a frame, so a dismissal fling
-                // was silently ignored and the sheet snapped back. Treat any release with the
-                // sheet past a third of the screen, or a brisk downward fling, as a dismissal.
-                val shouldDismiss = currentOffset > dismissThreshold || available.y > 300f
-
-                if (shouldDismiss) {
-                    dismissWithAnimation()
-                } else {
-                    scope.launch {
-                        offsetY.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
-                    }
-                }
-
-                return available
-            }
-        }
-    }
+    // Shared drag-to-dismiss behavior — see ui/components/SheetDismissGestures.kt
+    val nestedScrollConnection = com.blissless.tensei.ui.components.rememberSheetDismissScrollConnection(
+        offsetY = offsetY,
+        isAtTop = { isAtTop },
+        dismissThreshold = dismissThreshold,
+        onDismiss = { dismissWithAnimation() },
+    )
 
     Dialog(
         onDismissRequest = onNavigateBack,
@@ -724,190 +684,18 @@ fun DetailedAnimeScreen(
                     bottom = 32.dp + navigationBarsPadding.calculateBottomPadding()
                 )
             ) {
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Box {
-                            val cardWidth = 140.dp
-                            val cardHeight = 200.dp
-                            val targetX = 0.dp
-                            val targetY = 0.dp
-
-                            Box(
-                                modifier = Modifier
-                                    .width(cardWidth)
-                                    .height(cardHeight)
-                                    .zIndex(if (initialCardBounds != null && coverAnimationProgress.value < 1f) 100f else 0f)
-                                    .graphicsLayer {
-                                        if (initialCardBounds != null) {
-                                            val progress = FastOutSlowInEasing.transform(coverAnimationProgress.value)
-                                            val startX = initialCardBounds.bounds.left
-                                            val startY = initialCardBounds.bounds.top
-                                            val startWidth = initialCardBounds.bounds.width()
-                                            val startHeight = initialCardBounds.bounds.height()
-
-                                            val currentWidth = startWidth + (cardWidth.toPx() - startWidth) * progress
-                                            val currentHeight = startHeight + (cardHeight.toPx() - startHeight) * progress
-                                            val currentX = startX + (targetX.toPx() - startX) * progress
-                                            val currentY = startY + (targetY.toPx() - startY) * progress
-
-                                            scaleX = currentWidth / size.width
-                                            scaleY = currentHeight / size.height
-                                            translationX = currentX
-                                            translationY = currentY
-                                        }
-                                    }
-                            ) {
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clickable { fullscreenImageUrl = displayData.cover },
-                                    shape = RoundedCornerShape(16.dp),
-                                    shadowElevation = 16.dp,
-                                    color = Color.Transparent
-                                ) {
-                                    AsyncImage(
-                                        model = displayData.cover, contentDescription = displayData.title,
-                                        contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().clickable {
-                                            fullscreenImageUrl = displayData.cover
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.anime_detail_clip_anime_title), displayData.title))
-                            }.padding(vertical = 4.dp)) {
-                                BannerOverlayText(
-                                    // The title overlaps the banner, so it gets an outline in the
-                                    // theme's background colour to stay readable on the image.
-                                    text = displayData.title, style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold, maxLines = 10, overflow = TextOverflow.Clip,
-                                    color = MaterialTheme.colorScheme.onBackground,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Icon(Icons.Default.ContentCopy, null, modifier = Modifier.padding(start = 4.dp).size(16.dp).background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f), CircleShape).padding(3.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            if (!displayData.titleEnglish.isNullOrEmpty() && displayData.titleEnglish != displayData.title) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.anime_detail_clip_anime_title), displayData.titleEnglish))
-                                }.padding(vertical = 4.dp)) {
-                                    BannerOverlayText(
-                                        text = displayData.titleEnglish, style = MaterialTheme.typography.bodyMedium,
-                                        maxLines = 10, overflow = TextOverflow.Clip,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                            if (!displayData.titleNative.isNullOrEmpty()) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.anime_detail_clip_anime_title), displayData.titleNative))
-                                }.padding(vertical = 4.dp)) {
-                                    BannerOverlayText(
-                                        text = displayData.titleNative, style = MaterialTheme.typography.bodySmall,
-                                        maxLines = 10, overflow = TextOverflow.Clip,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                displayData.averageScore?.let { score ->
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.background(tenseiColors.rating.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-                                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                                    ) {
-                                        Icon(Icons.Default.Star, null, tint = tenseiColors.rating, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            String.format(Locale.US, "%.1f", score / 10.0),
-                                            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = tenseiColors.rating
-                                        )
-                                    }
-                                }
-                                if (displayData.averageScore == null && isLoadingDetails) {
-                                    SkeletonPill(width = 68.dp, height = 30.dp)
-                                }
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = when {
-                                        displayData.status != null -> statusAccentFor(displayData.status).copy(alpha = 0.2f)
-                                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                    }
-                                ) {
-                                    Text(
-                                        statusDisplay, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold,
-                                        color = when {
-                                            displayData.status != null -> statusAccentFor(displayData.status)
-                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                if (displayData.year != null) {
-                                    Text(
-                                        displayData.year.toString(),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                if (displayData.year != null && displayData.format != null) {
-                                    Text(
-                                        "\u2022",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                    )
-                                }
-                                displayData.format?.let {
-                                    Text(
-                                        formatDisplay,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                val episodeCount = displayData.episodes.takeIf { it > 0 }
-                                if (episodeCount != null) {
-                                    Text(
-                                        "\u2022",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                    )
-                                    Text(
-                                        stringResource(R.string.anime_detail_eps_count, episodeCount),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                if (displayData.year == null && displayData.format == null && episodeCount == null && isLoadingDetails) {
-                                    SkeletonTextLine(width = 96.dp, height = 11.dp)
-                                }
-                            }
-                        }
-                    }
-                }
+item {
+                AnimeDetailHeaderItem(
+                    initialCardBounds = initialCardBounds,
+                    alpha = alpha,
+                    coverAnimationProgress = coverAnimationProgress,
+                    displayData = displayData,
+                    formatDisplay = formatDisplay,
+                    statusDisplay = statusDisplay,
+                    isLoadingDetails = isLoadingDetails,
+                    onShowFullscreenImage = { fullscreenImageUrl = it },
+                )
+            }
 
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
@@ -922,213 +710,20 @@ fun DetailedAnimeScreen(
                     )
                 }
 
-                item {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            val totalEps = anime.episodes.takeIf { it > 0 } ?: anime.episodes
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                        modifier = Modifier.size(36.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                                            Icon(
-                                                Icons.Outlined.BookmarkAdd,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        if (isLoggedIn) stringResource(R.string.anime_detail_add_to_list) else stringResource(R.string.anime_detail_local_list),
-                                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    if (!isLoggedIn) {
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            stringResource(R.string.anime_detail_offline),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                                        )
-                                    }
-                                }
-                                if (statusToCheck != null || effectiveUserScore != null) {
-                                    val listStatusColor = statusColor(statusToCheck)
-                                    Column(horizontalAlignment = Alignment.End) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            if (effectiveUserScore != null) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(
-                                                        Icons.Default.Star,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(13.dp),
-                                                        tint = tenseiColors.rating
-                                                    )
-                                                    Spacer(modifier = Modifier.width(2.dp))
-                                                    Text(
-                                                        text = "${userScoreToDisplay(effectiveUserScore)}",
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = tenseiColors.rating
-                                                    )
-                                                }
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                            }
-                                            if (statusToCheck != null) {
-                                                Surface(
-                                                    shape = RoundedCornerShape(6.dp),
-                                                    color = listStatusColor.copy(alpha = 0.12f)
-                                                ) {
-                                                    Text(
-                                                        text = StatusLabels[statusToCheck] ?: statusToCheck,
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                        color = listStatusColor,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        if (totalEps > 0) {
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Text(
-                                                    text = "$statusProgress",
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface
-                                                )
-                                                Text(
-                                                    text = " / $totalEps",
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    fontWeight = FontWeight.Light,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            if (statusToCheck != null) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Button(
-                                        onClick = { showStatusDialog = true },
-                                        modifier = Modifier.weight(1f).height(44.dp),
-                                        shape = RoundedCornerShape(12.dp),
-                                         colors = ButtonDefaults.buttonColors(
-                                             containerColor = MaterialTheme.colorScheme.primary,
-                                             contentColor = MaterialTheme.colorScheme.onPrimary
-                                         )
-                                     ) {
-                                         Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
-                                         Spacer(modifier = Modifier.width(8.dp))
-                                         Text(stringResource(R.string.anime_detail_change), fontWeight = FontWeight.SemiBold)
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    OutlinedButton(
-                                        onClick = { showRatingSheet = true },
-                                        modifier = Modifier.height(44.dp),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (effectiveUserScore != null && effectiveUserScore > 0) tenseiColors.rating.copy(alpha = 0.15f) else Color.Transparent,
-                                            contentColor = if (effectiveUserScore != null && effectiveUserScore > 0) tenseiColors.rating else MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        border = BorderStroke(
-                                            1.5.dp,
-                                            if (effectiveUserScore != null && effectiveUserScore > 0) tenseiColors.rating else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                        )
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Star,
-                                            contentDescription = stringResource(R.string.anime_detail_rate),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    OutlinedButton(
-                                        onClick = onFavoriteClick,
-                                        modifier = Modifier.height(44.dp),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (effectiveIsFavorite) tenseiColors.favorite.copy(alpha = 0.15f) else Color.Transparent,
-                                            contentColor = if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        border = BorderStroke(
-                                            1.5.dp,
-                                            if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                        )
-                                    ) {
-                                        Icon(
-                                            if (effectiveIsFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                            null,
-                                            Modifier.size(20.dp),
-                                            tint = if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            } else {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Button(
-                                        onClick = { showStatusDialog = true },
-                                        modifier = Modifier.weight(1f).height(44.dp),
-                                        shape = RoundedCornerShape(12.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.primary,
-                                            contentColor = MaterialTheme.colorScheme.onPrimary
-                                        )
-                                    ) {
-                                        Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(stringResource(R.string.anime_detail_add_to_list), fontWeight = FontWeight.SemiBold)
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    OutlinedButton(
-                                        onClick = onFavoriteClick,
-                                        modifier = Modifier.height(44.dp),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            containerColor = if (effectiveIsFavorite) tenseiColors.favorite.copy(alpha = 0.15f) else Color.Transparent,
-                                            contentColor = if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
-                                        ),
-                                        border = BorderStroke(
-                                            1.5.dp,
-                                            if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                        )
-                                    ) {
-                                        Icon(
-                                            if (effectiveIsFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                                            null,
-                                            Modifier.size(20.dp),
-                                            tint = if (effectiveIsFavorite) tenseiColors.favorite else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+item {
+                AnimeDetailStatusItem(
+                    anime = anime,
+                    isLoggedIn = isLoggedIn,
+                    alpha = alpha,
+                    effectiveIsFavorite = effectiveIsFavorite,
+                    effectiveUserScore = effectiveUserScore,
+                    onFavoriteClick = onFavoriteClick,
+                    statusProgress = statusProgress,
+                    statusToCheck = statusToCheck,
+                    onShowStatusDialogChange = { showStatusDialog = it },
+                    onShowRatingSheetChange = { showRatingSheet = it },
+                )
+            }
 
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
@@ -1200,147 +795,17 @@ fun DetailedAnimeScreen(
                 val filteredRelations = displayData.relations
 
                 if (filteredRelations.isNotEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(38.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Link,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            stringResource(R.string.anime_detail_relations),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            stringResource(R.string.anime_detail_connected_series),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            letterSpacing = 0.5.sp
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    if (filteredRelations.isNotEmpty()) {
-                                        TextButton(onClick = { 
-                                            onViewAllRelations(displayData.id, displayData.title, displayData.titleEnglish) 
-                                        }) {
-                                            Text(stringResource(R.string.anime_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
-                                        }
-                                    }
-                                }
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                    modifier = Modifier.padding(top = 8.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                val relationListState = rememberLazyListState()
-                                val isRelationScrolling by remember {
-                                    derivedStateOf { relationListState.isScrollInProgress }
-                                }
-                                val cameraDistancePx = with(density) { 12.dp.toPx() }
-
-                                LazyRow(
-                                    state = relationListState,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    itemsIndexed(
-                                        items = filteredRelations,
-                                        key = { _, relation -> relation.id }
-                                    ) { index, relation ->
-                                        val layoutInfo by remember { derivedStateOf { relationListState.layoutInfo } }
-                                        val visibleItems = layoutInfo.visibleItemsInfo
-                                        val itemInfo = visibleItems.find { it.index == index }
-
-                                        val centerOffset = if (itemInfo != null) {
-                                            val itemCenter = itemInfo.offset + itemInfo.size / 2
-                                            val screenCenter = (layoutInfo.viewportSize.width / 2).toFloat()
-                                            (itemCenter - screenCenter) / screenCenter
-                                        } else {
-                                            0f
-                                        }
-
-                                        val animatedOffset by animateFloatAsState(
-                                            targetValue = if (isRelationScrolling) centerOffset.coerceIn(-1.5f, 1.5f) else 0f,
-                                            animationSpec = if (isRelationScrolling) {
-                                                spring(
-                                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                                    stiffness = Spring.StiffnessMedium
-                                                )
-                                            } else {
-                                                spring(
-                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                    stiffness = Spring.StiffnessLow
-                                                )
-                                            },
-                                            label = "relationCenterOffset"
-                                        )
-
-                                        val scrollScale = 1f - (animatedOffset.absoluteValue * 0.25f).coerceAtMost(0.25f)
-                                        val scrollAlpha = 1f - (animatedOffset.absoluteValue * 0.4f).coerceAtMost(0.6f)
-                                        val scrollTranslationX = animatedOffset * -20f
-                                        val scrollRotationY = (animatedOffset * 15f).coerceIn(-15f, 15f)
-
-                                        val indexFloat = index.toFloat()
-                                        val staggeredProgress = ((cinematicProgress * 1000f - (indexFloat * 40f)) / 1000f).coerceIn(0f, 1f)
-                                        val easedProgress = easeOut(staggeredProgress)
-
-                                        val introScale = if (cinematicProgress >= 1f) 1f else 0.85f + easedProgress * 0.15f
-                                        val introAlpha = if (cinematicProgress >= 1f) 1f else easedProgress
-
-                                        Column(
-                                            modifier = Modifier
-                                                .width(110.dp)
-                                                .graphicsLayer {
-                                                    scaleX = introScale * scrollScale
-                                                    scaleY = introScale * scrollScale
-                                                    this.alpha = introAlpha * scrollAlpha
-                                                    translationX = scrollTranslationX
-                                                    rotationY = scrollRotationY
-                                                    cameraDistance = cameraDistancePx
-                                                }
-                                                .clickable {
-                                                    onRelationClick(relation)
-                                                }
-                                                .padding(4.dp)
-                                        ) {
-                                            RelatedMediaCard(
-                                                media = relation.asRelatedMedia(),
-                                                preferEnglishTitle = preferEnglishTitles,
-                                                titleHeight = 32.dp,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+item {
+                AnimeDetailRelationsItem(
+                    displayData = displayData,
+                    alpha = alpha,
+                    cinematicProgress = cinematicProgress,
+                    density = density,
+                    preferEnglishTitles = preferEnglishTitles,
+                    onRelationClick = onRelationClick,
+                    onViewAllRelations = onViewAllRelations,
+                )
+            }
                 } else if (isLoadingDetails) {
                     item {
                         Spacer(modifier = Modifier.height(20.dp))
@@ -1351,122 +816,17 @@ fun DetailedAnimeScreen(
                 // Recommendations
                 val recommendations = displayData.recommendations
                 if (recommendations.isNotEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    Box(
-                                        modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(stringResource(R.string.anime_detail_recommendations), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                                        Text(stringResource(R.string.anime_detail_you_might_also_enjoy), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), letterSpacing = 0.5.sp)
-                                    }
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    TextButton(onClick = { onViewAllRecommendations(displayData.id, displayData.title, displayData.titleEnglish) }) {
-                                        Text(stringResource(R.string.anime_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
-                                    }
-                                }
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                    modifier = Modifier.padding(top = 8.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                val recListState = rememberLazyListState()
-                                val isRecScrolling by remember {
-                                    derivedStateOf { recListState.isScrollInProgress }
-                                }
-                                val recCameraDistancePx = with(density) { 12.dp.toPx() }
-
-                                LazyRow(
-                                    state = recListState,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    itemsIndexed(
-                                        items = recommendations.take(20),
-                                        key = { _, rec -> rec.id }
-                                    ) { index, rec ->
-                                        val recLayoutInfo by remember { derivedStateOf { recListState.layoutInfo } }
-                                        val recVisibleItems = recLayoutInfo.visibleItemsInfo
-                                        val recItemInfo = recVisibleItems.find { it.index == index }
-
-                                        val recCenterOffset = if (recItemInfo != null) {
-                                            val itemCenter = recItemInfo.offset + recItemInfo.size / 2
-                                            val screenCenter = (recLayoutInfo.viewportSize.width / 2).toFloat()
-                                            (itemCenter - screenCenter) / screenCenter
-                                        } else {
-                                            0f
-                                        }
-
-                                        val recAnimatedOffset by animateFloatAsState(
-                                            targetValue = if (isRecScrolling) recCenterOffset.coerceIn(-1.5f, 1.5f) else 0f,
-                                            animationSpec = if (isRecScrolling) {
-                                                spring(
-                                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                                    stiffness = Spring.StiffnessMedium
-                                                )
-                                            } else {
-                                                spring(
-                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                    stiffness = Spring.StiffnessLow
-                                                )
-                                            },
-                                            label = "recCenterOffset"
-                                        )
-
-                                        val recScrollScale = 1f - (recAnimatedOffset.absoluteValue * 0.25f).coerceAtMost(0.25f)
-                                        val recScrollAlpha = 1f - (recAnimatedOffset.absoluteValue * 0.4f).coerceAtMost(0.6f)
-                                        val recScrollTranslationX = recAnimatedOffset * -20f
-                                        val recScrollRotationY = (recAnimatedOffset * 15f).coerceIn(-15f, 15f)
-
-                                        val recIndexFloat = index.toFloat()
-                                        val recStaggeredProgress = ((cinematicProgress * 1000f - (recIndexFloat * 40f)) / 1000f).coerceIn(0f, 1f)
-                                        val recEasedProgress = easeOut(recStaggeredProgress)
-
-                                        val recIntroScale = if (cinematicProgress >= 1f) 1f else 0.85f + recEasedProgress * 0.15f
-                                        val recIntroAlpha = if (cinematicProgress >= 1f) 1f else recEasedProgress
-
-                                        Column(
-                                            modifier = Modifier
-                                                .width(110.dp)
-                                                .graphicsLayer {
-                                                    scaleX = recIntroScale * recScrollScale
-                                                    scaleY = recIntroScale * recScrollScale
-                                                    this.alpha = recIntroAlpha * recScrollAlpha
-                                                    translationX = recScrollTranslationX
-                                                    rotationY = recScrollRotationY
-                                                    cameraDistance = recCameraDistancePx
-                                                }
-                                                .clickable {
-                                                    onRecommendationClick(rec)
-                                                }
-                                                .padding(4.dp)
-                                        ) {
-                                            RelatedMediaCard(
-                                                media = rec.asRelatedMedia(),
-                                                preferEnglishTitle = preferEnglishTitles,
-                                                titleHeight = 32.dp,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+item {
+                AnimeDetailRecommendationsItem(
+                    displayData = displayData,
+                    alpha = alpha,
+                    cinematicProgress = cinematicProgress,
+                    density = density,
+                    preferEnglishTitles = preferEnglishTitles,
+                    onRecommendationClick = onRecommendationClick,
+                    onViewAllRecommendations = onViewAllRecommendations,
+                )
+            }
                 } else if (isLoadingDetails) {
                     item {
                         Spacer(modifier = Modifier.height(20.dp))
@@ -1477,169 +837,16 @@ fun DetailedAnimeScreen(
                 // Cast Section
                 val castList = displayData.characters?.nodes
                 if (!castList.isNullOrEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(38.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Group,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            stringResource(R.string.anime_detail_cast),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            stringResource(R.string.anime_detail_characters),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            letterSpacing = 0.5.sp
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    if (castList.isNotEmpty()) {
-                                        TextButton(onClick = onViewAllCast) {
-                                            Text(stringResource(R.string.anime_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
-                                        }
-                                    }
-                                }
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                    modifier = Modifier.padding(top = 8.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                val castListState = rememberLazyListState()
-                                val isCastScrolling by remember {
-                                    derivedStateOf { castListState.isScrollInProgress }
-                                }
-                                val cameraDistancePx = with(density) { 12.dp.toPx() }
-
-                                LazyRow(
-                                    state = castListState,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    itemsIndexed(
-                                        items = castList,
-                                        key = { _, character -> character.id }
-                                    ) { index, character ->
-                                        val layoutInfo by remember { derivedStateOf { castListState.layoutInfo } }
-                                        val visibleItems = layoutInfo.visibleItemsInfo
-                                        val itemInfo = visibleItems.find { it.index == index }
-
-                                        val centerOffset = if (itemInfo != null) {
-                                            val itemCenter = itemInfo.offset + itemInfo.size / 2
-                                            val screenCenter = (layoutInfo.viewportSize.width / 2).toFloat()
-                                            (itemCenter - screenCenter) / screenCenter
-                                        } else {
-                                            0f
-                                        }
-
-                                        val animatedOffset by animateFloatAsState(
-                                            targetValue = if (isCastScrolling) centerOffset.coerceIn(-1.5f, 1.5f) else 0f,
-                                            animationSpec = if (isCastScrolling) {
-                                                spring(
-                                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                                    stiffness = Spring.StiffnessMedium
-                                                )
-                                            } else {
-                                                spring(
-                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                    stiffness = Spring.StiffnessLow
-                                                )
-                                            },
-                                            label = "castCenterOffset"
-                                        )
-
-                                        val scrollScale = 1f - (animatedOffset.absoluteValue * 0.25f).coerceAtMost(0.25f)
-                                        val scrollAlpha = 1f - (animatedOffset.absoluteValue * 0.4f).coerceAtMost(0.6f)
-                                        val scrollTranslationX = animatedOffset * -20f
-                                        val scrollRotationY = (animatedOffset * 15f).coerceIn(-15f, 15f)
-
-                                        val indexFloat = index.toFloat()
-                                        val staggeredProgress = ((cinematicProgress * 1000f - (indexFloat * 40f)) / 1000f).coerceIn(0f, 1f)
-                                        val easedProgress = easeOut(staggeredProgress)
-
-                                        val introScale = if (cinematicProgress >= 1f) 1f else 0.85f + easedProgress * 0.15f
-                                        val introAlpha = if (cinematicProgress >= 1f) 1f else easedProgress
-
-                                        Column(
-                                            modifier = Modifier
-                                                .width(80.dp)
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .graphicsLayer {
-                                                    scaleX = introScale * scrollScale
-                                                    scaleY = introScale * scrollScale
-                                                    this.alpha = introAlpha * scrollAlpha
-                                                    translationX = scrollTranslationX
-                                                    rotationY = scrollRotationY
-                                                    cameraDistance = cameraDistancePx
-                                                }
-                                                .clickable {
-                                                    val id = character.id
-                                                    onCharacterClick(id)
-                                                }
-                                                .padding(4.dp)
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .aspectRatio(1f)
-                                            ) {
-                                                Card(
-                                                    shape = RoundedCornerShape(12.dp),
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A))
-                                                ) {
-                                                    AsyncImage(
-                                                        model = character.image?.large,
-                                                        contentDescription = character.name?.full,
-                                                        contentScale = ContentScale.Crop,
-                                                        modifier = Modifier.fillMaxSize()
-                                                    )
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            Text(
-                                                character.name?.full ?: stringResource(R.string.anime_detail_unknown),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = FontWeight.Medium,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis,
-                                                color = MaterialTheme.colorScheme.onBackground,
-                                                modifier = Modifier.height(28.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+item {
+                AnimeDetailCharactersItem(
+                    castList = castList,
+                    alpha = alpha,
+                    cinematicProgress = cinematicProgress,
+                    density = density,
+                    onCharacterClick = onCharacterClick,
+                    onViewAllCast = onViewAllCast,
+                )
+            }
                 } else if (isLoadingDetails) {
                     item {
                         Spacer(modifier = Modifier.height(20.dp))
@@ -1650,173 +857,16 @@ fun DetailedAnimeScreen(
                 // Staff Section
                 val staffList = displayData.staff?.edges
                 if (!staffList.isNullOrEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(38.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Person,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            stringResource(R.string.anime_detail_staff),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Text(
-                                            stringResource(R.string.anime_detail_production_crew),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            letterSpacing = 0.5.sp
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    if (staffList.isNotEmpty()) {
-                                        TextButton(onClick = onViewAllStaff) {
-                                            Text(stringResource(R.string.anime_detail_view_all), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
-                                        }
-                                    }
-                                }
-                                HorizontalDivider(
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
-                                    modifier = Modifier.padding(top = 8.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                val staffListState = rememberLazyListState()
-                                val isStaffScrolling by remember {
-                                    derivedStateOf { staffListState.isScrollInProgress }
-                                }
-                                val cameraDistancePx = with(density) { 12.dp.toPx() }
-
-                                LazyRow(
-                                    state = staffListState,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    itemsIndexed(
-                                        items = staffList,
-                                        key = { index, _ -> "staff_$index" }
-                                    ) { index, staffEdge ->
-                                        staffEdge.node?.let { staff ->
-                                            val layoutInfo = staffListState.layoutInfo
-                                            val visibleItems = layoutInfo.visibleItemsInfo
-                                            val itemInfo = visibleItems.find { it.index == index }
-
-                                            val centerOffset = if (itemInfo != null) {
-                                                val itemCenter = itemInfo.offset + itemInfo.size / 2
-                                                val screenCenter = (layoutInfo.viewportSize.width / 2).toFloat()
-                                                (itemCenter - screenCenter) / screenCenter
-                                            } else {
-                                                0f
-                                            }
-
-                                            val animatedOffset by animateFloatAsState(
-                                                targetValue = if (isStaffScrolling) centerOffset.coerceIn(-1.5f, 1.5f) else 0f,
-                                                animationSpec = if (isStaffScrolling) {
-                                                    spring(
-                                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                                        stiffness = Spring.StiffnessMedium
-                                                    )
-                                                } else {
-                                                    spring(
-                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                        stiffness = Spring.StiffnessLow
-                                                    )
-                                                },
-                                                label = "staffCenterOffset"
-                                            )
-
-                                            val scrollScale = 1f - (animatedOffset.absoluteValue * 0.25f).coerceAtMost(0.25f)
-                                            val scrollAlpha = 1f - (animatedOffset.absoluteValue * 0.4f).coerceAtMost(0.6f)
-                                            val scrollTranslationX = animatedOffset * -20f
-                                            val scrollRotationY = (animatedOffset * 15f).coerceIn(-15f, 15f)
-
-                                            val indexFloat = index.toFloat()
-                                            val staggeredProgress = ((cinematicProgress * 1000f - (indexFloat * 40f)) / 1000f).coerceIn(0f, 1f)
-                                            val easedProgress = easeOut(staggeredProgress)
-
-                                            val introScale = if (cinematicProgress >= 1f) 1f else 0.85f + easedProgress * 0.15f
-                                            val introAlpha = if (cinematicProgress >= 1f) 1f else easedProgress
-
-                                            Column(
-                                                modifier = Modifier
-                                                    .width(80.dp)
-                                                    .clip(RoundedCornerShape(12.dp))
-                                                    .clickable { staffEdge.node.id.let { id -> onStaffClick(id) } }
-                                                    .graphicsLayer {
-                                                        scaleX = introScale * scrollScale
-                                                        scaleY = introScale * scrollScale
-                                                        this.alpha = introAlpha * scrollAlpha
-                                                        translationX = scrollTranslationX
-                                                        rotationY = scrollRotationY
-                                                        cameraDistance = cameraDistancePx
-                                                    }
-                                                    .padding(4.dp)
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .aspectRatio(1f)
-                                                ) {
-                                                    Card(
-                                                        shape = RoundedCornerShape(12.dp),
-                                                        modifier = Modifier.fillMaxSize(),
-                                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A))
-                                                    ) {
-                                                        AsyncImage(
-                                                            model = staff.image?.large,
-                                                            contentDescription = staff.name?.full,
-                                                            contentScale = ContentScale.Crop,
-                                                            modifier = Modifier.fillMaxSize()
-                                                        )
-                                                    }
-                                                }
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                Text(
-                                                    staff.name?.full ?: stringResource(R.string.anime_detail_unknown),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontWeight = FontWeight.Medium,
-                                                    maxLines = 2,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    color = MaterialTheme.colorScheme.onBackground,
-                                                    modifier = Modifier.height(28.dp)
-                                                )
-                                                StaffEdgeJobText(
-                                                    role = staffEdge.role,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+item {
+                AnimeDetailStaffItem(
+                    staffList = staffList,
+                    alpha = alpha,
+                    cinematicProgress = cinematicProgress,
+                    density = density,
+                    onStaffClick = onStaffClick,
+                    onViewAllStaff = onViewAllStaff,
+                )
+            }
                 } else if (isLoadingDetails) {
                     item {
                         Spacer(modifier = Modifier.height(20.dp))

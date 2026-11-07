@@ -533,7 +533,7 @@ object WidgetScheduleFetcher {
             )
             put("variables", JSONObject(mapOf("p" to 1, "s" to (ct - 86400).toInt(), "e" to (ct + 86400).toInt())))
         }
-        val resp = execute(body.toString(), authToken, shortTimeout = true)
+        val resp = executeGraphQL(body.toString(), authToken, shortTimeout = true)
         val parsed = parse(resp)
         return WidgetScheduleData(parsed, System.currentTimeMillis())
     }
@@ -550,7 +550,7 @@ object WidgetScheduleFetcher {
                     put("query", query)
                     put("variables", JSONObject(mapOf("p" to page, "s" to (ct - 86400).toInt(), "e" to (ct + 7*86400).toInt())))
                 }
-                val resp = execute(body.toString(), authToken)
+                val resp = executeGraphQL(body.toString(), authToken)
                 val parsed = parse(resp)
                 if (parsed.isEmpty()) { break }
                 entries.addAll(parsed)
@@ -583,12 +583,12 @@ object WidgetScheduleFetcher {
     }
 
     private fun loadCached(context: Context): WidgetScheduleData? {
-        val s = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_DATA, null) ?: return null
-        return try { json.decodeFromString<WidgetScheduleData>(s) }
+        val cachedJson = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_DATA, null) ?: return null
+        return try { json.decodeFromString<WidgetScheduleData>(cachedJson) }
         catch (e: Exception) { ErrorHandler.report("AiringScheduleWidget", "operation failed, returning null", e); null }
     }
 
-    private fun execute(body: String, authToken: String?, shortTimeout: Boolean = false): String {
+    private fun executeGraphQL(body: String, authToken: String?, shortTimeout: Boolean = false): String {
         val conn = URL(com.blissless.tensei.network.Endpoints.AniList.GRAPHQL).openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
         conn.setRequestProperty("Content-Type", "application/json")

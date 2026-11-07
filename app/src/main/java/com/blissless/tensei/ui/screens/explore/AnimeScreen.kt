@@ -81,13 +81,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.LocalAnimeEntry
 import com.blissless.tensei.data.models.toDetailedAnimeData
-import com.blissless.tensei.dialogs.HomeAnimeStatusDialog
+import com.blissless.tensei.ui.dialogs.HomeAnimeStatusDialog
 import com.blissless.tensei.ui.components.AnimeCardBounds
 import com.blissless.tensei.ui.components.ExploreAnimeHorizontalList
 import com.blissless.tensei.ui.components.LoadingPlaceholder
@@ -126,6 +126,13 @@ import kotlinx.coroutines.Job
 import com.blissless.tensei.ui.components.TenseiErrorBanner
 import com.blissless.tensei.ui.theme.Sizes
 import com.blissless.tensei.ui.theme.Spacing
+import com.blissless.tensei.viewmodel.retryExploreFromMalFallback
+import com.blissless.tensei.viewmodel.addExploreAnimeToList
+import com.blissless.tensei.viewmodel.removeAnimeFromList
+import com.blissless.tensei.viewmodel.fetchDetailedAnimeData
+import com.blissless.tensei.viewmodel.forceRefreshExplore
+import com.blissless.tensei.viewmodel.tryManualRefresh
+import com.blissless.tensei.viewmodel.setLocalAnimeStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -394,7 +401,7 @@ fun AnimeScreen(
                             id = rec.id,
                             title = rec.title,
                             cover = rec.cover,
-                            totalChapters = rec.episodes ?: 0,
+                            totalChapters = rec.episodes,
                             averageScore = rec.averageScore,
                             format = rec.format
                         )

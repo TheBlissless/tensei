@@ -6,7 +6,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import com.blissless.tensei.extensions.AnimeExtensionManager
+import com.blissless.tensei.extensions.anime.AnimeExtensionManager
 import com.blissless.tensei.extensions.manga.MangaExtensionManager
 import com.blissless.tensei.torrent.TorrentEngine
 import eu.kanade.tachiyomi.network.NetworkHelper

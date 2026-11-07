@@ -54,7 +54,7 @@ import com.blissless.tensei.ui.components.HomeStatusColors
 import com.blissless.tensei.ui.components.StatusButton
 import com.blissless.tensei.ui.theme.MangaStatusLabels
 import com.blissless.tensei.ui.theme.tenseiColors
-import com.blissless.tensei.dialogs.userScoreToDisplay
+import com.blissless.tensei.ui.dialogs.userScoreToDisplay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

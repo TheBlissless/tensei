@@ -212,16 +212,6 @@ fun TenseiOverlayAction(
 }
 
 /** Convenience for the back affordance used on every pushed screen. */
-@Composable
-fun TenseiBackButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    IconButton(onClick = onClick, modifier = modifier.size(Sizes.iconButton)) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-            contentDescription = stringResource(R.string.common_back),
-            modifier = Modifier.size(22.dp),
-        )
-    }
-}
 
 /** Chip-shaped surface used to host a small piece of metadata on artwork. */
 @Composable

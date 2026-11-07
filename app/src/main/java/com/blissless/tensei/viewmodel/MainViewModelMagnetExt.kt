@@ -2,7 +2,7 @@ package com.blissless.tensei.viewmodel
 
 import android.util.Log
 import androidx.lifecycle.viewModelScope
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.torrent.MagnetData
 import com.blissless.tensei.torrent.MagnetExtensionClient
@@ -74,7 +74,7 @@ internal suspend fun MainViewModel.fetchMagnetEpisodesSync(anime: AnimeMedia, au
         if (cleaned != eng) searchTerms.add(eng)
     } else {
         Log.w(MainViewModel.TAG, "fetchMagnetEpisodesSync: no English title available, falling back to romaji")
-        anime.title?.let { searchTerms.add(parseTitleForSearch(it)) }
+        searchTerms.add(parseTitleForSearch(anime.title))
     }
 
     val client = ensureMagnetClient()
@@ -82,7 +82,7 @@ internal suspend fun MainViewModel.fetchMagnetEpisodesSync(anime: AnimeMedia, au
     for ((i, query) in searchTerms.withIndex()) {
         val startTime = System.currentTimeMillis()
         val fetched = try {
-            client.fetchMagnets(authority, anime.id, query, parseTitleForSearch(anime.title ?: query), preferredCategory.value)
+            client.fetchMagnets(authority, anime.id, query, parseTitleForSearch(anime.title), preferredCategory.value)
         } catch (e: Exception) {
             Log.e(MainViewModel.TAG, "fetchMagnetEpisodesSync: fetchMagnets threw for term[$i]='$query'", e)
             null
@@ -159,7 +159,7 @@ suspend fun MainViewModel.fetchMagnetForEpisode(anime: AnimeMedia, episode: Int)
 
 suspend fun MainViewModel.fetchStreamUrlForEpisode(anime: AnimeMedia, episode: Int, lang: String, overrideAuthority: String? = null): StreamUrlResult? {
     val engName = anime.titleEnglish ?: ""
-    val romajiName = anime.title ?: ""
+    val romajiName = anime.title
     ensureMagnetClient()
     val authority = overrideAuthority
         ?: defaultMagnetExtension.value

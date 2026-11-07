@@ -148,11 +148,6 @@ val tenseiColors: TenseiColors
 @ReadOnlyComposable
 fun onArtworkColor(): Color = Color.White
 
-/** Translucent scrim used behind text/icons drawn over artwork. */
-@Composable
-@ReadOnlyComposable
-fun artworkScrim(alpha: Float = 0.6f): Color = Color.Black.copy(alpha = alpha)
-
 /** Vertical gradient that guarantees text legibility over cover art. */
 @Composable
 @ReadOnlyComposable

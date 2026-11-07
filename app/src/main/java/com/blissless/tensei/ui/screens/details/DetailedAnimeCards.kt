@@ -1,0 +1,735 @@
+package com.blissless.tensei.ui.screens.details
+
+import android.content.Intent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.blissless.tensei.util.LocaleDate
+import java.util.Locale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
+import coil.compose.AsyncImage
+import com.blissless.tensei.R
+import com.blissless.tensei.ui.components.DetailSpecGridSkeleton
+import com.blissless.tensei.ui.components.DetailStatStripSkeleton
+import com.blissless.tensei.ui.components.anilistAnnotated
+import com.blissless.tensei.ui.components.cleanAniListText
+import com.blissless.tensei.ui.theme.tenseiColors
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
+// Info cards of the anime detail screen (trailer, info, genres, tags,
+// synopsis) and the missing-extension dialog.
+
+
+
+/**
+ * Trailer card shown on the detailed anime screen.
+ *
+ * Displays a 16:9 thumbnail with a play button overlay. Clicking the
+ * card or the play button opens the trailer URL (usually YouTube) in
+ * an external app via ACTION_VIEW intent.
+ *
+ * @param trailerUrl       The URL to open when clicked
+ * @param trailerThumbnail The thumbnail image URL to display
+ */
+@Composable
+internal fun TrailerCard(
+    trailerUrl: String?,
+    trailerThumbnail: String?,
+) {
+    val context = LocalContext.current
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .clickable {
+                val intent = Intent(Intent.ACTION_VIEW, trailerUrl?.toUri())
+                context.startActivity(intent)
+            },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.PlayCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.anime_detail_trailer),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.anime_detail_watch_the_trailer),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(12.dp))
+            ) {
+                AsyncImage(
+                    model = trailerThumbnail ?: "",
+                    contentDescription = stringResource(R.string.anime_detail_trailer_thumbnail),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    FilledIconButton(
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, trailerUrl?.toUri())
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.size(60.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = Color(0xFF1A1A1A).copy(alpha = 0.9f),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = stringResource(R.string.anime_detail_play_trailer),
+                            modifier = Modifier.size(34.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(stringResource(R.string.anime_detail_watch_on_youtube), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+
+/**
+ * "No Default Extension" alert dialog.
+ *
+ * Shown when the user tries to watch an episode but no default
+ * extension or magnet extension is configured. Offers to navigate
+ * to settings or cancel.
+ *
+ * @param onDismiss  Called when the dialog is dismissed (Cancel or backdrop)
+ * @param onGoToSettings Called when the user taps "Go to Settings"
+ */
+@Composable
+internal fun NoDefaultExtensionDialog(
+    onDismiss: () -> Unit,
+    onGoToSettings: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.anime_detail_no_extension_selected)) },
+        text = { Text(stringResource(R.string.anime_detail_no_extension_message)) },
+        confirmButton = {
+            TextButton(onClick = {
+                onDismiss()
+                onGoToSettings()
+            }) {
+                Text(stringResource(R.string.anime_detail_go_to_settings))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.anime_detail_close))
+            }
+        }
+    )
+}
+
+
+/**
+ * Information card showing anime specs (format, status, season, studio, dates).
+ *
+ * Displays a hero stats strip (episodes/duration/score) and a bento-style
+ * spec grid built from the anime's metadata.
+ *
+ * @param displayData  The detailed anime data to show
+ * @param userStatusDisplay The user's own list status (e.g. "Watching", "Completed"). Null when
+ *   the user has not tracked this title. The series publication status is already shown as the
+ *   header badge, so it is deliberately not repeated here.
+ * @param isLoading True while the detail fetch is still running. Sections the list data already
+ *   filled in are rendered normally; only the empty ones fall back to a skeleton.
+ */
+@Composable
+internal fun InfoCard(
+    displayData: com.blissless.tensei.data.models.DetailedAnimeData,
+    userStatusDisplay: String?,
+    isLoading: Boolean = false,
+) {
+    val locale = LocaleDate.localeOf(LocalContext.current)
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // ----- Section header: gradient icon tile + title + subtitle -----
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.anime_detail_information),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.anime_detail_overview_details),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                modifier = Modifier.padding(top = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // ----- Hero stats strip (Episodes / Duration / Score) -----
+            val latestEp = displayData.latestEpisode?.takeIf { it > 0 }
+            val totalEp = displayData.episodes.takeIf { it > 0 }
+            val epDisplay = when {
+                latestEp != null && totalEp != null -> "$latestEp / $totalEp"
+                latestEp != null -> "$latestEp"
+                totalEp != null -> "$totalEp"
+                else -> null
+            }
+            val durationMin = displayData.duration?.takeIf { it > 0 }
+            val scoreValue = displayData.averageScore?.takeIf { it > 0 }
+
+            val heroStats = listOfNotNull<Pair<Int, String>>(
+                epDisplay?.let { R.string.anime_detail_episodes to it },
+                scoreValue?.let { R.string.anime_detail_score to String.format(java.util.Locale.US, "%.1f", it / 10.0) },
+                durationMin?.let { R.string.anime_detail_duration to "${it}m" },
+            )
+
+            if (heroStats.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                        .padding(vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    heroStats.forEachIndexed { index, (labelRes, value) ->
+                        val accent = when (labelRes) {
+                            R.string.anime_detail_episodes -> MaterialTheme.colorScheme.primary
+                            R.string.anime_detail_duration -> MaterialTheme.colorScheme.tertiary
+                            R.string.anime_detail_score    -> tenseiColors.rating
+                            else                           -> MaterialTheme.colorScheme.primary
+                        }
+                        val icon = when (labelRes) {
+                            R.string.anime_detail_score -> Icons.Default.Star
+                            else                        -> null
+                        }
+                        HeroStatCell(
+                            value = value,
+                            label = stringResource(labelRes),
+                            accent = accent,
+                            icon = icon,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (index < heroStats.lastIndex) {
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(28.dp)
+                                    .background(
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+                                    )
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            if (heroStats.isEmpty() && isLoading) {
+                DetailStatStripSkeleton()
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+            // ----- Bento spec grid (2-column, responsive full-span rows) -----
+            val labelFormat = stringResource(R.string.anime_detail_format)
+            val labelStatus = stringResource(R.string.anime_detail_status)
+            val labelSeason = stringResource(R.string.anime_detail_season)
+            val labelSource = stringResource(R.string.anime_detail_source)
+            val labelStudio = stringResource(R.string.anime_detail_studio)
+            val labelStarted = stringResource(R.string.anime_detail_started)
+            val labelEnded = stringResource(R.string.anime_detail_ended)
+            val specs = buildList {
+                displayData.format?.let {
+                    add(
+                        SpecEntry(
+                            label = labelFormat,
+                            value = it.replace("_", " ")
+                                .lowercase()
+                                .replaceFirstChar { c -> c.uppercase() },
+                            icon = Icons.Default.Category
+                        )
+                    )
+                }
+userStatusDisplay?.let {
+        add(
+            SpecEntry(
+                label = labelStatus,
+                value = it,
+                icon = Icons.Default.PlayCircle
+            )
+        )
+    }
+    if (displayData.season != null && displayData.year != null) {
+                    add(
+                        SpecEntry(
+                            label = labelSeason,
+                            value = "${displayData.season.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }} ${displayData.year}"
+                        )
+                    )
+                }
+                displayData.source?.let {
+                    add(
+                        SpecEntry(
+                            label = labelSource,
+                            value = it.replace("_", " ")
+                                .lowercase()
+                                .replaceFirstChar { c -> c.uppercase() },
+                            icon = Icons.Default.Description
+                        )
+                    )
+                }
+                if (displayData.studios.isNotEmpty()) {
+                    val studio = displayData.studios
+                        .filter { it.isAnimationStudio }
+                        .joinToString(", ") { it.name }
+                    if (studio.isNotEmpty()) {
+                        add(
+                            SpecEntry(
+                                label = labelStudio,
+                                value = studio,
+                                icon = Icons.Default.Group,
+                                fullSpan = true
+                            )
+                        )
+                    }
+                }
+                displayData.startDate?.let {
+                    add(SpecEntry(label = labelStarted, value = formatDate(it, locale)))
+                }
+                if (displayData.status != "RELEASING" && displayData.status != "NOT_YET_RELEASED") {
+                    displayData.endDate?.let {
+                        add(SpecEntry(label = labelEnded, value = formatDate(it, locale)))
+                    }
+                }
+            }
+
+            if (specs.isEmpty() && isLoading) {
+                DetailSpecGridSkeleton()
+            }
+
+            var i = 0
+            while (i < specs.size) {
+                val current = specs[i]
+                val next = specs.getOrNull(i + 1)
+
+                if (next != null && !current.fullSpan) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp)
+                    ) {
+                        BentoSpecCell(current, modifier = Modifier.weight(1f))
+                        BentoSpecCell(next, modifier = Modifier.weight(1f))
+                    }
+                    i += 2
+                } else {
+                    BentoSpecCell(current, modifier = Modifier.fillMaxWidth())
+                    i += 1
+                }
+                if (i < specs.size) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+            }
+        }
+    }
+}
+
+
+/**
+ * Genres card showing anime genres as chips.
+ *
+ * @param genres List of genre name strings to display
+ */
+@Composable
+internal fun GenresCard(
+    genres: List<String>,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Category,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.anime_detail_genres),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.anime_detail_categories_themes),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) {
+                genres.forEach { genre ->
+                    androidx.compose.material3.Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                    ) {
+                        Text(
+                            genre,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+/**
+ * Tags card showing anime tags as clickable chips with show more/less.
+ *
+ * @param tags            List of TagData to display
+ * @param showAllTags     Whether to show all tags or just the first 2
+ * @param onTagClick      Called when a tag chip is clicked
+ * @param onToggleShowAll Called when "Show More"/"Show Less" is clicked
+ */
+@Composable
+internal fun TagsCard(
+    tags: List<com.blissless.tensei.data.models.TagData>,
+    showAllTags: Boolean,
+    onTagClick: (com.blissless.tensei.data.models.TagData) -> Unit,
+    onToggleShowAll: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.Label,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.anime_detail_tags),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.anime_detail_labels_descriptors),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            val nonSpoilerTags = tags.filter { !it.isMediaSpoiler }
+            val displayedTags = if (showAllTags) nonSpoilerTags else nonSpoilerTags.take(2)
+            val remainingCount = nonSpoilerTags.size - 2
+
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+            ) {
+                displayedTags.forEach { tag ->
+                    androidx.compose.material3.Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)),
+                        modifier = Modifier.clip(RoundedCornerShape(16.dp)).clickable {
+                            onTagClick(tag)
+                        }
+                    ) {
+                        Text(
+                            tag.name,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+                if (remainingCount > 0 && !showAllTags) {
+                    Text(
+                        stringResource(R.string.anime_detail_more_tags, remainingCount),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f),
+                        modifier = Modifier.align(Alignment.CenterVertically)
+                    )
+                }
+            }
+            if (remainingCount > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = onToggleShowAll,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        if (showAllTags) stringResource(R.string.anime_detail_show_less) else stringResource(R.string.anime_detail_show_more),
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+/**
+ * Synopsis card showing the anime description with read more/less.
+ *
+ * @param description        The raw description string (may contain HTML tags)
+ * @param showFullDescription Whether to show the full description or truncate
+ * @param onToggleShowFull   Called when "Read More"/"Show Less" is clicked
+ */
+@Composable
+internal fun SynopsisCard(
+    description: String,
+    showFullDescription: Boolean,
+    onToggleShowFull: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Description,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        stringResource(R.string.anime_detail_synopsis),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        stringResource(R.string.anime_detail_story_summary),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            val cleanDescription = cleanAniListText(description)
+            Text(
+                anilistAnnotated(description, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.primary),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = if (showFullDescription) Int.MAX_VALUE else 3, overflow = TextOverflow.Ellipsis,
+                lineHeight = 22.sp)
+            if (cleanDescription.length > 250) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = onToggleShowFull,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        if (showFullDescription) stringResource(R.string.anime_detail_show_less) else stringResource(R.string.anime_detail_read_more),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+    }
+}

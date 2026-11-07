@@ -1,12 +1,20 @@
 package com.blissless.tensei.viewmodel
 
 import androidx.lifecycle.viewModelScope
-import com.blissless.tensei.MainViewModel
-import com.blissless.tensei.api.myanimelist.LoginProvider
+import com.blissless.tensei.viewmodel.MainViewModel
+import com.blissless.tensei.mal.LoginProvider
 import com.blissless.tensei.data.models.AnimeMedia
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
+import com.blissless.tensei.data.anime.addAniListFavorite
+import com.blissless.tensei.data.anime.removeAniListFavorite
+import com.blissless.tensei.data.anime.updateStatus
+import com.blissless.tensei.data.anime.updateProgress
+import com.blissless.tensei.data.anime.updateScore
+import com.blissless.tensei.data.anime.deleteListEntry
+import com.blissless.tensei.data.prefs.saveMalFavorites
+import com.blissless.tensei.data.prefs.getMalFavorites
 
 /**
  * MAL (MyAnimeList) sync logic for [MainViewModel].

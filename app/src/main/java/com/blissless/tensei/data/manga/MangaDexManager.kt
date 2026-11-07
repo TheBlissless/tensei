@@ -28,7 +28,7 @@ class MangaDexManager(private val client: OkHttpClient = DEFAULT_CLIENT) {
             }
             .build()
 
-        private val json = Json { ignoreUnknownKeys = true }
+        internal val json = com.blissless.tensei.util.TenseiJson.default
     }
 
     suspend fun findMangaByAniListId(title: String, aniListId: Int): String? = withContext(Dispatchers.IO) {

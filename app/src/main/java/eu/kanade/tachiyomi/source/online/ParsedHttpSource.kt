@@ -15,6 +15,7 @@ import org.jsoup.nodes.Element
 @Deprecated("...")
 abstract class ParsedHttpSource : HttpSource() {
 
+    @Deprecated("...")
     override fun popularMangaParse(response: Response): MangasPage {
         val document = response.asJsoup()
 
@@ -35,6 +36,7 @@ abstract class ParsedHttpSource : HttpSource() {
 
     protected abstract fun popularMangaNextPageSelector(): String?
 
+    @Deprecated("...")
     override fun searchMangaParse(response: Response): MangasPage {
         val document = response.asJsoup()
 
@@ -55,6 +57,7 @@ abstract class ParsedHttpSource : HttpSource() {
 
     protected abstract fun searchMangaNextPageSelector(): String?
 
+    @Deprecated("...")
     override fun latestUpdatesParse(response: Response): MangasPage {
         val document = response.asJsoup()
 
@@ -75,12 +78,14 @@ abstract class ParsedHttpSource : HttpSource() {
 
     protected abstract fun latestUpdatesNextPageSelector(): String?
 
+    @Deprecated("...")
     override fun mangaDetailsParse(response: Response): SManga {
         return mangaDetailsParse(response.asJsoup())
     }
 
     protected abstract fun mangaDetailsParse(document: Document): SManga
 
+    @Deprecated("...")
     override fun chapterListParse(response: Response): List<SChapter> {
         val document = response.asJsoup()
         return document.select(chapterListSelector()).map { chapterFromElement(it) }
@@ -90,12 +95,14 @@ abstract class ParsedHttpSource : HttpSource() {
 
     protected abstract fun chapterFromElement(element: Element): SChapter
 
+    @Deprecated("...")
     override fun pageListParse(response: Response): List<Page> {
         return pageListParse(response.asJsoup())
     }
 
     protected abstract fun pageListParse(document: Document): List<Page>
 
+    @Deprecated("...")
     override fun imageUrlParse(response: Response): String {
         return imageUrlParse(response.asJsoup())
     }

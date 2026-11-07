@@ -1,6 +1,6 @@
 package com.blissless.tensei.viewmodel
 
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.data.models.MangaMedia
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.graphics.BitmapFactory
 import com.blissless.tensei.R
+import com.blissless.tensei.data.anime.deleteListEntry
 
 /** State of the cross-provider copy prompt. When [visible] is true, the UI shows an overlay
  * dialog asking the user to pick a copy direction. [markDoneOnDismiss] says whether dismissing
@@ -426,9 +427,9 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
         val mal = malAnimeMap[malId]
         val isNew = mal == null
         val differs = isNew ||
-            mal?.list_status?.status != malStatus ||
-            (mal?.list_status?.score ?: 0) != (score ?: 0) ||
-            (mal?.list_status?.num_episodes_watched ?: 0) != anime.progress
+            mal.list_status?.status != malStatus ||
+            (mal.list_status?.score ?: 0) != (score ?: 0) ||
+            (mal.list_status?.num_episodes_watched ?: 0) != anime.progress
         if (!differs) {
             skipped++
             continue
@@ -464,9 +465,9 @@ private suspend fun MainViewModel.copyAniListToMal(): Pair<Int, Int> {
         val mal = malMangaMap[malMangaId]
         val isNew = mal == null
         val differs = isNew ||
-            mal?.list_status?.status != malStatus ||
-            (mal?.list_status?.score ?: 0) != (malScore ?: 0) ||
-            (mal?.list_status?.num_chapters_read ?: 0) != manga.progress
+            mal.list_status?.status != malStatus ||
+            (mal.list_status?.score ?: 0) != (malScore ?: 0) ||
+            (mal.list_status?.num_chapters_read ?: 0) != manga.progress
         if (!differs) {
             skipped++
             continue
@@ -623,9 +624,9 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
         val target = aniAnimeMap[animeId]
         val isNew = target == null
         val differs = isNew ||
-            target?.listStatus != status ||
-            (target?.userScore ?: 0) != score ||
-            (target?.progress ?: 0) != progress
+            target.listStatus != status ||
+            (target.userScore ?: 0) != score ||
+            target.progress != progress
         if (!differs) {
             skipped++
             continue
@@ -663,9 +664,9 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
         val target = aniMangaByMalId[malId]
         val isNew = target == null
         val differs = isNew ||
-            target?.listStatus != anilistStatus ||
-            (target?.progress ?: 0) != progress ||
-            (target?.userScore ?: 0) != score
+            target.listStatus != anilistStatus ||
+            target.progress != progress ||
+            (target.userScore ?: 0) != score
         if (!differs) {
             skipped++
             continue
@@ -720,7 +721,7 @@ private suspend fun MainViewModel.copyMalToAniList(): Pair<Int, Int> {
             val deleteMalId = manga.malId
             if (deleteMalId == null || deleteMalId in malMangaIds) continue
             val entryId = manga.listEntryId
-            if (entryId == null || mangaRepository == null) {
+            if (entryId == null) {
                 android.util.Log.w(tag, "copyMalToAniList manga DELETE SKIP (no listEntryId): malId=$deleteMalId title=${manga.title}")
                 skipped++
                 continue

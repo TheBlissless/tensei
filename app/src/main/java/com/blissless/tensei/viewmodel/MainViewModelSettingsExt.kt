@@ -7,12 +7,13 @@ import android.content.pm.PackageManager
 import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.viewModelScope
 import com.blissless.tensei.MainActivity
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.widget.AiringScheduleWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.blissless.tensei.data.cache.initializeVideoCache
 
 /**
  * Settings-related passthroughs for [MainViewModel].

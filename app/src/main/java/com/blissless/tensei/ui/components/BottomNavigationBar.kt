@@ -25,9 +25,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.MenuBook
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,7 +74,7 @@ private val NAV_TABS = listOf(
     NavTab(R.string.comp_nav_schedule, Icons.Rounded.CalendarMonth),
     NavTab(R.string.comp_nav_home, Icons.Rounded.Home),
     NavTab(R.string.comp_nav_anime, Icons.Rounded.Movie),
-    NavTab(R.string.comp_nav_manga, Icons.Rounded.MenuBook),
+    NavTab(R.string.comp_nav_manga, Icons.AutoMirrored.Rounded.MenuBook),
 )
 
 @Composable

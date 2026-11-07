@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
@@ -108,7 +108,7 @@ fun LocalSyncDialog(
             choice = SyncChoice.ADD_NEW_ONLY,
             titleRes = R.string.comp_local_sync_add_title,
             descRes = R.string.comp_local_sync_add_desc,
-            icon = Icons.Default.PlaylistAdd,
+            icon = Icons.AutoMirrored.Filled.PlaylistAdd,
             accent = tenseiColors.completed,
         ),
         SyncOption(

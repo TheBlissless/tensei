@@ -6,7 +6,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.pm.PackageInfoCompat
-import com.blissless.tensei.stream.ChildFirstPathClassLoader
+import com.blissless.tensei.extensions.ChildFirstPathClassLoader
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceFactory
 import java.io.File

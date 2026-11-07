@@ -11,7 +11,7 @@ class MangaTrackManager(context: Context) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("manga_tracking", Context.MODE_PRIVATE)
-    private val json = Json { ignoreUnknownKeys = true }
+    internal val json = com.blissless.tensei.util.TenseiJson.default
 
     fun getAllTracking(): List<MangaTrack> = getTracks()
 

@@ -4,7 +4,6 @@ import android.graphics.drawable.Drawable
 
 const val EXTENSION_FEATURE = "tachiyomi.extension"
 const val ANIME_EXTENSION_FEATURE = "tachiyomi.animeextension"
-val EXTENSION_FEATURES = setOf(EXTENSION_FEATURE, ANIME_EXTENSION_FEATURE)
 
 const val METADATA_SOURCE_CLASS = "tachiyomi.extension.class"
 const val METADATA_ANIME_SOURCE_CLASS = "tachiyomi.animeextension.class"
@@ -30,5 +29,4 @@ data class SourceInfo(
     val name: String,
     val lang: String
 )
-
 

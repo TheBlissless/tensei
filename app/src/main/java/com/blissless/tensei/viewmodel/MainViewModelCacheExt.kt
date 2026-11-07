@@ -1,9 +1,20 @@
 package com.blissless.tensei.viewmodel
 
 import android.content.Context
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.data.models.CachedExtensionStream
 import okhttp3.OkHttpClient
+import com.blissless.tensei.data.cache.cacheExtensionStream
+import com.blissless.tensei.data.cache.clearAllExtensionStreamCaches
+import com.blissless.tensei.data.cache.clearAnimeExtensionStreamCaches
+import com.blissless.tensei.data.cache.clearPlaybackPosition
+import com.blissless.tensei.data.cache.getCacheDataSourceFactory
+import com.blissless.tensei.data.cache.getCachedExtensionStream
+import com.blissless.tensei.data.cache.getPlaybackPosition
+import com.blissless.tensei.data.cache.invalidateExtensionStreamCache
+import com.blissless.tensei.data.cache.invalidateStreamCache
+import com.blissless.tensei.data.cache.removeContinueWatchingEntry
+import com.blissless.tensei.data.cache.savePlaybackPosition
 
 /**
  * Cache and playback-position passthroughs for [MainViewModel].

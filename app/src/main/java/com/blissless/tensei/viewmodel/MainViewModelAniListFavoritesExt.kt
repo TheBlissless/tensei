@@ -1,8 +1,8 @@
 package com.blissless.tensei.viewmodel
 
 import androidx.lifecycle.viewModelScope
-import com.blissless.tensei.MainViewModel
-import com.blissless.tensei.api.myanimelist.LoginProvider
+import com.blissless.tensei.viewmodel.MainViewModel
+import com.blissless.tensei.mal.LoginProvider
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.MediaCoverImage
 import com.blissless.tensei.data.models.MediaTitle
@@ -10,6 +10,11 @@ import com.blissless.tensei.data.models.UserFavoriteAnime
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import com.blissless.tensei.data.prefs.getLocalAnimeStatus
+import com.blissless.tensei.data.anime.fetchUserFavorites
+import com.blissless.tensei.data.prefs.isAniListFavorite
+import com.blissless.tensei.data.anime.fetchUserActivity
+import com.blissless.tensei.data.prefs.toggleAniListFavorite
 
 /**
  * AniList favorites and user-activity logic for [MainViewModel].

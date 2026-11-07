@@ -88,15 +88,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.blissless.tensei.MainViewModel
+import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.R
 import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.ContinueWatchingEntry
 import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.data.models.ExploreAnime
 import com.blissless.tensei.data.models.toDetailedAnimeData
-import com.blissless.tensei.dialogs.HomeAnimeStatusDialog
-import com.blissless.tensei.dialogs.OfflineFavoritesDialog
+import com.blissless.tensei.ui.dialogs.HomeAnimeStatusDialog
+import com.blissless.tensei.ui.dialogs.OfflineFavoritesDialog
 import com.blissless.tensei.ui.screens.manga.MangaStatusDialog
 import com.blissless.tensei.ui.screens.episode.RichEpisodeScreen
 import com.blissless.tensei.ui.components.HomeAnimeCardBounds
@@ -140,6 +140,13 @@ import com.blissless.tensei.viewmodel.updateMangaProgress
 import com.blissless.tensei.viewmodel.updateMangaStatus
 import com.blissless.tensei.util.toast
 import com.blissless.tensei.util.longToast
+import com.blissless.tensei.viewmodel.tryManualRefresh
+import com.blissless.tensei.viewmodel.refreshHome
+import com.blissless.tensei.viewmodel.removeAnimeFromList
+import com.blissless.tensei.viewmodel.updateAnimeStatus
+import com.blissless.tensei.viewmodel.addExploreAnimeToList
+import com.blissless.tensei.viewmodel.fetchDetailedAnimeData
+import com.blissless.tensei.viewmodel.toggleLocalFavorite
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -431,81 +438,10 @@ fun HomeScreen(
                         .verticalScroll(homeScrollState)
                 ) {
                     if (showWelcomeCard) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                                shape = RoundedCornerShape(24.dp),
-                                color = MaterialTheme.colorScheme.surface,
-                                tonalElevation = 3.dp,
-                                shadowElevation = 2.dp
-                            ) {
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
-                                                    Color.Transparent,
-                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.03f)
-                                                )
-                                            )
-                                        )
-                                        .padding(32.dp)
-                                ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                                        modifier = Modifier.size(80.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            AsyncImage(model = appIconDrawable(appIcon), contentDescription = null, modifier = Modifier.size(60.dp).clip(CircleShape))
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(20.dp))
-                                    Text(
-                                        stringResource(R.string.home_welcome_title),
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Text(
-                                        stringResource(R.string.home_welcome_body),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = TextAlign.Center
-                                    )
-                                    Spacer(modifier = Modifier.height(24.dp))
-                                    Button(
-                                        onClick = onLoginClick,
-                                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                                        shape = RoundedCornerShape(16.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                    ) {
-                                        AsyncImage(
-                                            model = ImageRequest.Builder(LocalContext.current)
-                                                .data(com.blissless.tensei.network.Endpoints.AniList.FAVICON)
-                                                .build(),
-                                            contentDescription = stringResource(R.string.home_anilist_logo_content_description),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Text(stringResource(R.string.settings_login_anilist), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                    }
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        stringResource(R.string.home_welcome_signup),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
+                        HomeWelcomeCard(
+                            appIcon = appIcon,
+                            onLoginClick = onLoginClick,
+                        )
                     }
 
                     if (isLoading && allListsEmpty && activeMangaContinueReading.isEmpty()) {
@@ -590,280 +526,49 @@ fun HomeScreen(
                                 )
                             }
 
-                            if (effectiveCurrentlyWatching.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_currently_watching),
-                                    icon = Icons.Default.PlayArrow,
-                                    count = effectiveCurrentlyWatching.size,
-                                    iconTint = HomeStatusColors.getColor("CURRENT"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_currently_watching)
-                                        statusListIcon = Icons.Default.PlayArrow
-                                        statusListType = "CURRENT"
-                                        statusListIsManga = false
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                HomeAnimeHorizontalList(
-                                    animeList = effectiveCurrentlyWatching,
-                                    listType = "CURRENT",
-                                    showStatusColors = showStatusColors,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    playbackPositions = playbackPositions,
-                                    playbackDurations = playbackDurations,
-                                    disableMaterialColors = disableMaterialColors,
-                                    showProgressBar = false,
-                                    onAnimeClick = onAnimeClick,
-                                    onInfoClick = onInfoClick,
-                                    listIndex = 0,
-                                    screenKey = "home",
-                                    isVisible = currentScreenIndex == 0,
-                                    viewModel = viewModel
-                                )
-                            }
+                            HomeAnimeStatusSections(
+                                effectiveCurrentlyWatching = effectiveCurrentlyWatching,
+                                effectivePlanningToWatch = effectivePlanningToWatch,
+                                effectiveCompleted = effectiveCompleted,
+                                effectiveOnHold = effectiveOnHold,
+                                effectiveDropped = effectiveDropped,
+                                showStatusColors = showStatusColors,
+                                preferEnglishTitles = preferEnglishTitles,
+                                playbackPositions = playbackPositions,
+                                playbackDurations = playbackDurations,
+                                disableMaterialColors = disableMaterialColors,
+                                currentScreenIndex = currentScreenIndex,
+                                viewModel = viewModel,
+                                onAnimeClick = onAnimeClick,
+                                onInfoClick = onInfoClick,
+                                onOpenStatusList = { title, icon, type, isManga ->
+                                    statusListTitle = title
+                                    statusListIcon = icon
+                                    statusListType = type
+                                    statusListIsManga = isManga
+                                    showStatusListScreen = true
+                                },
+                            )
 
-                            if (effectivePlanningToWatch.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_planning_to_watch),
-                                    icon = Icons.Default.Bookmark,
-                                    count = effectivePlanningToWatch.size,
-                                    iconTint = HomeStatusColors.getColor("PLANNING"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_planning_to_watch)
-                                        statusListIcon = Icons.Default.Bookmark
-                                        statusListType = "PLANNING"
-                                        statusListIsManga = false
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                HomeAnimeHorizontalList(
-                                    animeList = effectivePlanningToWatch,
-                                    listType = "PLANNING",
-                                    showStatusColors = showStatusColors,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    playbackPositions = playbackPositions,
-                                    playbackDurations = playbackDurations,
-                                    disableMaterialColors = disableMaterialColors,
-                                    onAnimeClick = onAnimeClick,
-                                    onInfoClick = onInfoClick,
-                                    listIndex = 1,
-                                    screenKey = "home",
-                                    isVisible = currentScreenIndex == 0,
-                                    viewModel = viewModel
-                                )
-                            }
-
-                            if (effectiveCompleted.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_completed),
-                                    icon = Icons.Default.Check,
-                                    count = effectiveCompleted.size,
-                                    iconTint = HomeStatusColors.getColor("COMPLETED"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_completed)
-                                        statusListIcon = Icons.Default.Check
-                                        statusListType = "COMPLETED"
-                                        statusListIsManga = false
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                HomeAnimeHorizontalList(
-                                    animeList = effectiveCompleted,
-                                    listType = "COMPLETED",
-                                    showStatusColors = showStatusColors,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    playbackPositions = playbackPositions,
-                                    playbackDurations = playbackDurations,
-                                    disableMaterialColors = disableMaterialColors,
-                                    onAnimeClick = onAnimeClick,
-                                    onInfoClick = onInfoClick,
-                                    listIndex = 2,
-                                    screenKey = "home",
-                                    isVisible = currentScreenIndex == 0,
-                                    viewModel = viewModel
-                                )
-                            }
-
-                            if (effectiveOnHold.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_on_hold),
-                                    icon = Icons.Default.Pause,
-                                    count = effectiveOnHold.size,
-                                    iconTint = HomeStatusColors.getColor("PAUSED"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_on_hold)
-                                        statusListIcon = Icons.Default.Pause
-                                        statusListType = "PAUSED"
-                                        statusListIsManga = false
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                HomeAnimeHorizontalList(
-                                    animeList = effectiveOnHold,
-                                    listType = "PAUSED",
-                                    showStatusColors = showStatusColors,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    playbackPositions = playbackPositions,
-                                    playbackDurations = playbackDurations,
-                                    disableMaterialColors = disableMaterialColors,
-                                    onAnimeClick = onAnimeClick,
-                                    onInfoClick = onInfoClick,
-                                    listIndex = 3,
-                                    screenKey = "home",
-                                    isVisible = currentScreenIndex == 0,
-                                    viewModel = viewModel
-                                )
-                            }
-
-                            if (effectiveDropped.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_dropped),
-                                    icon = Icons.Default.Delete,
-                                    count = effectiveDropped.size,
-                                    iconTint = HomeStatusColors.getColor("DROPPED"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_dropped)
-                                        statusListIcon = Icons.Default.Delete
-                                        statusListType = "DROPPED"
-                                        statusListIsManga = false
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                HomeAnimeHorizontalList(
-                                    animeList = effectiveDropped,
-                                    listType = "DROPPED",
-                                    showStatusColors = showStatusColors,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    playbackPositions = playbackPositions,
-                                    playbackDurations = playbackDurations,
-                                    disableMaterialColors = disableMaterialColors,
-                                    onAnimeClick = onAnimeClick,
-                                    onInfoClick = onInfoClick,
-                                    listIndex = 4,
-                                    screenKey = "home",
-                                    isVisible = currentScreenIndex == 0,
-                                    viewModel = viewModel
-                                )
-                            }
-
-                            // â”€â”€â”€ Manga sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-                            // Manga "Currently Reading" â€” full CURRENT-status poster row, mirroring the
-                            // anime "Currently Watching" section. Kept separate from "Continue Reading"
-                            // (which stays at the top and only shows manga with a saved reading position).
-                            if (mangaCurrentlyReading.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_currently_reading),
-                                    icon = Icons.Default.PlayArrow,
-                                    count = mangaCurrentlyReading.size,
-                                    iconTint = HomeStatusColors.getColor("CURRENT"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_currently_reading)
-                                        statusListIcon = Icons.Default.PlayArrow
-                                        statusListType = "CURRENT"
-                                        statusListIsManga = true
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                MangaHorizontalRow(
-                                    mangaList = mangaCurrentlyReading,
-                                    isOled = isOled,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    onMangaClick = onMangaClick,
-                                    onMangaInfoClick = onMangaInfoClick
-                                )
-                            }
-
-                            if (mangaPlanningToRead.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_planning_to_read),
-                                    icon = Icons.Default.Bookmark,
-                                    count = mangaPlanningToRead.size,
-                                    iconTint = HomeStatusColors.getColor("PLANNING"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_planning_to_read)
-                                        statusListIcon = Icons.Default.Bookmark
-                                        statusListType = "PLANNING"
-                                        statusListIsManga = true
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                MangaHorizontalRow(
-                                    mangaList = mangaPlanningToRead,
-                                    isOled = isOled,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    onMangaClick = onMangaClick,
-                                    onMangaInfoClick = onMangaInfoClick
-                                )
-                            }
-
-                            if (mangaCompleted.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_completed),
-                                    icon = Icons.Default.Check,
-                                    count = mangaCompleted.size,
-                                    iconTint = HomeStatusColors.getColor("COMPLETED"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_completed)
-                                        statusListIcon = Icons.Default.Check
-                                        statusListType = "COMPLETED"
-                                        statusListIsManga = true
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                MangaHorizontalRow(
-                                    mangaList = mangaCompleted,
-                                    isOled = isOled,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    onMangaClick = onMangaClick,
-                                    onMangaInfoClick = onMangaInfoClick
-                                )
-                            }
-
-                            if (mangaPaused.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_on_hold),
-                                    icon = Icons.Default.Pause,
-                                    count = mangaPaused.size,
-                                    iconTint = HomeStatusColors.getColor("PAUSED"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_on_hold)
-                                        statusListIcon = Icons.Default.Pause
-                                        statusListType = "PAUSED"
-                                        statusListIsManga = true
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                MangaHorizontalRow(
-                                    mangaList = mangaPaused,
-                                    isOled = isOled,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    onMangaClick = onMangaClick,
-                                    onMangaInfoClick = onMangaInfoClick
-                                )
-                            }
-
-                            if (mangaDropped.isNotEmpty()) {
-                                SectionHeader(
-                                    title = stringResource(R.string.home_dropped),
-                                    icon = Icons.Default.Delete,
-                                    count = mangaDropped.size,
-                                    iconTint = HomeStatusColors.getColor("DROPPED"),
-                                    onClick = {
-                                        statusListTitle = context.getString(R.string.home_dropped)
-                                        statusListIcon = Icons.Default.Delete
-                                        statusListType = "DROPPED"
-                                        statusListIsManga = true
-                                        showStatusListScreen = true
-                                    }
-                                )
-                                MangaHorizontalRow(
-                                    mangaList = mangaDropped,
-                                    isOled = isOled,
-                                    preferEnglishTitles = preferEnglishTitles,
-                                    onMangaClick = onMangaClick,
-                                    onMangaInfoClick = onMangaInfoClick
-                                )
-                            }
+                            // ─── Manga sections ─────────────────────────────
+                            HomeMangaStatusSections(
+                                mangaCurrentlyReading = mangaCurrentlyReading,
+                                mangaPlanningToRead = mangaPlanningToRead,
+                                mangaCompleted = mangaCompleted,
+                                mangaPaused = mangaPaused,
+                                mangaDropped = mangaDropped,
+                                isOled = isOled,
+                                preferEnglishTitles = preferEnglishTitles,
+                                onMangaClick = onMangaClick,
+                                onMangaInfoClick = onMangaInfoClick,
+                                onOpenStatusList = { title, icon, type, isManga ->
+                                    statusListTitle = title
+                                    statusListIcon = icon
+                                    statusListType = type
+                                    statusListIsManga = isManga
+                                    showStatusListScreen = true
+                                },
+                            )
 
                             if (allListsEmpty && !showWelcomeCard) {
                                 Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp), contentAlignment = Alignment.Center) {
@@ -896,112 +601,50 @@ fun HomeScreen(
         }
     }
 
-        // Status List Screen overlay (slides up from bottom like search)
-        val liveStatusListAnime: List<AnimeMedia> =
-            if (!statusListIsManga) {
-                when (statusListTitle) {
-                    context.getString(R.string.home_continue_watching) -> continueWatchingEpisodes.map { entry ->
-                        animeById[entry.animeId] ?: AnimeMedia(id = entry.animeId, title = entry.animeTitle, titleEnglish = entry.animeTitleEnglish, cover = entry.animeCover, banner = entry.animeBanner)
-                    }
-                    else -> when (statusListType) {
-                        "CURRENT" -> effectiveCurrentlyWatching
-                        "PLANNING" -> effectivePlanningToWatch
-                        "COMPLETED" -> effectiveCompleted
-                        "PAUSED" -> effectiveOnHold
-                        "DROPPED" -> effectiveDropped
-                        else -> emptyList()
-                    }
-                }
-            } else emptyList()
-
-        val liveStatusListManga: List<MangaMedia> =
-            if (statusListIsManga) {
-                when (statusListTitle) {
-                    context.getString(R.string.home_continue_reading) -> activeMangaContinueReading
-                    else -> when (statusListType) {
-                        "CURRENT" -> mangaCurrentlyReading
-                        "PLANNING" -> mangaPlanningToRead
-                        "COMPLETED" -> mangaCompleted
-                        "PAUSED" -> mangaPaused
-                        "DROPPED" -> mangaDropped
-                        else -> emptyList()
-                    }
-                }
-            } else emptyList()
-
-        AnimatedVisibility(
+        // Status list overlay — see HomeStatusSections.kt
+        HomeStatusListOverlay(
             visible = showStatusListScreen,
-            enter = slideInVertically(
-                animationSpec = tween(
-                    durationMillis = 300,
-                    easing = FastOutSlowInEasing
-                ),
-                initialOffsetY = { fullHeight -> (fullHeight * 0.15f).toInt() }
-            ) + fadeIn(
-                animationSpec = tween(
-                    durationMillis = 300,
-                    easing = FastOutSlowInEasing
-                )
-            ),
-            exit = slideOutVertically(
-                animationSpec = tween(
-                    durationMillis = 250,
-                    easing = FastOutSlowInEasing
-                ),
-                targetOffsetY = { fullHeight -> (fullHeight * 0.15f).toInt() }
-            ) + fadeOut(
-                animationSpec = tween(
-                    durationMillis = 250,
-                    easing = FastOutSlowInEasing
-                )
-            )
-        ) {
-            StatusListScreen(
-                title = statusListTitle,
-                icon = statusListIcon,
-                animeList = liveStatusListAnime,
-                mangaList = liveStatusListManga,
-                listType = statusListType,
-                isManga = statusListIsManga,
-                showStatusColors = showStatusColors,
-                preferEnglishTitles = preferEnglishTitles,
-                onAnimeClick = { anime, _ -> selectedAnime = anime; showEpisodeSheet = true },
-                onPlayClick = { anime ->
-                    val lt = statusListType
-                    if (lt == "CURRENT") {
-                        val nextEp = anime.progress + 1
-                        val released = anime.latestEpisode ?: anime.totalEpisodes
-                        if (anime.latestEpisode != null && nextEp > released) {
-                            context.toast(context.getString(R.string.home_episode_not_aired))
-                        } else {
-                            onPlayEpisode(anime, nextEp, null)
-                        }
-                    } else {
-                        onPlayEpisode(anime, 1, null)
-                    }
-                },
-                onStatusClick = { anime -> selectedAnime = anime; showStatusDialog = true },
-                onInfoClick = { anime, bounds ->
-                    val cardBounds = bounds?.let {
-                        MainViewModel.CardBounds(anime.id, anime.cover, it.bounds)
-                    }
-                    currentCardBounds = cardBounds
-                    viewModel.clearExploreAnimeCardBounds()
-                    selectedAnime = anime
-                    if (firstAnime == null) firstAnime = anime
-                    showDetailedAnimeScreen = true
-                },
-                onMangaClick = { manga -> onMangaClick(manga) },
-                onMangaInfoClick = onMangaInfoClick,
-                onMangaContinueReadingClick = onMangaContinueReadingClick,
-                onMangaStatusClick = { manga ->
-                    statusListMangaForDialog = manga
-                    showMangaStatusDialog = true
-                },
-                onBackClick = { showStatusListScreen = false },
-                onDismiss = { showStatusListScreen = false }
-            )
-        }
+            statusListTitle = statusListTitle,
+            statusListIcon = statusListIcon,
+            statusListType = statusListType,
+            statusListIsManga = statusListIsManga,
+            continueWatchingEpisodes = continueWatchingEpisodes,
+            animeById = animeById,
+            effectiveCurrentlyWatching = effectiveCurrentlyWatching,
+            effectivePlanningToWatch = effectivePlanningToWatch,
+            effectiveCompleted = effectiveCompleted,
+            effectiveOnHold = effectiveOnHold,
+            effectiveDropped = effectiveDropped,
+            activeMangaContinueReading = activeMangaContinueReading,
+            mangaCurrentlyReading = mangaCurrentlyReading,
+            mangaPlanningToRead = mangaPlanningToRead,
+            mangaCompleted = mangaCompleted,
+            mangaPaused = mangaPaused,
+            mangaDropped = mangaDropped,
+            showStatusColors = showStatusColors,
+            preferEnglishTitles = preferEnglishTitles,
+            onPlayEpisode = onPlayEpisode,
+            onMangaClick = onMangaClick,
+            onMangaInfoClick = onMangaInfoClick,
+            onMangaContinueReadingClick = onMangaContinueReadingClick,
+            onEpisodeSheetAnime = { anime -> selectedAnime = anime; showEpisodeSheet = true },
+            onStatusDialogAnime = { anime -> selectedAnime = anime; showStatusDialog = true },
+            onInfoClick = { anime, bounds ->
+                val cardBounds = bounds?.let {
+                    MainViewModel.CardBounds(anime.id, anime.cover, it.bounds)
+                }
+                currentCardBounds = cardBounds
+                viewModel.clearExploreAnimeCardBounds()
+                selectedAnime = anime
+                if (firstAnime == null) firstAnime = anime
+                showDetailedAnimeScreen = true
+            },
+            onMangaStatusClick = { manga ->
+                statusListMangaForDialog = manga
+                showMangaStatusDialog = true
+            },
+            onClose = { showStatusListScreen = false },
+        )
 
     }
 
@@ -1231,7 +874,7 @@ fun HomeScreen(
                             id = rec.id,
                             title = rec.title,
                             cover = rec.cover,
-                            totalChapters = rec.episodes ?: 0,
+                            totalChapters = rec.episodes,
                             averageScore = rec.averageScore,
                             format = rec.format
                         )
@@ -1401,246 +1044,6 @@ fun HomeScreen(
     }
 }
 
-@Composable
-private fun MangaHorizontalRow(
-    mangaList: List<MangaMedia>,
-    isOled: Boolean,
-    preferEnglishTitles: Boolean = true,
-    onMangaClick: (MangaMedia) -> Unit,
-    onMangaInfoClick: (MangaMedia) -> Unit = {}
-) {
-    val context = LocalContext.current
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = Spacing.railGutter),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.railItem),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        itemsIndexed(mangaList) { _, manga ->
-            val displayTitle = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title
-            val progressText = when {
-                manga.totalChapters > 0 && manga.progress > 0 -> "${manga.progress} / ${manga.totalChapters}"
-                manga.totalChapters > 0 -> stringResource(R.string.home_chapter_count, manga.totalChapters)
-                manga.progress > 0 -> stringResource(R.string.home_chapter_number, manga.progress)
-                else -> null
-            }
-            Column(modifier = Modifier.width(140.dp)) {
-                Card(
-                    // 4dp read as a near-square poster next to the Anime rail cards,
-                    // which use the shared poster radius.
-                    shape = Radius.posterShape,
-                    modifier = Modifier
-                        .height(195.dp)
-                        .clip(Radius.posterShape)
-                        .clickable { onMangaClick(manga) }
-                ) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(manga.cover)
-                                .build(),
-                            contentDescription = manga.title,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop
-                        )
-                        Box(modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().height(50.dp)
-                            .background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent))))
-                        Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(80.dp)
-                            .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)))))
-
-                        Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-                            if (progressText != null) {
-                                Surface(
-                                    shape = Radius.chipShape,
-                                    color = Color.Black.copy(alpha = 0.65f),
-                                    modifier = Modifier.align(Alignment.TopStart)
-                                ) {
-                                    Text(
-                                        text = progressText,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-                            FilledTonalIconButton(
-                                onClick = { onMangaInfoClick(manga) },
-                                modifier = Modifier.align(Alignment.TopEnd).size(30.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = Color.Black.copy(alpha = 0.5f), contentColor = Color.White)
-                            ) { Icon(imageVector = Icons.Outlined.Info, contentDescription = stringResource(R.string.home_info_content_description), modifier = Modifier.size(16.dp)) }
-                        }
-                    }
-                }
-                RailCardTitle(title = displayTitle, modifier = Modifier.width(140.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun MangaContinueReadingRow(
-    mangaList: List<MangaMedia>,
-    isOled: Boolean,
-    preferEnglishTitles: Boolean = true,
-    onResumeClick: (MangaMedia) -> Unit,
-    onDismissClick: (MangaMedia) -> Unit
-) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(Spacing.railItem),
-        contentPadding = PaddingValues(horizontal = Spacing.railGutter)
-    ) {
-        itemsIndexed(mangaList, key = { _, manga -> "manga_continue_${manga.id}" }) { _, manga ->
-            MangaContinueReadingCard(
-                manga = manga,
-                isOled = isOled,
-                preferEnglishTitles = preferEnglishTitles,
-                onResumeClick = { onResumeClick(manga) },
-                onDismissClick = { onDismissClick(manga) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun MangaContinueReadingCard(
-    manga: MangaMedia,
-    isOled: Boolean,
-    preferEnglishTitles: Boolean = true,
-    onResumeClick: () -> Unit,
-    onDismissClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val scrollProgress = manga.scrollProgress.coerceIn(0f, 1f)
-    val hasScrollProgress = scrollProgress > 0f
-    // Badge carries the chapter number and it is the last *tracked* chapter: the
-    // chapter picked in the reader's chapter selection (scrollChapterNumber, which
-    // can be a fraction like "20.5") never reaches the home screen.
-    val trackedChapter = manga.progress.coerceAtLeast(1)
-    val pageTotal = manga.currentChapterPages
-    // The saved scroll fraction maps to the item index the reader restores to
-    // (0-based); the on-screen page number is that index + 1.
-    val currentPage = if (pageTotal > 0) {
-        // scrollProgress is stored as currentScroll / maxScroll (top-of-viewport fraction).
-        // Multiplying by (total - 1) and rounding to nearest recovers the best-overlap page
-        // index — the page the reader was actually showing when the user exited. See
-        // ReaderScreen vertical restore for the full derivation. Without this, a chapter
-        // scrolled to show page 4 would display "page 3" on the card (off-by-one).
-        ((scrollProgress * (pageTotal - 1) + 0.5f).toInt() + 1).coerceIn(1, pageTotal)
-    } else {
-        null
-    }
-    val overallProgress = if (manga.totalChapters > 0) {
-        (manga.progress.toFloat() / manga.totalChapters.toFloat()).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
-    val barFraction = if (hasScrollProgress) scrollProgress else overallProgress
-    val progressLabel = when {
-        currentPage != null -> stringResource(R.string.home_page_of, currentPage, pageTotal)
-        hasScrollProgress -> stringResource(R.string.home_percent_read, (scrollProgress * 100).toInt())
-        manga.totalChapters > 0 -> stringResource(R.string.home_chapters_progress, manga.progress, manga.totalChapters)
-        else -> stringResource(R.string.home_reading)
-    }
-    val progressColor = if (isOled) Color.White else MaterialTheme.colorScheme.primary
-    val displayMangaTitle = if (preferEnglishTitles && !manga.titleEnglish.isNullOrEmpty()) manga.titleEnglish else manga.title
-
-    Card(
-        // Same geometry and inner layout as the Anime continue-watching card;
-        // both rails used to be built from their own numbers and read as
-        // different card families.
-        shape = Radius.cardShape,
-        modifier = Modifier
-            .width(Sizes.continueCardWidth)
-            .height(Sizes.continueCardHeight)
-            .clip(Radius.cardShape)
-            .clickable { onResumeClick() }
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(manga.banner ?: manga.cover)
-                    .build(),
-                contentDescription = displayMangaTitle,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(artworkGradient(0.25f, 0.9f))
-            )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(
-                        start = Spacing.continueCardInset,
-                        end = Spacing.continueCardInset,
-                        top = Spacing.continueCardInset,
-                        bottom = Spacing.continueCardInsetBottom
-                    ),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    TenseiScrimChip(text = stringResource(R.string.home_chapter_number, trackedChapter))
-                    TenseiCircleAction(
-                        icon = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.home_remove_from_continue_reading),
-                        onClick = onDismissClick,
-                        size = Sizes.continueCardDismissSize,
-                        containerColor = Color.Black.copy(alpha = 0.5f),
-                        contentColor = Color.White.copy(alpha = 0.8f)
-                    )
-                }
-
-                Column {
-                    Text(
-                        text = displayMangaTitle,
-                        style = TenseiType.cardTitle,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = progressLabel,
-                        style = TenseiType.cardMeta,
-                        color = Color.White.copy(alpha = 0.6f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(Sizes.continueCardBarHeight)
-                            .clip(Radius.chipShape)
-                            .background(Color.White.copy(alpha = 0.15f))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(barFraction)
-                                .clip(Radius.chipShape)
-                                .background(progressColor)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun ProfileSheetItem(
@@ -1690,4 +1093,3 @@ private fun ProfileSheetItem(
         }
     }
 }
-
