@@ -877,6 +877,7 @@ fun MainScreen(
                 val updateViewModel: UpdateViewModel = viewModel()
                 val pendingUpdateState by viewModel.pendingUpdateRelease.collectAsState()
                 val updateState by updateViewModel.uiState.collectAsState()
+                val updaterAppIcon by viewModel.appIcon.collectAsState()
                 var showUpdateDialog by remember { mutableStateOf(false) }
 
                 // Collect toast messages from UpdateViewModel
@@ -907,6 +908,7 @@ fun MainScreen(
                         isDownloading = updateState.isDownloading,
                         downloadProgress = updateState.downloadProgress,
                         downloadError = updateState.error,
+                        appIcon = updaterAppIcon,
                         onDismiss = { showUpdateDialog = false },
                         onUpdate = { updateViewModel.setReleaseAndDownload(pendingUpdate) },
                     )

@@ -70,6 +70,7 @@ fun UpdateAvailableDialog(
     isDownloading: Boolean = false,
     downloadProgress: Float = 0f,
     downloadError: String? = null,
+    appIcon: String = "default",
     onDismiss: () -> Unit,
     onUpdate: () -> Unit,
 ) {
@@ -88,7 +89,7 @@ fun UpdateAvailableDialog(
             modifier = Modifier.widthIn(max = 440.dp),
         ) {
             Column {
-                Header(newVersion = newVersion, currentVersion = currentVersion)
+                Header(newVersion = newVersion, currentVersion = currentVersion, appIcon = appIcon)
                 Column(Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.xl)) {
                     if (notes.isNotBlank()) {
                         ReleaseNotesSection(notes)
@@ -161,7 +162,7 @@ fun UpdateAvailableDialog(
  * Gradient hero: app icon badge on the left, title and the version hop on the right.
  */
 @Composable
-private fun Header(newVersion: String, currentVersion: String) {
+private fun Header(newVersion: String, currentVersion: String, appIcon: String) {
     val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
@@ -185,9 +186,11 @@ private fun Header(newVersion: String, currentVersion: String) {
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
-                    painter = painterResource(R.drawable.ic_icon_default),
+                    painter = painterResource(appIconDrawable(appIcon)),
                     contentDescription = null,
-                    modifier = Modifier.size(34.dp),
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape),
                 )
             }
             Column {
