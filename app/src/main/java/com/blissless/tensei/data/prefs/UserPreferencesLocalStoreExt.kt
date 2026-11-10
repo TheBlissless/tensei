@@ -156,7 +156,8 @@ fun UserPreferences.getAllLocalAnimeStatus(): Map<Int, LocalAnimeEntry> = _local
 fun UserPreferences.setLocalAnimeStatus(mediaId: Int, entry: LocalAnimeEntry?) {
     val currentStatus = _localAnimeStatus.value.toMutableMap()
     if (entry != null) {
-        currentStatus[mediaId] = entry
+        // Every local write is a "last updated" event for the Home lists.
+        currentStatus[mediaId] = entry.copy(updatedAt = System.currentTimeMillis())
     } else {
         currentStatus.remove(mediaId)
     }

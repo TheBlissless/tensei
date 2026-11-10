@@ -93,6 +93,7 @@ import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.MangaMedia
 import com.blissless.tensei.ui.components.HomeAnimeCardBounds
 import com.blissless.tensei.ui.components.HomeStatusColors
+import com.blissless.tensei.ui.components.animeEpisodeProgressText
 import com.blissless.tensei.ui.components.rememberCinematicAnimation
 import com.blissless.tensei.ui.theme.tenseiColors
 import kotlinx.coroutines.launch
@@ -116,35 +117,7 @@ internal fun StatusListAnimeCard(
     var cardBounds by remember { mutableStateOf<android.graphics.RectF?>(null) }
     val statusColor = HomeStatusColors.getColor(listType)
 
-    val total = anime.totalEpisodes
-    val released = anime.latestEpisode ?: total
-
-    val progressText = when (listType) {
-        "CURRENT" -> {
-            when {
-                total > 0 && released < total -> "${anime.progress} / $released / $total"
-                total > 0 -> "${anime.progress} / $total"
-                released > 0 -> "${anime.progress} / $released"
-                else -> "${anime.progress}"
-            }
-        }
-        "COMPLETED" -> { if (total > 0) "$total ${if (total == 1) "ep" else "eps"}" else "${anime.progress} ${if (anime.progress == 1) "ep" else "eps"}" }
-        "PAUSED", "DROPPED" -> {
-            when {
-                total > 0 && released < total -> "${anime.progress} / $released / $total"
-                total > 0 -> "${anime.progress} / $total"
-                released > 0 -> "${anime.progress} / $released"
-                else -> if (anime.progress > 0) "${anime.progress}" else "??"
-            }
-        }
-        else -> {
-            when {
-                total > 0 -> "$released / $total"
-                released > 0 -> "$released"
-                else -> "??"
-            }
-        }
-    }
+    val progressText = animeEpisodeProgressText(anime, listType)
 
     val imageRequest = remember(anime.cover) {
         ImageRequest.Builder(context)

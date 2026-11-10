@@ -471,7 +471,7 @@ class MangaRepository {
         val query = """
             query (${'$'}userId: Int, ${'$'}sort: [MediaListSort]) {
                 MediaListCollection(userId: ${'$'}userId, type: MANGA, sort: ${'$'}sort) {
-                    lists { name status entries { id mediaId progress progressVolumes score status media { id idMal title { romaji english } coverImage { extraLarge large } bannerImage chapters volumes status averageScore genres seasonYear format } } }
+                    lists { name status entries { id mediaId progress progressVolumes score status updatedAt media { id idMal title { romaji english } coverImage { extraLarge large } bannerImage chapters volumes status averageScore genres seasonYear format } } }
                 }
             }
         """.trimIndent()
@@ -505,7 +505,8 @@ class MangaRepository {
             userScore = entry.score,
             year = media.seasonYear ?: media.startDate?.year,
             malId = media.idMal,
-            format = media.format
+            format = media.format,
+            updatedAt = (entry.updatedAt ?: 0L) * 1000L
         )
     }
 

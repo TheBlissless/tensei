@@ -252,11 +252,35 @@ fun HomeScreen(
     // Card bounds for shared element transition
     var currentCardBounds by remember { mutableStateOf<MainViewModel.CardBounds?>(null) }
 
-    val effectiveCurrentlyWatching = if (isLoggedIn) currentlyWatching else offlineCurrentlyWatching
-    val effectivePlanningToWatch = if (isLoggedIn) planningToWatch else offlinePlanningToWatch
-    val effectiveCompleted = if (isLoggedIn) completed else offlineCompleted
-    val effectiveOnHold = if (isLoggedIn) onHold else offlineOnHold
-    val effectiveDropped = if (isLoggedIn) dropped else offlineDropped
+    // Home status rails all follow the provider's "Last Updated" order. Freshly
+    // edited entries carry a newer timestamp, so they move to the front immediately
+    // instead of being appended to the end of their list.
+    fun List<AnimeMedia>.byLastUpdated(): List<AnimeMedia> = sortedByDescending { it.updatedAt }
+    fun List<MangaMedia>.byLastUpdatedManga(): List<MangaMedia> = sortedByDescending { it.updatedAt }
+
+    val effectiveCurrentlyWatching = remember(isLoggedIn, currentlyWatching, offlineCurrentlyWatching) {
+        (if (isLoggedIn) currentlyWatching else offlineCurrentlyWatching).byLastUpdated()
+    }
+    val effectivePlanningToWatch = remember(isLoggedIn, planningToWatch, offlinePlanningToWatch) {
+        (if (isLoggedIn) planningToWatch else offlinePlanningToWatch).byLastUpdated()
+    }
+    val effectiveCompleted = remember(isLoggedIn, completed, offlineCompleted) {
+        (if (isLoggedIn) completed else offlineCompleted).byLastUpdated()
+    }
+    val effectiveOnHold = remember(isLoggedIn, onHold, offlineOnHold) {
+        (if (isLoggedIn) onHold else offlineOnHold).byLastUpdated()
+    }
+    val effectiveDropped = remember(isLoggedIn, dropped, offlineDropped) {
+        (if (isLoggedIn) dropped else offlineDropped).byLastUpdated()
+    }
+
+    // Manga lists are mirrored from local tracking, which carries the same
+    // provider last-updated timestamps (stamped on every local edit).
+    val effectiveMangaCurrentlyReading = remember(mangaCurrentlyReading) { mangaCurrentlyReading.byLastUpdatedManga() }
+    val effectiveMangaPlanningToRead = remember(mangaPlanningToRead) { mangaPlanningToRead.byLastUpdatedManga() }
+    val effectiveMangaCompleted = remember(mangaCompleted) { mangaCompleted.byLastUpdatedManga() }
+    val effectiveMangaPaused = remember(mangaPaused) { mangaPaused.byLastUpdatedManga() }
+    val effectiveMangaDropped = remember(mangaDropped) { mangaDropped.byLastUpdatedManga() }
 
     val allListsEmpty = effectiveCurrentlyWatching.isEmpty() && effectivePlanningToWatch.isEmpty() && effectiveCompleted.isEmpty() && effectiveOnHold.isEmpty() && effectiveDropped.isEmpty()
 
@@ -552,11 +576,11 @@ fun HomeScreen(
 
                             // ─── Manga sections ─────────────────────────────
                             HomeMangaStatusSections(
-                                mangaCurrentlyReading = mangaCurrentlyReading,
-                                mangaPlanningToRead = mangaPlanningToRead,
-                                mangaCompleted = mangaCompleted,
-                                mangaPaused = mangaPaused,
-                                mangaDropped = mangaDropped,
+                                mangaCurrentlyReading = effectiveMangaCurrentlyReading,
+                                mangaPlanningToRead = effectiveMangaPlanningToRead,
+                                mangaCompleted = effectiveMangaCompleted,
+                                mangaPaused = effectiveMangaPaused,
+                                mangaDropped = effectiveMangaDropped,
                                 isOled = isOled,
                                 preferEnglishTitles = preferEnglishTitles,
                                 onMangaClick = onMangaClick,
@@ -616,11 +640,11 @@ fun HomeScreen(
             effectiveOnHold = effectiveOnHold,
             effectiveDropped = effectiveDropped,
             activeMangaContinueReading = activeMangaContinueReading,
-            mangaCurrentlyReading = mangaCurrentlyReading,
-            mangaPlanningToRead = mangaPlanningToRead,
-            mangaCompleted = mangaCompleted,
-            mangaPaused = mangaPaused,
-            mangaDropped = mangaDropped,
+            mangaCurrentlyReading = effectiveMangaCurrentlyReading,
+            mangaPlanningToRead = effectiveMangaPlanningToRead,
+            mangaCompleted = effectiveMangaCompleted,
+            mangaPaused = effectiveMangaPaused,
+            mangaDropped = effectiveMangaDropped,
             showStatusColors = showStatusColors,
             preferEnglishTitles = preferEnglishTitles,
             onPlayEpisode = onPlayEpisode,

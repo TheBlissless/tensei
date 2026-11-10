@@ -36,7 +36,10 @@ data class MangaMedia(
     val scrollProgress: Float = 0f,
     val currentChapterPages: Int = 0,
     val scrollChapterId: String? = null,
-    val scrollChapterNumber: Float = 0f
+    val scrollChapterNumber: Float = 0f,
+    // Epoch millis of the last list update (provider timestamp or local edit). Used to
+    // order the Home manga lists newest-first, like the provider's "Last Updated" sort.
+    val updatedAt: Long = 0L
 )
 
 
@@ -191,7 +194,9 @@ data class MangaTrack(
     val currentChapterPages: Int = 0,
     val malId: Int? = null,
     val score: Int? = null,
-    val averageScore: Int? = null
+    val averageScore: Int? = null,
+    // Epoch millis of the last list update; legacy tracks default to 0.
+    val updatedAt: Long = 0L
 )
 
 
@@ -383,6 +388,8 @@ data class MangaMediaListEntry(
     val progressVolumes: Int?,
     val score: Int?,
     val status: String?,
+    // Unix seconds; AniList sorts each list by UPDATED_TIME_DESC when we request it.
+    val updatedAt: Long? = null,
     val media: MangaEntryMedia
 )
 

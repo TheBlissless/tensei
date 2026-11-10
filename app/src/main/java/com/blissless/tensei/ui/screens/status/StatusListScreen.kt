@@ -165,7 +165,7 @@ fun StatusListScreen(
             t.contains(searchQuery, ignoreCase = true)
         }
         when (selectedSort) {
-            SortOption.LAST_UPDATED -> filtered
+            SortOption.LAST_UPDATED -> filtered.sortedByDescending { it.updatedAt }
             SortOption.ALPHABETICAL_A_Z -> filtered.sortedBy {
                 (if (preferEnglishTitles && !it.titleEnglish.isNullOrEmpty()) it.titleEnglish else it.title).lowercase()
             }
@@ -193,7 +193,7 @@ fun StatusListScreen(
         val filtered = if (searchQuery.isBlank()) mangaList
         else mangaList.filter { mangaTitleOf(it).contains(searchQuery, ignoreCase = true) }
         when (selectedSort) {
-            SortOption.LAST_UPDATED -> filtered
+            SortOption.LAST_UPDATED -> filtered.sortedByDescending { it.updatedAt }
             SortOption.ALPHABETICAL_A_Z -> filtered.sortedBy { mangaTitleOf(it).lowercase() }
             SortOption.ALPHABETICAL_Z_A -> filtered.sortedByDescending { mangaTitleOf(it).lowercase() }
             SortOption.YEAR_NEWEST -> filtered.sortedByDescending { it.year ?: Int.MIN_VALUE }

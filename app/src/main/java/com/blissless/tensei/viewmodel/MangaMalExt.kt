@@ -73,16 +73,17 @@ internal suspend fun MainViewModel.fetchMalMangaList() {
         val status = entry.list_status?.status
         val progress = entry.list_status?.num_chapters_read ?: 0
         val score = entry.list_status?.score
+        val updatedAt = parseMalUpdatedAt(entry.list_status?.updated_at)
 
         // Resolve an AniList manga key via idMal when possible; else fall back to the MAL id.
         val mangaKey = resolveMangaIdForMal(malId) ?: malId
 
         val title = entry.node.alternative_titles?.en ?: entry.node.title
 
-        localTracker.ensureTrack(mangaKey, title, entry.node.main_picture?.large ?: entry.node.main_picture?.medium ?: "", entry.node.num_chapters, null, null, null, malId, mediaStatus = mapMangaMediaStatusFromMal(entry.node.status))
-        localTracker.updateTrackingStatus(mangaKey, mapMangaStatusFromMal(status))
+        localTracker.ensureTrack(mangaKey, title, entry.node.main_picture?.large ?: entry.node.main_picture?.medium ?: "", entry.node.num_chapters, null, null, null, malId, mediaStatus = mapMangaMediaStatusFromMal(entry.node.status), updatedAt = updatedAt)
+        localTracker.updateTrackingStatus(mangaKey, mapMangaStatusFromMal(status), updatedAt = updatedAt)
         if (progress > 0) localTracker.updateChapterProgressKeepMax(mangaKey, progress.toFloat())
-        if (score != null && score > 0) localTracker.updateScore(mangaKey, (score * 10).coerceAtMost(100))
+        if (score != null && score > 0) localTracker.updateScore(mangaKey, (score * 10).coerceAtMost(100), updatedAt = updatedAt)
     }
 
     loadLocalMangaTracking()

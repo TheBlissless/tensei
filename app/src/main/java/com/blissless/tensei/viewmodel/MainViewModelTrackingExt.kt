@@ -158,25 +158,27 @@ fun MainViewModel.updateAnimeProgress(mediaId: Int, progress: Int) {
 }
 
 fun MainViewModel.updateProgressInLists(mediaId: Int, progress: Int) {
+    val now = System.currentTimeMillis()
     val updateInList: (MutableStateFlow<List<AnimeMedia>>, (AnimeMedia) -> AnimeMedia) -> Unit = { list, updater ->
         list.value = list.value.map { if (it.id == mediaId) updater(it) else it }
     }
-    updateInList(_currentlyWatching) { it.copy(progress = progress) }
-    updateInList(_planningToWatch) { it.copy(progress = progress) }
-    updateInList(_completed) { it.copy(progress = progress) }
-    updateInList(_onHold) { it.copy(progress = progress) }
-    updateInList(_dropped) { it.copy(progress = progress) }
+    updateInList(_currentlyWatching) { it.copy(progress = progress, updatedAt = now) }
+    updateInList(_planningToWatch) { it.copy(progress = progress, updatedAt = now) }
+    updateInList(_completed) { it.copy(progress = progress, updatedAt = now) }
+    updateInList(_onHold) { it.copy(progress = progress, updatedAt = now) }
+    updateInList(_dropped) { it.copy(progress = progress, updatedAt = now) }
 }
 
 fun MainViewModel.updateScoreInLists(mediaId: Int, score: Int) {
+    val now = System.currentTimeMillis()
     val updateInList: (MutableStateFlow<List<AnimeMedia>>, (AnimeMedia) -> AnimeMedia) -> Unit = { list, updater ->
         list.value = list.value.map { if (it.id == mediaId) updater(it) else it }
     }
-    updateInList(_currentlyWatching) { it.copy(userScore = score) }
-    updateInList(_planningToWatch) { it.copy(userScore = score) }
-    updateInList(_completed) { it.copy(userScore = score) }
-    updateInList(_onHold) { it.copy(userScore = score) }
-    updateInList(_dropped) { it.copy(userScore = score) }
+    updateInList(_currentlyWatching) { it.copy(userScore = score, updatedAt = now) }
+    updateInList(_planningToWatch) { it.copy(userScore = score, updatedAt = now) }
+    updateInList(_completed) { it.copy(userScore = score, updatedAt = now) }
+    updateInList(_onHold) { it.copy(userScore = score, updatedAt = now) }
+    updateInList(_dropped) { it.copy(userScore = score, updatedAt = now) }
 }
 /**
  * Score-only update for an anime — does NOT change the user's list status. Mirrors manga's
@@ -342,7 +344,8 @@ fun MainViewModel.moveAnimeBetweenLists(mediaId: Int, newStatus: String, newProg
     // Update the anime with new status and progress
     val updatedAnime = anime.copy(
         listStatus = newStatus,
-        progress = newProgress ?: anime.progress
+        progress = newProgress ?: anime.progress,
+        updatedAt = System.currentTimeMillis()
     )
     // Add to target list
     val targetList = when (newStatus) {

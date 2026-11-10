@@ -519,7 +519,9 @@ class MalApiService(context: Context) {
                             // (NOT the /v2 API name "num_chapters_read"). Reading the wrong
                             // field defaulted to 0, which made every reading entry look like
                             // 0 chapters and spuriously re-pushed progress on every sync.
-                            num_chapters_read = obj.optInt("num_read_chapters", 0)
+                            num_chapters_read = obj.optInt("num_read_chapters", 0),
+                            // The website list reports updated_at as Unix seconds.
+                            updated_at = obj.opt("updated_at")?.toString()
                         )
                     )
                 )
@@ -614,6 +616,9 @@ class MalApiService(context: Context) {
                 val chaptersMatch = Regex("\"num_chapters_read\"\\s*:\\s*(\\d+)").find(block)
                 val chapters = chaptersMatch?.groupValues?.get(1)?.toIntOrNull() ?: 0
 
+                val updatedAtMatch = Regex("\"updated_at\"\\s*:\\s*\"([^\"]+)\"").find(block)
+                val updatedAt = updatedAtMatch?.groupValues?.get(1)
+
                 entries.add(
                     MalMangaListEntry(
                         node = MalMangaNode(
@@ -627,7 +632,8 @@ class MalApiService(context: Context) {
                         list_status = if (status != null) MalMangaListStatus(
                             status = status,
                             score = score,
-                            num_chapters_read = chapters
+                            num_chapters_read = chapters,
+                            updated_at = updatedAt
                         ) else null
                     )
                 )

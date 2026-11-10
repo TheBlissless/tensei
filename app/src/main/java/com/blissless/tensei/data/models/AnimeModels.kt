@@ -47,7 +47,10 @@ data class AnimeMedia(
     val malId: Int? = null,
     val format: String? = null,
     val userScore: Int? = null,
-    val siteUrl: String? = null
+    val siteUrl: String? = null,
+    // Epoch millis of the last list update (provider timestamp or local edit). Used to
+    // order the Home status lists newest-first, like the provider's "Last Updated" sort.
+    val updatedAt: Long = 0L
 )
 
 
@@ -237,5 +240,7 @@ data class LocalAnimeEntry(
     val banner: String? = null,
     val year: Int? = null,
     val averageScore: Int? = null,
-    val score: Int? = null
+    val score: Int? = null,
+    // Epoch millis of the last edit; legacy entries default to 0 and keep their old order.
+    val updatedAt: Long = 0L
 )

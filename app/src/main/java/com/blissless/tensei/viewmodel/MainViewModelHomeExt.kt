@@ -153,7 +153,8 @@ fun MainViewModel.updateOfflineLists() {
                 year = cachedAnime.year,
                 malId = cachedAnime.malId,
                 format = cachedAnime.format,
-                userScore = entry.score
+                userScore = entry.score,
+                updatedAt = entry.updatedAt
             )
         } else if (favorite != null) {
             AnimeMedia(
@@ -166,7 +167,8 @@ fun MainViewModel.updateOfflineLists() {
                 listStatus = entry.status,
                 year = favorite.year,
                 averageScore = favorite.averageScore,
-                userScore = entry.score
+                userScore = entry.score,
+                updatedAt = entry.updatedAt
             )
         } else if (entry.title.isNotEmpty()) {
             // Use data stored in LocalAnimeEntry itself
@@ -180,7 +182,8 @@ fun MainViewModel.updateOfflineLists() {
                 listStatus = entry.status,
                 year = entry.year,
                 averageScore = entry.averageScore,
-                userScore = entry.score
+                userScore = entry.score,
+                updatedAt = entry.updatedAt
             )
         } else {
             null
@@ -211,11 +214,31 @@ suspend fun MainViewModel.loadHomeDataWithCache() {
         updateHomeState(homeData)
     }
     val now = System.currentTimeMillis()
+    // Cache written by versions before `updatedAt` existed has no per-entry timestamps.
+    // Sorting those lists by last-updated can only fall back to their (possibly mutated)
+    // stored order, which makes Completed look shuffled. Treat that data as stale so the
+    // provider is queried once and every entry gets its real last-updated timestamp.
+    // Read the state flows (populated by both the cache and local tracking), not just
+    // `homeData`, so an expired cache with locally restored manga still refreshes.
+    val hasUnknownListTimestamps = (isAniListActive || isMalActive) && run {
+        val unknownAnimeTimestamps = listOf(
+            _currentlyWatching.value, _planningToWatch.value, _completed.value,
+            _onHold.value, _dropped.value
+        ).any { list -> list.any { it.updatedAt <= 0L } }
+        // Manga is mirrored from local tracking. A pre-upgrade cache has all-zero timestamps
+        // per list; require the whole non-empty list to be unknown so a single local-only
+        // legacy track can't force a provider refresh on every launch.
+        val unknownMangaTimestamps = listOf(
+            _mangaCurrentlyReading.value, _mangaPlanningToRead.value, _mangaCompleted.value,
+            _mangaPaused.value, _mangaDropped.value
+        ).any { list -> list.isNotEmpty() && list.all { it.updatedAt <= 0L } }
+        unknownAnimeTimestamps || unknownMangaTimestamps
+    }
     // Home lists always prefer AniList when it's logged in — MAL is only the primary
     // list source when it's the sole provider. If the AniList fetch fails (API down),
     // the fallback below pulls the MAL list instead.
     val malMain = isMalActive && !isAniListActive
-    if (now - lastHomeRefreshTime < MainViewModel.MIN_REFRESH_INTERVAL_MS) {
+    if (!hasUnknownListTimestamps && now - lastHomeRefreshTime < MainViewModel.MIN_REFRESH_INTERVAL_MS) {
         _isLoadingHome.value = false
         refreshReleasingAnimeProgress()
         // Manga home lists are restored from the home cache and also mirrored in the

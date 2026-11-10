@@ -232,6 +232,16 @@ internal fun MainViewModel.mapFromMalStatus(malStatus: String?): String {
     }
 }
 
+/** MAL sends `updated_at` as an ISO-8601 timestamp; convert it to epoch millis. */
+internal fun parseMalUpdatedAt(value: String?): Long {
+    if (value.isNullOrBlank()) return 0L
+    // The MAL website list JSON reports `updated_at` as Unix seconds, while the /v2 API
+    // reports an ISO-8601 timestamp. Support both so either source can order the lists.
+    value.toLongOrNull()?.let { return if (it in 1..999_999_999_999L) it * 1000L else it }
+    return runCatching { java.time.OffsetDateTime.parse(value).toInstant().toEpochMilli() }
+        .getOrDefault(0L)
+}
+
 // ─── MAL list fetch & reconciliation ────────────────────────────────────────
 
 internal suspend fun MainViewModel.fetchMalList(): Boolean {
@@ -250,6 +260,7 @@ internal suspend fun MainViewModel.fetchMalList(): Boolean {
         val malId = entry.node.id
         val status = entry.list_status?.status
         val progress = entry.list_status?.num_episodes_watched ?: 0
+        val updatedAt = parseMalUpdatedAt(entry.list_status?.updated_at)
 
         // Find matching anime from cache by MAL ID
         val cachedAnime = cacheManager.detailedAnimeCache.value.values.find {
@@ -271,7 +282,8 @@ internal suspend fun MainViewModel.fetchMalList(): Boolean {
                 genres = cachedAnime.genres,
                 listStatus = mapFromMalStatus(status),
                 malId = malId,
-                format = cachedAnime.format
+                format = cachedAnime.format,
+                updatedAt = updatedAt
             )
         } else {
             AnimeMedia(
@@ -282,7 +294,8 @@ internal suspend fun MainViewModel.fetchMalList(): Boolean {
                 progress = progress,
                 totalEpisodes = entry.node.num_episodes,
                 listStatus = mapFromMalStatus(status),
-                malId = malId
+                malId = malId,
+                updatedAt = updatedAt
             )
         }
 

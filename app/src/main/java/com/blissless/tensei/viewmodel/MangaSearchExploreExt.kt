@@ -66,7 +66,8 @@ internal fun toMangaMedia(track: MangaTrack): MangaMedia {
         scrollChapterId = track.scrollChapterId,
         scrollChapterNumber = track.scrollChapterNumber,
         userScore = track.score,
-        averageScore = track.averageScore
+        averageScore = track.averageScore,
+        updatedAt = track.updatedAt
     )
 }
 

@@ -793,7 +793,8 @@ class MainViewModel : ViewModel() {
                     listEntryId = entry.id,
                     userScore = entry.score,
                     year = entry.media.seasonYear,
-                    malId = entry.media.idMal
+                    malId = entry.media.idMal,
+                    updatedAt = (entry.updatedAt ?: 0L) * 1000L
                 )
                 (list.status ?: list.name) to anime
             }

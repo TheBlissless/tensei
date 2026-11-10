@@ -66,36 +66,36 @@ suspend fun MainViewModel.fetchMangaLists(): Boolean {
         // Sync AniList entries into local tracking
         anilistCurrent?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
-            localTracker.updateTrackingStatus(m.id, "CURRENT")
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() }, updatedAt = m.updatedAt)
+            localTracker.updateTrackingStatus(m.id, "CURRENT", updatedAt = m.updatedAt)
             // Never downgrade local progress: a stale AniList response (push still in
             // flight, or a network hiccup) must not roll back chapters the user just read.
             if (m.progress > 0) localTracker.updateChapterProgressKeepMax(m.id, m.progress.toFloat())
-            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
+            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore, updatedAt = m.updatedAt)
         }
         anilistPlanning?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
-            localTracker.updateTrackingStatus(m.id, "PLANNING")
-            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() }, updatedAt = m.updatedAt)
+            localTracker.updateTrackingStatus(m.id, "PLANNING", updatedAt = m.updatedAt)
+            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore, updatedAt = m.updatedAt)
         }
         anilistCompleted?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
-            localTracker.updateTrackingStatus(m.id, "COMPLETED")
-            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() }, updatedAt = m.updatedAt)
+            localTracker.updateTrackingStatus(m.id, "COMPLETED", updatedAt = m.updatedAt)
+            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore, updatedAt = m.updatedAt)
         }
         anilistPaused?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
-            localTracker.updateTrackingStatus(m.id, "PAUSED")
-            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() }, updatedAt = m.updatedAt)
+            localTracker.updateTrackingStatus(m.id, "PAUSED", updatedAt = m.updatedAt)
+            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore, updatedAt = m.updatedAt)
         }
         anilistDropped?.forEach { m ->
             if (m.malId != null) localTracker.mergeDuplicateMangaTrack(m.id, m.malId)
-            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() })
-            localTracker.updateTrackingStatus(m.id, "DROPPED")
-            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore)
+            localTracker.ensureTrack(m.id, m.title, m.cover, m.totalChapters, m.averageScore, m.titleEnglish, m.listEntryId, m.malId, mediaStatus = m.status.takeIf { it.isNotBlank() }, updatedAt = m.updatedAt)
+            localTracker.updateTrackingStatus(m.id, "DROPPED", updatedAt = m.updatedAt)
+            if (m.userScore != null) localTracker.updateScore(m.id, m.userScore, updatedAt = m.updatedAt)
         }
     }
 

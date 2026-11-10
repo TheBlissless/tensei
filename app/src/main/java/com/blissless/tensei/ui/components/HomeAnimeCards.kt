@@ -91,6 +91,30 @@ data class HomeAnimeCardBounds(
     val bounds: android.graphics.RectF
 )
 
+/**
+ * Episode counter shown on Home/status cards.
+ *
+ * CURRENT: watched / aired / total. Every other list: available / total
+ * (planning shows how many episodes are out, e.g. `5 / ?`). Unknown values
+ * render as `?` instead of hiding the column.
+ */
+internal fun animeEpisodeProgressText(anime: AnimeMedia, listType: String): String {
+    val total = anime.totalEpisodes
+    val aired = anime.latestEpisode?.takeIf { it > 0 }
+    val totalLabel = if (total > 0) total.toString() else "?"
+    // A finished/cancelled series has aired all its episodes even though AniList only
+    // reports nextAiringEpisode (and therefore latestEpisode) for releasing shows.
+    val allEpisodesAired = listType == "COMPLETED" ||
+        (anime.status != "RELEASING" && anime.status != "NOT_YET_RELEASED")
+    val available = aired ?: if (total > 0 && allEpisodesAired) total else null
+    val availableLabel = available?.toString() ?: "?"
+    return if (listType == "CURRENT") {
+        "${anime.progress} / $availableLabel / $totalLabel"
+    } else {
+        "$availableLabel / $totalLabel"
+    }
+}
+
 
 @Composable
 fun HomeAnimeHorizontalList(
@@ -239,8 +263,7 @@ fun HomeAnimeCard(
     // Progress bar color: bright white for monochrome, bright user-defined primary for material colors
     val progressColor = if (disableMaterialColors) Color.White else MaterialTheme.colorScheme.primary
 
-    val total = anime.totalEpisodes
-    val released = anime.latestEpisode ?: total
+    val progressText = animeEpisodeProgressText(anime, listType)
 
     val nextEpisode = anime.progress + 1
     val playbackKey = "${anime.id}_$nextEpisode"
@@ -248,37 +271,6 @@ fun HomeAnimeCard(
     val savedDuration = playbackDurations[playbackKey] ?: 0L
     val effectiveDuration = if (savedDuration > 0L) savedDuration else 24 * 60 * 1000L
     val progressPercent = if (savedPosition > 0) (savedPosition.toFloat() / effectiveDuration.toFloat()).coerceIn(0f, 1f) else 0f
-
-    val progressText = when (listType) {
-        "CURRENT" -> {
-            when {
-                total > 0 && released < total -> "${anime.progress} / $released / $total"
-                total > 0 -> "${anime.progress} / $total"
-                released > 0 -> "${anime.progress} / $released"
-                else -> "${anime.progress}"
-            }
-        }
-        "COMPLETED" -> {
-            val count = if (total > 0) total else anime.progress
-            val unit = stringResource(if (count == 1) R.string.comp_home_ep_unit_single else R.string.comp_home_ep_unit_plural)
-            "$count $unit"
-        }
-        "PAUSED", "DROPPED" -> {
-            when {
-                total > 0 && released < total -> "${anime.progress} / $released / $total"
-                total > 0 -> "${anime.progress} / $total"
-                released > 0 -> "${anime.progress} / $released"
-                else -> if (anime.progress > 0) "${anime.progress}" else "??"
-            }
-        }
-        else -> {
-            when {
-                total > 0 -> "$released / $total"
-                released > 0 -> "$released"
-                else -> "??"
-            }
-        }
-    }
 
     val imageRequest = remember(anime.cover) {
         ImageRequest.Builder(context)

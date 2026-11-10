@@ -73,6 +73,8 @@ data class MediaListEntry(
     val progress: Int?,
     val status: String?,
     val score: Int? = null,
+    // Unix seconds; AniList sorts each list by UPDATED_TIME_DESC when we request it.
+    val updatedAt: Long? = null,
     val media: MediaEntryMedia
 )
 

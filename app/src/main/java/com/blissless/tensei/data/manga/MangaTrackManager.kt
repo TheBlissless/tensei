@@ -71,13 +71,15 @@ class MangaTrackManager(context: Context) {
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         val newProgress = if (chapter.chapterNumber > 0f) chapter.chapterNumber else 1f
+        val now = System.currentTimeMillis()
         if (index >= 0) {
             val track = tracks[index]
             val finalProgress = if (newProgress > track.progress) newProgress else track.progress
             tracks[index] = track.copy(
                 progress = finalProgress,
                 lastReadChapter = chapter,
-                status = if (track.status == "COMPLETED") "COMPLETED" else "CURRENT"
+                status = if (track.status == "COMPLETED") "COMPLETED" else "CURRENT",
+                updatedAt = now
             )
         } else {
             // First-time reader: auto-create a track so progress is recorded.
@@ -88,7 +90,8 @@ class MangaTrackManager(context: Context) {
                     progress = newProgress,
                     lastReadChapter = chapter,
                     status = "CURRENT",
-                    totalChapters = 0
+                    totalChapters = 0,
+                    updatedAt = now
                 )
             )
         }
@@ -99,7 +102,7 @@ class MangaTrackManager(context: Context) {
      * Ensure a track exists for the given manga. If none exists, a new CURRENT track is created
      * with the provided metadata. Returns the (possibly newly-created) track.
      */
-    fun ensureTrack(mangaId: Int, title: String = "", cover: String = "", totalChapters: Int = 0, averageScore: Int? = null, titleEnglish: String? = null, listEntryId: Int? = null, malId: Int? = null, mediaStatus: String? = null): MangaTrack {
+    fun ensureTrack(mangaId: Int, title: String = "", cover: String = "", totalChapters: Int = 0, averageScore: Int? = null, titleEnglish: String? = null, listEntryId: Int? = null, malId: Int? = null, mediaStatus: String? = null, updatedAt: Long = 0L): MangaTrack {
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         if (index >= 0) {
@@ -113,7 +116,10 @@ class MangaTrackManager(context: Context) {
                 averageScore = averageScore ?: existing.averageScore,
                 listEntryId = existing.listEntryId ?: listEntryId,
                 malId = existing.malId ?: malId,
-                mediaStatus = mediaStatus ?: existing.mediaStatus
+                mediaStatus = mediaStatus ?: existing.mediaStatus,
+                // Provider sync must never move an entry backwards: keep the newer of the
+                // local edit time and the provider's last-updated timestamp.
+                updatedAt = maxOf(existing.updatedAt, updatedAt)
             )
             if (patched != existing) {
                 tracks[index] = patched
@@ -131,7 +137,8 @@ class MangaTrackManager(context: Context) {
             averageScore = averageScore,
             listEntryId = listEntryId,
             malId = malId,
-            mediaStatus = mediaStatus
+            mediaStatus = mediaStatus,
+            updatedAt = updatedAt
         )
         tracks.add(newTrack)
         saveTracks(tracks)
@@ -142,7 +149,7 @@ class MangaTrackManager(context: Context) {
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
         if (index >= 0) {
-            tracks[index] = tracks[index].copy(progress = progress)
+            tracks[index] = tracks[index].copy(progress = progress, updatedAt = System.currentTimeMillis())
         }
         saveTracks(tracks)
     }
@@ -191,24 +198,28 @@ class MangaTrackManager(context: Context) {
         saveTracks(tracks)
     }
 
-    fun updateTrackingStatus(mangaId: Int, status: String) {
+    fun updateTrackingStatus(mangaId: Int, status: String, updatedAt: Long? = null) {
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
+        // null means a local user action (stamp now); a value means a provider sync
+        // (keep the newer of local and provider so stale responses can't rewind order).
+        val timestamp = updatedAt ?: System.currentTimeMillis()
         if (index >= 0) {
-            tracks[index] = tracks[index].copy(status = status)
+            tracks[index] = tracks[index].copy(status = status, updatedAt = maxOf(tracks[index].updatedAt, timestamp))
         } else {
-            tracks.add(MangaTrack(mangaId = mangaId, status = status))
+            tracks.add(MangaTrack(mangaId = mangaId, status = status, updatedAt = timestamp))
         }
         saveTracks(tracks)
     }
 
-    fun updateScore(mangaId: Int, score: Int) {
+    fun updateScore(mangaId: Int, score: Int, updatedAt: Long? = null) {
         val tracks = getTracks().toMutableList()
         val index = tracks.indexOfFirst { it.mangaId == mangaId }
+        val timestamp = updatedAt ?: System.currentTimeMillis()
         if (index >= 0) {
-            tracks[index] = tracks[index].copy(score = score)
+            tracks[index] = tracks[index].copy(score = score, updatedAt = maxOf(tracks[index].updatedAt, timestamp))
         } else {
-            tracks.add(MangaTrack(mangaId = mangaId, score = score))
+            tracks.add(MangaTrack(mangaId = mangaId, score = score, updatedAt = timestamp))
         }
         saveTracks(tracks)
     }
@@ -285,7 +296,8 @@ class MangaTrackManager(context: Context) {
                 listEntryId = canonical.listEntryId ?: dup.listEntryId,
                 score = canonical.score ?: dup.score,
                 cover = canonical.cover.ifBlank { dup.cover },
-                malId = malId
+                malId = malId,
+                updatedAt = maxOf(canonical.updatedAt, dup.updatedAt)
             )
         } else {
             tracks.add(dup.copy(mangaId = canonicalId, malId = malId))

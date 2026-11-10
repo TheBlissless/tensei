@@ -260,6 +260,7 @@ class AnimeRepository(
                             progress
                             status
                             score
+                            updatedAt
                             media {
                                 id
                                 idMal
