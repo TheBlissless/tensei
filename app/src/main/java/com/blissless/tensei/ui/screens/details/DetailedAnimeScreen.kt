@@ -498,7 +498,8 @@ fun DetailedAnimeScreen(
             status = anime.status ?: "",
             averageScore = anime.averageScore,
             genres = anime.genres,
-            listStatus = ""
+            listStatus = "",
+            format = anime.format
         )
         if (showEpisodeSelection) {
             RichEpisodeScreen(

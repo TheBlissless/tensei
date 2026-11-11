@@ -879,7 +879,8 @@ fun HomeScreen(
                                     listStatus = "",
                                     listEntryId = 0,
                                     year = detailedData.year,
-                                    malId = detailedData.malId
+                                    malId = detailedData.malId,
+                                    format = detailedData.format
                                 )
                             } else {
                                 context.toast(context.getString(R.string.home_anime_not_found))
@@ -925,7 +926,8 @@ fun HomeScreen(
                                     listStatus = "",
                                     listEntryId = 0,
                                     year = detailedData.year,
-                                    malId = detailedData.malId
+                                    malId = detailedData.malId,
+                                    format = detailedData.format
                                 )
                             } else {
                                 context.toast(context.getString(R.string.home_anime_not_found))

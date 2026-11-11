@@ -185,6 +185,7 @@ fun ExploreAnime.toDetailedAnimeData(): DetailedAnimeData {
         year = year,
         latestEpisode = latestEpisode,
         malId = malId,
+        format = format,
         siteUrl = com.blissless.tensei.network.Endpoints.AniList.animePageUrl(id)
     )
 }
@@ -204,6 +205,7 @@ fun AnimeMedia.toDetailedAnimeData(): DetailedAnimeData {
         year = year,
         latestEpisode = latestEpisode,
         malId = malId,
+        format = format,
         siteUrl = siteUrl ?: com.blissless.tensei.network.Endpoints.AniList.animePageUrl(id)
     )
 }

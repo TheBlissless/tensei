@@ -332,7 +332,8 @@ fun AnimeScreen(
                     averageScore = anime.averageScore,
                     genres = anime.genres,
                     listStatus = "",
-                    listEntryId = 0
+                    listEntryId = 0,
+                    format = anime.format
                 )
                 onPlayEpisode(animeMedia, episode, null)
                 showDialog = false
@@ -471,7 +472,8 @@ fun AnimeScreen(
             averageScore = anime.averageScore,
             genres = anime.genres,
             listStatus = "",
-            listEntryId = 0
+            listEntryId = 0,
+            format = anime.format
         )
         RichEpisodeScreen(
                 anime = animeMedia,
@@ -500,7 +502,8 @@ fun AnimeScreen(
             listStatus = animeStatusMap[anime.id] ?: "",
             status = animeStatusMap[anime.id] ?: "",
             averageScore = anime.averageScore,
-            genres = anime.genres
+            genres = anime.genres,
+            format = anime.format
         )
         HomeAnimeStatusDialog(
             anime = animeMedia,

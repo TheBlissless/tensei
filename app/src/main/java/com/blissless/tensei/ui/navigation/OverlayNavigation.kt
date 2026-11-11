@@ -70,4 +70,5 @@ fun DetailedAnimeData.toAnimeMedia(): AnimeMedia = AnimeMedia(
     listEntryId = 0,
     year = year,
     malId = malId,
+    format = format,
 )

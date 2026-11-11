@@ -74,6 +74,10 @@ fun PlayerHost(
     val anime = state.currentAnime
     if (anime != null) {
         val released = anime.latestEpisode ?: anime.totalEpisodes
+        // Movies have no meaningful episode title/number. Prefer the provider format, but
+        // fall back to a single episode when a play path lost the format (local-only tracks).
+        val isMovie = anime.format?.equals("MOVIE", ignoreCase = true) == true ||
+            (anime.format.isNullOrBlank() && anime.totalEpisodes == 1)
         val tmdbEpisodes by viewModel.tmdbEpisodeCache.collectAsState()
         val playerDisplayTitle = if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
         val hideEpisodeDescription by viewModel.hideEpisodeDescription.collectAsState()
@@ -88,6 +92,7 @@ fun PlayerHost(
             subtitleTracks = state.currentSubtitleTracks,
             currentEpisode = state.currentEpisode,
             totalEpisodes = state.totalEpisodes,
+            isMovie = isMovie,
             animeName = playerDisplayTitle,
             episodeTitle = state.currentEpisodeTitle,
             animeId = anime.id,
@@ -249,6 +254,7 @@ fun PlayerHost(
                 animeId = anime.id,
                 animeTitle = playerDisplayTitle,
                 episodeTitle = state.currentEpisodeTitle,
+                isMovie = isMovie,
                 hideDescription = hideEpisodeDescription,
                 onEpisodeSelect = { ep -> controller.loadAndPlayEpisode(anime, ep) },
                 onClose = {

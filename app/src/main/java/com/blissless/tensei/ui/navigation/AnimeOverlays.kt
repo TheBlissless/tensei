@@ -92,7 +92,8 @@ fun ExploreAnimeDetailOverlay(
                 listStatus = "",
                 listEntryId = 0,
                 year = dialog.anime.year,
-                malId = dialog.anime.malId
+                malId = dialog.anime.malId,
+                format = dialog.anime.format
             )
             viewModel.addExploreAnimeToList(dialog.anime, "CURRENT")
             onPlayEpisode(animeMedia, episode, null)

@@ -108,6 +108,7 @@ fun BoxScope.PlayerControlsUi(
     episodeTitle: String?,
     currentEpisode: Int,
     totalEpisodes: Int,
+    isMovie: Boolean,
     currentServerName: String,
     currentCategory: String,
     extensionServers: List<ServerInfo>,
@@ -223,21 +224,25 @@ fun BoxScope.PlayerControlsUi(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        if (!episodeTitle.isNullOrEmpty()) {
+                                        // Movies have no meaningful episode title/number; only show them
+                                        // for episodic media in the fullscreen (maximized) top bar.
+                                        if (!isMovie) {
+                                            if (!episodeTitle.isNullOrEmpty()) {
+                                                Text(
+                                                    text = episodeTitle,
+                                                    color = Color.White.copy(alpha = 0.7f),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text("·", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
+                                            }
                                             Text(
-                                                text = episodeTitle,
+                                                text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
                                                 color = Color.White.copy(alpha = 0.7f),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                                style = MaterialTheme.typography.labelSmall
                                             )
-                                            Text("·", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
                                         }
-                                        Text(
-                                            text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
-                                            color = Color.White.copy(alpha = 0.7f),
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
                                         if (s.isFetchingTimestamps || s.isChangingServer) {
                                             CircularProgressIndicator(
                                                 modifier = Modifier.size(12.dp),
@@ -271,23 +276,27 @@ fun BoxScope.PlayerControlsUi(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        if (!episodeTitle.isNullOrEmpty()) {
+                                        // Compact (minimized) layout hides the episode title/number for
+                                        // movies too; the anime name above is enough.
+                                        if (!isMovie) {
+                                            if (!episodeTitle.isNullOrEmpty()) {
+                                                Text(
+                                                    text = episodeTitle,
+                                                    color = Color.White.copy(alpha = 0.7f),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f, fill = false)
+                                                )
+                                                Text("·", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
+                                            }
                                             Text(
-                                                text = episodeTitle,
+                                                text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
                                                 color = Color.White.copy(alpha = 0.7f),
                                                 style = MaterialTheme.typography.labelSmall,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.weight(1f, fill = false)
+                                                maxLines = 1
                                             )
-                                            Text("·", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
                                         }
-                                        Text(
-                                            text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
-                                            color = Color.White.copy(alpha = 0.7f),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            maxLines = 1
-                                        )
                                         if (s.isFetchingTimestamps || s.isChangingServer) {
                                             CircularProgressIndicator(
                                                 modifier = Modifier.size(10.dp),

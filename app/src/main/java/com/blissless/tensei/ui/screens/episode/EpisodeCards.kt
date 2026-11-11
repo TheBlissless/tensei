@@ -141,6 +141,7 @@ fun RichEpisodeList(
     animeId: Int = 0,
     animeTitle: String = "",
     episodeTitle: String? = null,
+    isMovie: Boolean = false,
     onEpisodeSelect: (Int) -> Unit,
     onClose: (() -> Unit)? = null,
     onEnterFullscreen: (() -> Unit)? = null,
@@ -148,6 +149,10 @@ fun RichEpisodeList(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = (currentEpisode - 1).coerceAtLeast(0))
+
+    // The header sits on the player's page background (not on the video), so it must follow
+    // the theme — white-on-white was unreadable in light mode while OLED stays true black.
+    val headerContentColor = if (isOled) Color.White else MaterialTheme.colorScheme.onBackground
 
     // Keep the list anchored at the currently playing episode when it changes
     LaunchedEffect(currentEpisode) {
@@ -162,7 +167,7 @@ fun RichEpisodeList(
         ) {
             if (onClose != null) {
                 IconButton(onClick = onClose) {
-                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.lists_close_player), tint = Color.White)
+                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.lists_close_player), tint = headerContentColor)
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
@@ -171,16 +176,16 @@ fun RichEpisodeList(
                         animeTitle,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = headerContentColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                if (!episodeTitle.isNullOrEmpty()) {
+                if (!isMovie && !episodeTitle.isNullOrEmpty()) {
                     Text(
                         episodeTitle,
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = headerContentColor.copy(alpha = 0.6f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -188,54 +193,57 @@ fun RichEpisodeList(
             }
             if (onEnterFullscreen != null) {
                 IconButton(onClick = onEnterFullscreen) {
-                     Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.lists_enter_fullscreen), tint = Color.White)
+                     Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.lists_enter_fullscreen), tint = headerContentColor)
                 }
             }
         }
-        HorizontalDivider(color = if (isOled) Color(0xFF333333) else MaterialTheme.colorScheme.outlineVariant)
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 8.dp)
-        ) {
-            items(episodeCount) { index ->
-                val ep = index + 1
-                val tmdb = tmdbEpisodes.find { it.episode == ep }
-                val isWatched = ep <= currentProgress
-                val isCurrent = ep == currentEpisode
-                val hasAired = ep <= releasedCount
-                if (tmdb != null) {
-                    RichTmdbEpisodeCard(
-                        episodeNumber = ep,
-                        title = tmdb.title,
-                        description = tmdb.description,
-                        image = tmdb.image,
-                        isWatched = isWatched,
-                        isCurrent = isCurrent,
-                        hasAired = hasAired,
-                        isOled = isOled,
-                        hideDescription = hideDescription,
-                        isSelected = isCurrent,
-                        playbackPositions = playbackPositions,
-                        playbackDurations = playbackDurations,
-                        animeId = animeId,
-                        onSelect = {},
-                        onPlay = { onEpisodeSelect(ep) }
-                    )
-                } else {
-                    SimpleRichEpisodeCard(
-                        episodeNumber = ep,
-                        isWatched = isWatched,
-                        isCurrent = isCurrent,
-                        hasAired = hasAired,
-                        isOled = isOled,
-                        isSelected = isCurrent,
-                        playbackPositions = playbackPositions,
-                        playbackDurations = playbackDurations,
-                        animeId = animeId,
-                        onSelect = {},
-                        onPlay = { onEpisodeSelect(ep) }
-                    )
+        // A movie is a single video, so there is no episode list to show below the player.
+        if (!isMovie) {
+            HorizontalDivider(color = if (isOled) Color(0xFF333333) else MaterialTheme.colorScheme.outlineVariant)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(episodeCount) { index ->
+                    val ep = index + 1
+                    val tmdb = tmdbEpisodes.find { it.episode == ep }
+                    val isWatched = ep <= currentProgress
+                    val isCurrent = ep == currentEpisode
+                    val hasAired = ep <= releasedCount
+                    if (tmdb != null) {
+                        RichTmdbEpisodeCard(
+                            episodeNumber = ep,
+                            title = tmdb.title,
+                            description = tmdb.description,
+                            image = tmdb.image,
+                            isWatched = isWatched,
+                            isCurrent = isCurrent,
+                            hasAired = hasAired,
+                            isOled = isOled,
+                            hideDescription = hideDescription,
+                            isSelected = isCurrent,
+                            playbackPositions = playbackPositions,
+                            playbackDurations = playbackDurations,
+                            animeId = animeId,
+                            onSelect = {},
+                            onPlay = { onEpisodeSelect(ep) }
+                        )
+                    } else {
+                        SimpleRichEpisodeCard(
+                            episodeNumber = ep,
+                            isWatched = isWatched,
+                            isCurrent = isCurrent,
+                            hasAired = hasAired,
+                            isOled = isOled,
+                            isSelected = isCurrent,
+                            playbackPositions = playbackPositions,
+                            playbackDurations = playbackDurations,
+                            animeId = animeId,
+                            onSelect = {},
+                            onPlay = { onEpisodeSelect(ep) }
+                        )
+                    }
                 }
             }
         }
