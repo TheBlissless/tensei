@@ -383,6 +383,7 @@ fun HomeScreen(
                 TenseiErrorBanner(
                     message = if (isOffline) stringResource(R.string.home_offline) else stringResource(R.string.home_anilist_unavailable),
                     icon = if (isOffline) Icons.Default.SignalWifiOff else Icons.Default.CloudOff,
+                    onRetry = { if (viewModel.tryManualRefresh("home")) { isRefreshing = true; viewModel.refreshHome() } },
                     isOffline = isOffline,
                     isOled = isOled,
                 )
