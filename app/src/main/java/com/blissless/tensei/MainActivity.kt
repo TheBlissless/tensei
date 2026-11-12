@@ -589,6 +589,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Re-check connectivity against the system's current state. While the app sat in
+        // the background, networks can have been torn down or re-validated without a
+        // follow-up callback ever firing, which left a stale offline banner on screen.
+        mainViewModel.refreshConnectivity()
         // Check for any pending auth callback when returning to the app
         handleAuthCallback(intent)
     }

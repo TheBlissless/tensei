@@ -101,7 +101,11 @@ import kotlinx.coroutines.launch
 import com.blissless.tensei.extensions.Extension
 import com.blissless.tensei.extensions.anime.AnimeExtensionInstaller
 import com.blissless.tensei.extensions.repo.ExtensionType
+import com.blissless.tensei.extensions.repo.Repo
+import com.blissless.tensei.extensions.repo.RepoExtension
 import com.blissless.tensei.extensions.repo.RepoKind
+import com.blissless.tensei.extensions.repo.RepoSources
+import com.blissless.tensei.extensions.repo.extractRepoName
 import com.blissless.tensei.viewmodel.ExtensionsViewModel
 import com.blissless.tensei.viewmodel.RepoState
 
@@ -124,6 +128,8 @@ fun ExtensionsScreen(
     val mangaLoadErrors by mangaManager.loadErrors.collectAsState()
     val mangaBusy by mangaManager.busy.collectAsState()
     val mangaMessage by mangaManager.message.collectAsState()
+    val mangaAvailable by mangaManager.available.collectAsState()
+    val mangaAvailableError by mangaManager.availableError.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var showAddRepoDialog by remember { mutableStateOf(false) }
@@ -137,13 +143,22 @@ fun ExtensionsScreen(
         mangaManager.fetchAvailable()
     }
 
-    val installedPackages = uiState.extensions.map { it.packageName }.toSet()
-    val installedNames = uiState.extensions.map { it.name }.toSet()
-    val installedPackageVersions = uiState.extensions.associate {
-        it.packageName to "v${it.versionName} (code ${it.versionCode})"
+    // Installed/updatable inputs for the repo browser, covering BOTH ecosystems so a
+    // manga repo listing shows "Installed"/"Update" for eu.kanade.* packages too.
+    val installedPackages = (uiState.extensions.map { it.packageName } + mangaExtensions.map { it.pkgName }).toSet()
+    val installedNames = (uiState.extensions.map { it.name } + mangaExtensions.map { it.name }).toSet()
+    val installedPackageVersions = buildMap {
+        uiState.extensions.forEach { put(it.packageName, "v${it.versionName} (code ${it.versionCode})") }
+        mangaExtensions.forEach { ext ->
+            putIfAbsent(ext.pkgName, "v${ext.versionName} (code ${ext.versionCode})")
+        }
     }
-    val installedNameVersions = uiState.extensions.associate {
-        it.name.lowercase() to "v${it.versionName} (code ${it.versionCode})"
+    val installedNameVersions = buildMap {
+        uiState.extensions.forEach { put(it.name.lowercase(), "v${it.versionName} (code ${it.versionCode})") }
+        mangaExtensions.forEach { ext -> putIfAbsent(ext.name.lowercase(), "v${ext.versionName} (code ${ext.versionCode})") }
+    }
+    val mangaUpdatablePackages = remember(mangaExtensions, mangaAvailable) {
+        mangaExtensions.mapNotNull { ext -> mangaManager.updateFor(ext.pkgName)?.pkgName }.toSet()
     }
     val updatableCount = uiState.updatablePackageNames.size
 
@@ -184,18 +199,58 @@ fun ExtensionsScreen(
         uiState.repos.find { it.url == url }
     }
 
-    if (selectedRepoState != null) {
+    // Manga-only repositories (keiyoushi and other Mihon stores) are not registered with the
+    // anime ExtensionsViewModel, so they have no RepoState there. Browse them from the
+    // MangaExtensionManager's fetched store instead — tapping "Browse" on such a repo used
+    // to do nothing at all because the lookup above never matched.
+    val selectedMangaRepoUrl: String? = when {
+        selectedRepoState != null -> null
+        selectedRepoUrl != null && selectedRepoUrl in mangaRepos -> selectedRepoUrl
+        else -> null
+    }
+
+    if (selectedRepoState != null || selectedMangaRepoUrl != null) {
+        // State the browser screen renders. For manga repos it is synthesized from the
+        // manga store: extensions of the selected repo, mapped to the shared RepoExtension
+        // shape the browser already knows how to display.
+        val browserState = selectedRepoState ?: run {
+            val url = selectedMangaRepoUrl!!
+            val available = mangaAvailable?.filter { it.repoUrl == url }.orEmpty()
+            RepoState(
+                url = url,
+                repo = Repo(
+                    name = extractRepoName(url),
+                    description = "",
+                    extensions = available.map { it.toRepoExtension() }
+                ),
+                isLoading = mangaAvailable == null && mangaAvailableError == null,
+                error = mangaAvailableError
+            )
+        }
         ExtensionBrowserScreen(
-            repoState = selectedRepoState,
+            repoState = browserState,
             installedPackages = installedPackages,
             installedNames = installedNames,
-            updatablePackageNames = uiState.updatablePackageNames,
+            updatablePackageNames = uiState.updatablePackageNames + mangaUpdatablePackages,
             updatableNames = uiState.updatableNames,
             installedPackageVersions = installedPackageVersions,
             installedNameVersions = installedNameVersions,
-            onInstall = { viewModel.installExtension(it) },
+            onInstall = { ext ->
+                if (selectedRepoState != null) {
+                    viewModel.installExtension(ext)
+                } else {
+                    // The manga store's apk field carries the absolute APK URL already.
+                    mangaManager.install(ext.packageName, ext.apk)
+                }
+            },
             onBack = { onSelectRepo(null) },
-            onRemoveRepo = { url -> viewModel.removeRepo(url) }
+            onRemoveRepo = { url ->
+                if (selectedRepoState != null) {
+                    viewModel.removeRepo(url)
+                } else {
+                    mangaManager.removeRepo(url)
+                }
+            }
         )
         return
     }
@@ -508,3 +563,21 @@ internal enum class ExtensionKind(val label: String) {
     ANIME("Anime"),
     MANGA("Manga")
 }
+
+/**
+ * A store listing from the manga (Mihon) extension manager, mapped to the shared
+ * [RepoExtension] shape so the extension browser screen can render both ecosystems with
+ * one code path. The apk/icon fields already carry absolute URLs from the store index.
+ */
+private fun AvailableExtension.toRepoExtension(): RepoExtension = RepoExtension(
+    name = name,
+    packageName = pkgName,
+    apk = apkUrl,
+    icon = iconUrl,
+    lang = lang.ifBlank { "en" },
+    version = versionName,
+    code = versionCode,
+    nsfw = nsfw,
+    sources = sourceNames.map { RepoSources(name = it, lang = lang.ifBlank { "en" }) },
+    type = ExtensionType.fromPackageName(pkgName)
+)

@@ -170,6 +170,8 @@ private fun MainViewModel.fetchExtensionChapterImages(mangaTitle: String, chapte
  */
 fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
     mangaChaptersJob?.cancel()
+    // A fresh load clears any previous cancellation so the loading state shows again.
+    _mangaChaptersLoadCancelled.value = false
     mangaChaptersJob = viewModelScope.launch {
         loadMangaChaptersInternal(mangaId, title)
     }
@@ -489,19 +491,106 @@ private suspend fun MainViewModel.fetchExternalMangaChapters(
     val manga = sManga ?: return emptyList()
     _externalMangaCache[mangaId] = source to manga
 
-    return sChapters
-        .sortedBy { it.chapter_number }
-        .mapIndexedNotNull { idx, ch ->
-            val number = if (ch.chapter_number > 0f) ch.chapter_number else (idx + 1).toFloat()
-            val chapterId = "ext_${mangaId}_${idx}_${ch.url.hashCode()}"
-            _externalChapterCache[chapterId] = source to ch
+    return normalizeExternalChapters(sChapters)
+        .map { norm ->
+            val number = norm.number
+            val chapterId = "ext_${mangaId}_${norm.sourceIndex}_${norm.chapter.url.hashCode()}"
+            _externalChapterCache[chapterId] = source to norm.chapter
             MangaChapter(
                 url = chapterId,
-                title = ch.name.takeIf { it.isNotBlank() } ?: "Chapter $number",
+                title = norm.chapter.name.takeIf { it.isNotBlank() } ?: "Chapter $number",
                 chapterId = chapterId,
                 chapterNumber = number,
             )
         }
+}
+
+// ─── External chapter-list normalization ─────────────────────────────────────────────
+
+/** An [SChapter] paired with its resolved number and position in the source list. */
+private data class NormalizedExternalChapter(
+    val chapter: SChapter,
+    val number: Float,
+    val sourceIndex: Int,
+)
+
+/** Chapter number parsed from a chapter NAME: "Ch. 300", "Chapter 12.5", "12.5 …". */
+private val EXTERNAL_CHAPTER_NUMBER_REGEX = Regex("""(?i)(?:chapter|ch\.?)\s*(\d+(?:\.\d+)?)""")
+
+private fun chapterNumberFromName(name: String): Float? =
+    EXTERNAL_CHAPTER_NUMBER_REGEX.find(name)?.groupValues?.get(1)?.toFloatOrNull()
+
+/** True when [candidate] should win the slot over [current] when merging same-numbered chapters. */
+private fun isMorePreferredChapter(candidate: SChapter, current: SChapter): Boolean {
+    // Official scanlations beat fan groups (mirrors the MangaFire store's own preference).
+    val candidateOfficial = candidate.scanlator?.contains("official", ignoreCase = true) == true
+    val currentOfficial = current.scanlator?.contains("official", ignoreCase = true) == true
+    return candidateOfficial && !currentOfficial
+}
+
+/**
+ * Normalizes a raw Mihon-source chapter list into reading order with usable chapter numbers.
+ *
+ * Sources return chapters in their own order — usually newest-first (Mihon convention) — and
+ * many leave `chapter_number` unset (-1f):
+ *
+ *  - WeebCentral lists chapters DESCENDING and only sets `chapter_number` for season-indexed
+ *    comics. With every number at -1f, the old `sortedBy { chapter_number }` kept the
+ *    descending order and the `idx + 1` fallback numbered the NEWEST chapter "1": the list
+ *    read bottom-up and the next-chapter logic selected the wrong row.
+ *  - MangaFire numbers every chapter but lists one entry per scanlator group, so each chapter
+ *    appears twice (different title translations).
+ *
+ * Normalization therefore:
+ *  1. resolves a number per chapter — the source-declared number wins, otherwise one is
+ *     parsed from the chapter name;
+ *  2. when numbers are usable (majority of the list), keeps ONE chapter per number —
+ *     preferring official scanlations, then source order — and sorts ascending so the list
+ *     reads top-down and numbers match the real chapter progression;
+ *  3. when no numbers are usable at all, orders by upload-date trend (falling back to the
+ *     newest-first Mihon convention) and numbers the list sequentially in that order.
+ */
+private fun normalizeExternalChapters(chapters: List<SChapter>): List<NormalizedExternalChapter> {
+    if (chapters.isEmpty()) return emptyList()
+
+    // 1. Best number per chapter: declared number, then name-parsed number, else unusable.
+    val resolved = chapters.mapIndexed { idx, ch ->
+        val declared = ch.chapter_number.takeIf { it > 0f }
+        NormalizedExternalChapter(
+            chapter = ch,
+            number = declared ?: chapterNumberFromName(ch.name) ?: Float.NaN,
+            sourceIndex = idx,
+        )
+    }
+
+    val numbered = resolved.filter { !it.number.isNaN() }
+    val numbersUsable = numbered.size * 2 >= resolved.size
+
+    if (numbersUsable) {
+        // 2. One entry per chapter number (dedupe across scanlator groups), then ascending
+        //    reading order. Duplicates that never carried a number keep their relative slot
+        //    after the highest resolved number so nothing is silently dropped.
+        val byNumber = LinkedHashMap<Float, NormalizedExternalChapter>()
+        for (entry in numbered) {
+            val existing = byNumber[entry.number]
+            if (existing == null || isMorePreferredChapter(entry.chapter, existing.chapter)) {
+                byNumber[entry.number] = entry
+            }
+        }
+        val maxNumber = byNumber.keys.maxOrNull() ?: 0f
+        val unnumbered = resolved.filter { it.number.isNaN() }
+            .mapIndexed { i, entry -> entry.copy(number = maxNumber + i + 1f) }
+        return (byNumber.values + unnumbered).sortedBy { it.number }
+    }
+
+    // 3. No usable numbers: order by upload-date trend; Mihon sources default to newest-first,
+    //    so a flat/absent date trend is treated as descending and reversed into reading order.
+    val dated = resolved.filter { it.chapter.date_upload > 0L }
+    val descendingPairs = dated.zipWithNext().count { (a, b) -> a.chapter.date_upload > b.chapter.date_upload }
+    val ascendingPairs = dated.zipWithNext().count { (a, b) -> a.chapter.date_upload < b.chapter.date_upload }
+    val isDescending = descendingPairs >= ascendingPairs
+    val ordered = if (isDescending) resolved.reversed() else resolved
+    return ordered.mapIndexed { pos, entry -> entry.copy(number = (pos + 1).toFloat()) }
 }
 
 

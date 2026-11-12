@@ -217,18 +217,30 @@ internal val _hasLoadedMangaChapters = MutableStateFlow(false)
 val MainViewModel.hasLoadedMangaChapters: StateFlow<Boolean> get() = _hasLoadedMangaChapters.asStateFlow()
 
 
+/**
+ * True when the in-flight chapter-list load was CANCELLED by the user. A cancelled load is
+ * neither loading nor failed: the chapter-list screen exits its loading spinner and shows
+ * NOTHING — not the "no chapters found" error state, which previously appeared because
+ * cancellation flipped [MainViewModel.hasLoadedMangaChapters] to true with an empty list.
+ */
+internal val _mangaChaptersLoadCancelled = MutableStateFlow(false)
+
+val MainViewModel.isMangaChaptersLoadCancelled: StateFlow<Boolean> get() = _mangaChaptersLoadCancelled.asStateFlow()
+
+
 /** In-flight chapter-list load. Kept so the reader's "Loading chapters…" screen can cancel a
  *  stalled load, mirroring the anime stream loader's cancel button. */
 internal var mangaChaptersJob: Job? = null
 
 
-/** Cancel an in-flight chapter-list load. The reader stops spinning and falls back to its
- *  "no chapters found" state instead of waiting forever on a hanging extension. */
+/** Cancel an in-flight chapter-list load. The reader stops spinning and shows a neutral empty
+ *  screen (see [MainViewModel.isMangaChaptersLoadCancelled]) instead of waiting forever on a
+ *  hanging extension — and, crucially, instead of claiming "no chapters found". */
 fun MainViewModel.cancelMangaChapterLoad() {
     mangaChaptersJob?.cancel()
     mangaChaptersJob = null
     _isLoadingMangaChapters.value = false
-    _hasLoadedMangaChapters.value = true
+    _mangaChaptersLoadCancelled.value = true
 }
 
 

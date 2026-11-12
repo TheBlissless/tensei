@@ -81,6 +81,7 @@ import com.blissless.tensei.viewmodel.fetchMangaDetail
 import com.blissless.tensei.viewmodel.flushMangaSync
 import com.blissless.tensei.viewmodel.hasLoadedMangaChapters
 import com.blissless.tensei.viewmodel.isLoadingMangaChapters
+import com.blissless.tensei.viewmodel.isMangaChaptersLoadCancelled
 import com.blissless.tensei.viewmodel.loadChapterImages
 import com.blissless.tensei.viewmodel.loadMangaChapters
 import com.blissless.tensei.viewmodel.mangaChapterImages
@@ -264,6 +265,7 @@ fun MangaReaderScreen(
     val useDataSaver = viewModel.mangaDataSaver.value
     val isLoadingChapters by viewModel.isLoadingMangaChapters.collectAsState()
     val hasLoadedChapters by viewModel.hasLoadedMangaChapters.collectAsState()
+    val isChapterLoadCancelled by viewModel.isMangaChaptersLoadCancelled.collectAsState()
     val selectedExtension by viewModel.selectedExtensionAuthority.collectAsState()
     val mangaSourceMethod by viewModel.mangaSourceMethod.collectAsState()
     val defaultExternalMangaExtension by viewModel.defaultExternalMangaExtension.collectAsState()
@@ -610,6 +612,7 @@ fun MangaReaderScreen(
                     chapters = chapters,
                     isLoadingChapters = isLoadingChapters,
                     hasLoadedChapters = hasLoadedChapters,
+                    isLoadCancelled = isChapterLoadCancelled,
                     readIndices = if (isSeriesCompleted) chapters.indices.toSet() else readIndices.value,
                     // chapters.size means "no unread chapter": nothing to scroll to,
                     // nothing to auto-expand, and the header drops the continue button.
@@ -626,6 +629,14 @@ fun MangaReaderScreen(
                     },
                     onCancelLoadChapters = {
                         viewModel.cancelMangaChapterLoad()
+                        // The chapter-list loading screen lives in the fullscreen reader
+                        // Dialog layered over the manga detail screen. Stopping the load
+                        // alone kept that dialog open: a fully transparent body over the
+                        // detail screen with the dialog window's background dim still
+                        // greying it out — an invisible overlay that only the back button
+                        // dismissed. Closing the reader is what actually exits the
+                        // loading: the user lands straight back on the screen underneath.
+                        onClose()
                     },
                     onBack = {
                         handleReaderBack()

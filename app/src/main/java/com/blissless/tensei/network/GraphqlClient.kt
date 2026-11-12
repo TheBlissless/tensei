@@ -1,6 +1,7 @@
 package com.blissless.tensei.network
 
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +14,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -43,6 +45,12 @@ data class GraphQLConfig(
     val maxConcurrentRequests: Int = 5,
     val minRequestIntervalMs: Long = 100L,
     val defaultTimeout: Int = 30000,
+    /**
+     * Hard wall-clock budget PER REQUEST, rate-limit wait and retries included. Once it
+     * expires the request resolves with a timeout error instead of leaving the calling
+     * screen spinning forever. Generous enough to cover a 429 back-off plus one retry.
+     */
+    val requestDeadlineMs: Long = 60_000L,
     val maxRetries: Int = 3,
     val baseRetryDelayMs: Long = 1000L,
     val maxRetryDelayMs: Long = 30000L,
@@ -117,45 +125,65 @@ class GraphQLClient(
     fun getConfig() = config
 
     /**
-     * Start the request queue processor
+     * Start the request queue processor.
+     *
+     * Each queued request is launched into its own coroutine; the concurrency semaphore
+     * bounds how many actually run at once. The previous implementation consumed the
+     * channel SERIALLY (one `for` loop calling `processRequest` in place), so every
+     * AniList call in the app waited for all earlier ones — a single slow or rate-limited
+     * request stalled every screen behind it ("loads forever" bug).
      */
     private fun startQueueProcessor() {
         queueProcessorJob = scope.launch {
             for (request in requestChannel) {
-                processRequest(request)
+                scope.launch { processRequest(request) }
             }
         }
     }
 
     /**
-     * Process a single request from the queue
+     * Process a single request from the queue under the concurrency semaphore, with a hard
+     * deadline so no request can spin a screen forever.
      */
     private suspend fun <T> processRequest(request: QueuedRequest<T>) {
         concurrencySemaphore.withPermit {
-            // Check rate limit before processing
-            waitForRateLimit()
-
-            // Apply minimum interval between requests
-            applyMinInterval()
-
-            try {
-                val result = executeRequestWithRetry(request)
-                request.continuation.resume(result) { _, _, _ -> }
-            } catch (e: Exception) {
-                request.continuation.resume(
+            var timedOut = false
+            val result: GraphQLResult<T> = try {
+                withTimeoutOrNull(config.requestDeadlineMs) {
+                    // The rate-limit wait and retry back-offs live INSIDE the deadline so the
+                    // total wait is bounded no matter what AniList does.
+                    waitForRateLimit()
+                    applyMinInterval()
+                    executeRequestWithRetry(request)
+                } ?: run {
+                    timedOut = true
                     GraphQLResult(
-                                    data = null,
-                                    error = GraphQLError(e.message ?: "Unknown error"),
-                                    fromCache = false,
-                                    retryCount = 0
-                                )
-                ) { _, _, _ -> }
+                        data = null,
+                        error = GraphQLError("Request timed out after ${config.requestDeadlineMs / 1000}s"),
+                        fromCache = false,
+                        retryCount = config.maxRetries
+                    )
+                }
+            } catch (e: Exception) {
+                request.onRawResponse(null)
+                GraphQLResult(
+                    data = null,
+                    error = GraphQLError(e.message ?: "Unknown error"),
+                    fromCache = false,
+                    retryCount = 0
+                )
             }
+            if (timedOut) request.onRawResponse(null)
+            request.continuation.resumeSafe(result)
         }
     }
 
     /**
-     * Execute request with retry logic
+     * Execute request with retry logic.
+     *
+     * Retries are reserved for TRANSIENT failures — rate limits (429), network errors
+     * (no HTTP code) and 5xx server errors. Client errors (other 4xx) fail immediately:
+     * the same request would just fail again.
      */
     private suspend fun <T> executeRequestWithRetry(request: QueuedRequest<T>): GraphQLResult<T> {
         var lastError: GraphQLError? = null
@@ -176,6 +204,9 @@ class GraphQLClient(
                     // Continue to retry
                 }
                 response.isSuccess -> {
+                    // Hand the raw body to duplicate waiters before parsing (the parser also
+                    // caches it for future calls).
+                    request.onRawResponse(response.body)
                     val parsed = request.parser(response.body!!)
                     return GraphQLResult(
                         data = parsed,
@@ -185,18 +216,25 @@ class GraphQLClient(
                     )
                 }
                 else -> {
-                    // Non-retriable error
-                    return GraphQLResult(
-                        data = null,
-                        error = response.error,
-                        fromCache = false,
-                        retryCount = attempt
-                    )
+                    val code = response.error?.code
+                    if (code != null && code in 400..499) {
+                        // Non-retriable client error
+                        request.onRawResponse(null)
+                        return GraphQLResult(
+                            data = null,
+                            error = response.error,
+                            fromCache = false,
+                            retryCount = attempt
+                        )
+                    }
+                    // Transient failure (network error or 5xx) — retry with back-off.
+                    lastError = response.error
                 }
             }
             retryCount = attempt + 1
         }
 
+        request.onRawResponse(null)
         return GraphQLResult(
             data = null,
             error = lastError ?: GraphQLError("Max retries exceeded"),
@@ -227,7 +265,7 @@ class GraphQLClient(
                 val clientIdIndex = request.clientIdIndex.getAndIncrement() % request.clientIds.size
                 connection.setRequestProperty("X-Client-Id", request.clientIds[clientIdIndex])
 
-                connection.connectTimeout = config.defaultTimeout
+                connection.connectTimeout = 10_000 // Fail fast on unreachable hosts; retries cover the rest.
                 connection.readTimeout = config.defaultTimeout
                 connection.doOutput = true
 
@@ -445,14 +483,14 @@ class GraphQLClient(
             getCachedResponse(cacheKey, effectiveCacheDuration)?.let { cached ->
                 val parsed = parser(cached)
                 if (parsed != null) {
-                    continuation.resume(
+                    continuation.resumeSafe(
                         GraphQLResult(
                             data = parsed,
                             error = null,
                             fromCache = true,
                             retryCount = 0
                         )
-                    ) { _, _, _ -> }
+                    )
                     return@suspendCancellableCoroutine
                 }
             }
@@ -466,14 +504,14 @@ class GraphQLClient(
                     val response = existingPending.await()
                     if (response != null) {
                         val parsed = parser(response)
-                        continuation.resume(
+                        continuation.resumeSafe(
                             GraphQLResult(
                                 data = parsed,
                                 error = null,
                                 fromCache = false,
                                 retryCount = 0
                             )
-                        ) { _, _, _ -> }
+                        )
                     } else {
                         // Fall through to queue new request
                         queueRequest(query, variables, requiresAuth, authToken, clientIds, parser, cacheKey, continuation)
@@ -498,6 +536,12 @@ class GraphQLClient(
         cacheKey: String,
         continuation: CancellableContinuation<GraphQLResult<T>>
     ) {
+        // Register the in-flight request so duplicate calls (same query + variables) wait
+        // for THIS attempt instead of each issuing their own HTTP request. Previously the
+        // deferred was never added, so this dedup path was dead code.
+        val deferred: CompletableDeferred<String?> = CompletableDeferred()
+        pendingRequests[cacheKey] = deferred
+
         val request = QueuedRequest(
             query = query,
             variables = variables,
@@ -508,9 +552,13 @@ class GraphQLClient(
             parser = { response ->
                 // Cache successful response
                 cacheResponse(cacheKey, response)
-                // Complete deduplication deferred
-                pendingRequests.remove(cacheKey) ?: Unit
                 parser(response)
+            },
+            onRawResponse = { raw ->
+                // Complete duplicate waiters with the raw body (null = failed attempt),
+                // then clear the pending slot so later calls re-queue normally.
+                deferred.complete(raw)
+                pendingRequests.remove(cacheKey)
             },
             continuation = continuation
         )
@@ -518,14 +566,16 @@ class GraphQLClient(
         // Queue the request
         requestChannel.trySend(request).isSuccess.let { sent ->
             if (!sent) {
-                continuation.resume(
+                pendingRequests.remove(cacheKey)
+                deferred.complete(null)
+                continuation.resumeSafe(
                     GraphQLResult(
-                                    data = null,
-                                    error = GraphQLError("Request queue full"),
-                                    fromCache = false,
-                                    retryCount = 0
-                                )
-                ) { _, _, _ -> }
+                        data = null,
+                        error = GraphQLError("Request queue full"),
+                        fromCache = false,
+                        retryCount = 0
+                    )
+                )
             }
         }
     }
@@ -536,6 +586,20 @@ class GraphQLClient(
     fun clearCache() {
         responseCache.clear()
         pendingRequests.clear()
+    }
+
+    /**
+     * Resume a continuation with [result], tolerating a continuation that was already
+     * resumed or cancelled (caller navigated away / deadline raced a late in-flight
+     * result). A raw `resume` would throw IllegalStateException and kill the queue's
+     * worker coroutine.
+     */
+    private fun <T> CancellableContinuation<GraphQLResult<T>>.resumeSafe(result: GraphQLResult<T>) {
+        try {
+            resume(result) { _, _, _ -> }
+        } catch (_: IllegalStateException) {
+            // Already resumed/cancelled — nothing to do.
+        }
     }
 
 }
@@ -558,6 +622,7 @@ private data class QueuedRequest<T>(
     val clientIds: List<String>,
     val clientIdIndex: AtomicInteger,
     val parser: (String) -> T?,
+    val onRawResponse: (String?) -> Unit = {},
     val continuation: CancellableContinuation<GraphQLResult<T>>
 )
 

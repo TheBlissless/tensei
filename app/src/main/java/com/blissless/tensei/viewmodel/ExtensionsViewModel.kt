@@ -286,12 +286,22 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private suspend fun fetchRepo(repoUrl: String): Repo = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(repoUrl).build()
+        val request = Request.Builder().url(repoUrl)
+            // Some hosts (Cloudflare-fronted mirrors) reject the default okhttp UA.
+            .header("User-Agent", "Tensei/1.0 (Android; +https://github.com/TheBlissless/tensei)")
+            .build()
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) {
             throw Exception("Server returned ${response.code} ${response.message}")
         }
-        val body = response.body.string()
+        val raw = response.body.bytes()
+        // Some mirrors force-gzip the index without advertising it via
+        // Content-Encoding; detect the magic bytes and decompress manually.
+        val body = if (raw.size >= 2 && raw[0] == 0x1f.toByte() && raw[1] == 0x8b.toByte()) {
+            java.util.zip.GZIPInputStream(java.io.ByteArrayInputStream(raw)).use { it.readBytes() }.decodeToString()
+        } else {
+            raw.decodeToString()
+        }
         val json = com.blissless.tensei.util.TenseiJson.default
         val element = json.parseToJsonElement(body)
         val repo = parseRepoJson(repoUrl, element)

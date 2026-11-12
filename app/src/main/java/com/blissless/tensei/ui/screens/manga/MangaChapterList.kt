@@ -127,6 +127,7 @@ fun MangaChapterListWithGroups(
     modifier: Modifier = Modifier,
     isLoadingChapters: Boolean = true,
     hasLoadedChapters: Boolean = false,
+    isLoadCancelled: Boolean = false,
     onContinueReading: (() -> Unit)? = null,
     onRetryLoadChapters: (() -> Unit)? = null,
     onCancelLoadChapters: (() -> Unit)? = null,
@@ -142,7 +143,14 @@ fun MangaChapterListWithGroups(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            if (isLoadingChapters || !hasLoadedChapters) {
+            if (isLoadCancelled && !isLoadingChapters) {
+                // The user cancelled the load: exit the loading state and show NOTHING.
+                // Deliberately no "no chapters found" error and no retry button — the
+                // list simply stops resolving, exactly as requested. Checked BEFORE the
+                // loading branch because a cancelled load never flips hasLoadedChapters,
+                // which would otherwise re-arm the spinner.
+                Box(modifier = Modifier.fillMaxSize())
+            } else if (isLoadingChapters || !hasLoadedChapters) {
                 // Same transparent overlay design as the stream-fetching loading state
                 Box(
                     modifier = Modifier

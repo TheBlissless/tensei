@@ -285,16 +285,23 @@ class MainViewModel : ViewModel() {
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: android.net.Network) {
-            _isOffline.value = false
+            // The newly available network carries internet by the request filter; verify
+            // against the full connectivity snapshot anyway so state stays consistent.
+            refreshConnectivity()
         }
 
         override fun onLost(network: android.net.Network) {
-            _isOffline.value = true
+            // A single network dropping does NOT mean the device went offline: Wi-Fi can
+            // die while cellular keeps working. Re-check every remaining network instead
+            // of blindly flagging offline — the old behaviour stranded the offline banner
+            // on screen with no further callback to clear it.
+            refreshConnectivity()
         }
 
         override fun onCapabilitiesChanged(network: android.net.Network, capabilities: NetworkCapabilities) {
-            val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            _isOffline.value = !hasInternet
+            // Evaluate the whole connectivity picture, not just this one network: another
+            // network may still provide internet even if this one lost the capability.
+            refreshConnectivity()
         }
     }
 
@@ -604,7 +611,7 @@ class MainViewModel : ViewModel() {
         cacheManager.initializeVideoCache(context)
 
         // Check connectivity and register callback for auto-detection
-        checkConnectivity()
+        refreshConnectivity()
         registerConnectivityCallback()
         startApiRetryLoop()
 
@@ -700,12 +707,28 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    private fun checkConnectivity() {
+    /**
+     * Re-evaluate connectivity from the system's CURRENT state and update the offline flag.
+     *
+     * Called at startup, on every network callback event and on every Activity resume.
+     * The resume re-check matters: while the app sits in the background Android can tear
+     * down / re-validate networks without delivering a callback afterwards, leaving a
+     * stale `isOffline = true` that no future event would clear ("no internet" banner on
+     * an app that is actually online).
+     */
+    fun refreshConnectivity() {
         try {
             val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-            val network = connectivityManager?.activeNetwork
-            val capabilities = connectivityManager?.getNetworkCapabilities(network)
-            val isConnected = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+            // Any network with internet capability counts — not just the active one, so a
+            // Wi-Fi→cellular switch never reads as offline mid-flight. allNetworks is the
+            // only synchronous snapshot API; it is deprecated for third-party privacy
+            // reasons, which do not apply to this self-contained check.
+            @Suppress("DEPRECATION")
+            val networks = connectivityManager?.allNetworks
+            val isConnected = networks?.any { network ->
+                connectivityManager.getNetworkCapabilities(network)
+                    ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+            } == true
             _isOffline.value = !isConnected
         } catch (_: Exception) {
             _isOffline.value = false

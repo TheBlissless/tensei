@@ -5,7 +5,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import java.net.URL
 
 data class Repo(
@@ -15,10 +14,17 @@ data class Repo(
 ) {
     companion object {
         fun fromJson(json: JsonObject): Repo {
+            // "meta" is the Mihon store root format; top-level "name" is the
+            // keiyoushi/anime-repo format. Both carry an extensions array, but
+            // keiyoushi nests it under "extensionList".
+            val meta = json["meta"] as? JsonObject
+            val extensions = ((json["extensions"] as? JsonArray)
+                ?: (json["extensionList"] as? JsonObject)?.get("extensions") as? JsonArray
+                ?: emptyList()).map { RepoExtension.fromJson(it.jsonObject) }
             return Repo(
-                name = json["name"]?.jsonPrimitive?.content ?: "",
-                description = json["description"]?.jsonPrimitive?.content ?: "",
-                extensions = (json["extensions"] as? JsonArray)?.map { it.jsonObject.let(RepoExtension::fromJson) } ?: emptyList()
+                name = json.string("name") ?: meta?.string("name") ?: "",
+                description = json.string("description") ?: meta?.string("description") ?: "",
+                extensions = extensions
             )
         }
     }
@@ -77,20 +83,45 @@ data class RepoExtension(
 ) {
     companion object {
         fun fromJson(json: JsonObject): RepoExtension {
-            val packageName = (json["pkg"] ?: json["packageName"])?.jsonPrimitive?.content ?: ""
-            val declaredType = ExtensionType.fromString((json["type"] as? JsonPrimitive)?.content)
+            val packageName = json.string("pkg") ?: json.string("packageName") ?: ""
+            val declaredType = ExtensionType.fromString(json.string("type"))
+            // Keiyoushi index keeps the artifacts in a nested "resources" object, with
+            // absolute URLs; other formats use flat relative "apk"/"icon" paths.
+            val resources = json["resources"] as? JsonObject
+            val sources = (json["sources"] as? JsonArray)
+                ?.map { RepoSources.fromJson(it.jsonObject) }
+                ?: emptyList()
             return RepoExtension(
-                name = json["name"]?.jsonPrimitive?.content ?: "",
+                name = json.string("name") ?: "",
                 packageName = packageName,
-                apk = json["apk"]?.jsonPrimitive?.content ?: json["url"]?.jsonPrimitive?.content ?: "",
-                icon = (json["icon"] ?: json["icons"])?.jsonPrimitive?.content ?: "",
-                lang = json["lang"]?.jsonPrimitive?.content ?: "en",
-                version = json["version"]?.jsonPrimitive?.content ?: "",
-                code = (json["code"] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L,
-                nsfw = (json["nsfw"] as? JsonPrimitive)?.content?.toBooleanStrictOrNull() ?: false,
-                sources = (json["sources"] as? JsonArray)?.map { it.jsonObject.let(RepoSources::fromJson) } ?: emptyList(),
+                apk = json.string("apk") ?: json.string("url")
+                    ?: resources?.string("apkUrl") ?: "",
+                icon = json.string("icon") ?: json.string("icons")
+                    ?: resources?.string("iconUrl") ?: "",
+                lang = json.string("lang") ?: sources.firstOrNull()?.lang?.takeIf { it.isNotBlank() } ?: "en",
+                version = json.string("version") ?: json.string("versionName") ?: "",
+                code = json.string("code")?.toLongOrNull()
+                    ?: json.string("versionCode")?.toLongOrNull() ?: 0L,
+                nsfw = parseNsfw(json),
+                sources = sources,
                 type = resolveType(declaredType, packageName)
             )
+        }
+
+        /**
+         * NSFW flags differ per format: Mihon-style repos use a boolean or a numeric
+         * 0/1/2 flag, keiyoushi uses a "contentWarning" enum string. A null or "0"
+         * value means SFW; anything else in the numeric case is treated as NSFW.
+         */
+        private fun parseNsfw(json: JsonObject): Boolean {
+            json.string("nsfw")?.let { raw ->
+                return raw.equals("true", ignoreCase = true) ||
+                    (raw.toIntOrNull()?.let { it > 0 } ?: false)
+            }
+            return when (json.string("contentWarning")) {
+                "CONTENT_WARNING_NSFW", "CONTENT_WARNING_MIXED" -> true
+                else -> false
+            }
         }
 
         /**
@@ -112,8 +143,8 @@ data class RepoSources(
     companion object {
         fun fromJson(json: JsonObject): RepoSources {
             return RepoSources(
-                name = json["name"]?.jsonPrimitive?.content ?: "",
-                lang = json["lang"]?.jsonPrimitive?.content ?: "en"
+                name = json.string("name") ?: "",
+                lang = json.string("lang") ?: json.string("language") ?: "en"
             )
         }
     }
@@ -153,7 +184,8 @@ fun parseRepoJson(repoUrl: String, jsonElement: JsonElement): Repo {
     }
 }
 
-private fun extractRepoName(repoUrl: String): String {
+/** Human-friendly repo name derived from its URL (e.g. "keiyoushi" for a raw.githubusercontent URL). */
+internal fun extractRepoName(repoUrl: String): String {
     return try {
         val url = URL(repoUrl)
         val host = url.host.lowercase()
@@ -173,3 +205,7 @@ private fun extractRepoName(repoUrl: String): String {
         repoUrl
     }
 }
+
+/** Content of [key] as a primitive string, or null when absent or not a primitive. */
+private fun JsonObject.string(key: String): String? =
+    (this[key] as? JsonPrimitive)?.content
