@@ -49,6 +49,10 @@ class MangaExtensionManager private constructor(
     private val _availableError = MutableStateFlow<String?>(null)
     val availableError: StateFlow<String?> = _availableError.asStateFlow()
 
+    /** Per-repo index fetch failures (repo URL -> error), so a single row can show ITS error. */
+    private val _availableRepoErrors = MutableStateFlow<Map<String, String>>(emptyMap())
+    val availableRepoErrors: StateFlow<Map<String, String>> = _availableRepoErrors.asStateFlow()
+
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
@@ -133,6 +137,7 @@ class MangaExtensionManager private constructor(
 
     fun fetchAvailable() {
         _availableError.value = null
+        _availableRepoErrors.value = emptyMap()
         scope.launch {
             val repos = _repos.value
             if (repos.isEmpty()) {
@@ -141,12 +146,18 @@ class MangaExtensionManager private constructor(
             }
             val available = mutableListOf<AvailableExtension>()
             val errors = mutableListOf<String>()
+            val repoErrors = mutableMapOf<String, String>()
             for (repo in repos) {
                 MangaExtensionRepository(client, json, protoBuf, repo).fetch()
                     .onSuccess { available += it }
-                    .onFailure { errors += repo.substringBeforeLast('/').orEmpty() + ": " + (it.message ?: "failed") }
+                    .onFailure {
+                        val message = it.message ?: "failed"
+                        errors += repo.substringBeforeLast('/').orEmpty() + ": " + message
+                        repoErrors[repo] = message
+                    }
             }
             _available.value = available.distinctBy { it.pkgName }.sortedBy { it.name.lowercase() }
+            _availableRepoErrors.value = repoErrors
             _availableError.value = errors.takeIf { it.isNotEmpty() }?.joinToString("\n")
             if (autoUpdateEnabled()) {
                 autoUpdate()

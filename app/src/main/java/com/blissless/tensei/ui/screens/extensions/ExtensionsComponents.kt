@@ -102,6 +102,7 @@ import com.blissless.tensei.extensions.Extension
 import com.blissless.tensei.extensions.anime.AnimeExtensionInstaller
 import com.blissless.tensei.extensions.repo.ExtensionType
 import com.blissless.tensei.extensions.repo.RepoKind
+import com.blissless.tensei.extensions.repo.extractRepoName
 import com.blissless.tensei.viewmodel.ExtensionsViewModel
 import com.blissless.tensei.viewmodel.RepoState
 
@@ -164,11 +165,19 @@ internal sealed interface InstalledItem {
 }
 
 
-/** A repository row, combining an anime repo state (if any) with the manga repo listing. */
+/** A repository row, combining an anime repo state (if any) with the manga repo listing.
+ *
+ * Manga-only repositories (keiyoushi and other Mihon stores) have no anime [RepoState]; their
+ * browse data lives in the MangaExtensionManager's store, summarized here by [mangaCount]
+ * (null while the store is still loading), [mangaIsLoading] and [mangaError].
+ */
 internal data class RepoRow(
     val url: String,
     val anime: RepoState?,
     val isManga: Boolean,
+    val mangaCount: Int? = null,
+    val mangaIsLoading: Boolean = false,
+    val mangaError: String? = null,
 )
 
 
@@ -501,23 +510,31 @@ internal fun ExtensionsRepoRow(
     val scheme = MaterialTheme.colorScheme
     val animeState = row.anime
     val repo = animeState?.repo
-    val isReady = repo != null
+    // A manga-only repo (keiyoushi & friends) is browsed from the manga store, not from an
+    // anime RepoState — which stays null for those. Readiness therefore also considers the
+    // manga store: the row is ready once that store has loaded (error-free) for this repo.
+    // Before this, manga-only rows were permanently greyed out with onClick = null and the
+    // manga browse screen was unreachable.
+    val mangaLoading = row.mangaIsLoading
+    val mangaError = row.mangaError
+    val mangaReady = row.isManga && row.mangaCount != null && mangaError == null
+    val isReady = repo != null || mangaReady
+    val isLoading = animeState?.isLoading == true || mangaLoading
+    val rowError = animeState?.error ?: mangaError
 
     ExtensionsRow(
-        title = repo?.name ?: row.url,
-        subtitle = if (animeState?.error != null) {
-            animeState.error
-        } else if (animeState?.isLoading == true) {
-            stringResource(R.string.extensions_loading)
-        } else if (isReady) {
-            repo.description.takeIf { it.isNotBlank() } ?: stringResource(R.string.extensions_available_count, repo.extensions.size)
-        } else if (row.isManga) {
-            stringResource(R.string.extensions_manga_repo_subtitle)
-        } else {
-            stringResource(R.string.extensions_tap_to_retry)
+        title = repo?.name ?: extractRepoName(row.url),
+        subtitle = when {
+            rowError != null -> rowError
+            isLoading -> stringResource(R.string.extensions_loading)
+            repo != null -> repo.description.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.extensions_available_count, repo.extensions.size)
+            row.mangaCount != null -> stringResource(R.string.extensions_available_count, row.mangaCount)
+            row.isManga -> stringResource(R.string.extensions_manga_repo_subtitle)
+            else -> stringResource(R.string.extensions_tap_to_retry)
         },
-        subtitleColor = if (animeState?.error != null) scheme.error else null,
-        subtitleBadges = if (animeState?.error != null) emptyList() else repoKindBadges(row),
+        subtitleColor = if (rowError != null) scheme.error else null,
+        subtitleBadges = if (rowError != null) emptyList() else repoKindBadges(row),
         onClick = if (isReady) onBrowse else null,
         leading = {
             Box(
@@ -533,7 +550,7 @@ internal fun ExtensionsRepoRow(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (animeState?.isLoading == true) {
+                if (isLoading) {
                     CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                 } else {
                     Icon(

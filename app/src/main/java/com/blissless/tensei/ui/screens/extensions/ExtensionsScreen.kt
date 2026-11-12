@@ -129,7 +129,7 @@ fun ExtensionsScreen(
     val mangaBusy by mangaManager.busy.collectAsState()
     val mangaMessage by mangaManager.message.collectAsState()
     val mangaAvailable by mangaManager.available.collectAsState()
-    val mangaAvailableError by mangaManager.availableError.collectAsState()
+    val mangaRepoErrors by mangaManager.availableRepoErrors.collectAsState()
 
     var searchQuery by remember { mutableStateOf("") }
     var showAddRepoDialog by remember { mutableStateOf(false) }
@@ -216,6 +216,7 @@ fun ExtensionsScreen(
         val browserState = selectedRepoState ?: run {
             val url = selectedMangaRepoUrl!!
             val available = mangaAvailable?.filter { it.repoUrl == url }.orEmpty()
+            val repoError = mangaRepoErrors[url]
             RepoState(
                 url = url,
                 repo = Repo(
@@ -223,8 +224,8 @@ fun ExtensionsScreen(
                     description = "",
                     extensions = available.map { it.toRepoExtension() }
                 ),
-                isLoading = mangaAvailable == null && mangaAvailableError == null,
-                error = mangaAvailableError
+                isLoading = mangaAvailable == null && repoError == null,
+                error = repoError
             )
         }
         ExtensionBrowserScreen(
@@ -284,16 +285,29 @@ fun ExtensionsScreen(
         }
     }
 
-    // Anime repositories and manga repositories merged into one list keyed by URL.
-    val repoRows = remember(uiState.repos, mangaRepoSet) {
+    // Anime repositories and manga repositories merged into one list keyed by URL. Manga-only
+    // rows carry their store state (extension count / loading / error) so the row itself can
+    // render and open the browse screen without any anime RepoState.
+    val repoRows = remember(uiState.repos, mangaRepoSet, mangaAvailable, mangaRepoErrors) {
         buildList {
             val seen = mutableSetOf<String>()
             uiState.repos.forEach {
                 seen += it.url
                 add(RepoRow(url = it.url, anime = it, isManga = it.url in mangaRepoSet))
             }
-            mangaRepoSet.filterNot { it in seen }.forEach {
-                add(RepoRow(url = it, anime = null, isManga = true))
+            mangaRepoSet.filterNot { it in seen }.forEach { url ->
+                val repoExtensions = mangaAvailable?.filter { it.repoUrl == url }
+                val repoError = mangaRepoErrors[url]
+                add(
+                    RepoRow(
+                        url = url,
+                        anime = null,
+                        isManga = true,
+                        mangaCount = repoExtensions?.size,
+                        mangaIsLoading = repoExtensions == null && repoError == null,
+                        mangaError = repoError,
+                    )
+                )
             }
         }
     }
