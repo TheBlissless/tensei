@@ -90,6 +90,12 @@ fun MainViewModel.setDiscordRichPresence(enabled: Boolean) {
     }
 }
 
+fun MainViewModel.setAutoCrossSync(enabled: Boolean) =
+    userPreferences.setAutoCrossSync(enabled)
+
+fun MainViewModel.setAutoCrossSyncDirection(direction: String?) =
+    userPreferences.setAutoCrossSyncDirection(direction)
+
 fun MainViewModel.setDefaultSubtitleLang(lang: String) =
     userPreferences.setDefaultSubtitleLang(lang)
 

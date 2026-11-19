@@ -74,6 +74,8 @@ internal fun PlayerEngineEffects(
     autoSkipEnding: Boolean,
     autoPlayNextEpisode: Boolean,
     discordRichPresence: Boolean,
+    discordImage: String? = null,
+    discordUrl: String? = null,
     episodeInfo: com.blissless.tensei.data.models.EpisodeStreams?,
     extensionServers: List<com.blissless.tensei.data.models.ServerInfo>,
     extensionOkHttpClient: okhttp3.OkHttpClient?,
@@ -295,8 +297,10 @@ internal fun PlayerEngineEffects(
         }
     }
 
-    // Discord Rich Presence — set when playback starts, update countdown periodically
-    LaunchedEffect(s.hasPlaybackStarted, discordRichPresence, animeName, currentEpisode, totalEpisodes) {
+    // Discord Rich Presence — set when playback starts, update countdown periodically.
+    // Artwork/page metadata is part of the keys so a late-arriving banner or a login change
+    // refreshes the presence.
+    LaunchedEffect(s.hasPlaybackStarted, discordRichPresence, animeName, currentEpisode, totalEpisodes, discordImage, discordUrl) {
         if (s.hasPlaybackStarted && discordRichPresence && animeName.isNotEmpty()) {
             com.blissless.tensei.discord.DiscordRichPresence.connect()
             // Wait for s.duration to become available before sending presence
@@ -309,6 +313,8 @@ internal fun PlayerEngineEffects(
                 totalEpisodes = totalEpisodes,
                 durationMs = engine.duration,
                 currentPositionMs = engine.currentPosition,
+                imageUrl = discordImage,
+                targetUrl = discordUrl,
             )
             while (true) {
                 delay(30_000L.milliseconds)
@@ -318,6 +324,8 @@ internal fun PlayerEngineEffects(
                     totalEpisodes = totalEpisodes,
                     durationMs = engine.duration,
                     currentPositionMs = engine.currentPosition,
+                    imageUrl = discordImage,
+                    targetUrl = discordUrl,
                 )
             }
         }

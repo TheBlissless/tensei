@@ -7,6 +7,8 @@ import com.blissless.tensei.BuildConfig
 import com.blissless.tensei.network.Endpoints
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -24,6 +26,9 @@ class MalApiService(context: Context) {
         private const val MAL_API_BASE = Endpoints.Mal.API_BASE
         private const val TIMEOUT_MS = 15000
     }
+
+    /** Serialize refreshes so parallel syncs cannot rotate/invalidate each other's token. */
+    private val tokenRefreshMutex = Mutex()
 
     /**
      * Perform a PUT with urlencoded [formParams], manually following redirects so the
@@ -54,6 +59,10 @@ class MalApiService(context: Context) {
                 if (location.isNullOrBlank()) return responseCode
                 currentUrl = URL(currentUrl, location)
             } else {
+                if (responseCode !in 200..299) {
+                    val err = conn.errorStream?.bufferedReader()?.use { it.readText().take(300) } ?: ""
+                    android.util.Log.w("MalApi", "execPutWithAuth HTTP $responseCode for $currentUrl err=$err")
+                }
                 return responseCode
             }
         }
@@ -170,7 +179,110 @@ class MalApiService(context: Context) {
         }
     }
 
-    private fun fetchUserInfo() {
+    /**
+     * Exchange the stored refresh token for a fresh access token. MAL access tokens expire
+     * (30 days by default) and the app previously never used the refresh token it saved, so
+     * every write eventually started failing with HTTP 401 — e.g. syncing a single episode to
+     * MAL while every other entry was already in sync.
+     */
+    suspend fun refreshAccessToken(): Boolean {
+        // If another coroutine refreshed while we were waiting, our request was made with an
+        // already-stale token; the current header is valid and the caller can simply retry.
+        val tokenBefore = authManager.getAuthHeader()
+        return tokenRefreshMutex.withLock {
+            if (tokenBefore != null && authManager.getAuthHeader() != tokenBefore) {
+                android.util.Log.i("MalAuth", "refreshAccessToken: another refresh already updated the token")
+                true
+            } else {
+                withContext(Dispatchers.IO) {
+                    val refreshToken = authManager.refreshToken
+                    if (refreshToken.isNullOrBlank()) {
+                        android.util.Log.w("MalAuth", "refreshAccessToken: no refresh token stored — user must sign in to MAL again")
+                        return@withContext false
+                    }
+                    try {
+                        val conn = URL(Endpoints.Mal.TOKEN_URL).openConnection() as HttpURLConnection
+                        conn.requestMethod = "POST"
+                        conn.doOutput = true
+                        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                        conn.setRequestProperty("X-MAL-CLIENT-ID", BuildConfig.MAL_CLIENT_ID)
+                        conn.connectTimeout = TIMEOUT_MS
+                        conn.readTimeout = TIMEOUT_MS
+
+                        val postData = buildString {
+                            append("client_id=${URLEncoder.encode(BuildConfig.MAL_CLIENT_ID, "UTF-8")}")
+                            append("&grant_type=refresh_token")
+                            append("&refresh_token=${URLEncoder.encode(refreshToken, "UTF-8")}")
+                        }
+                        conn.outputStream.use { it.write(postData.toByteArray(Charsets.UTF_8)) }
+
+                        val responseCode = conn.responseCode
+                        if (responseCode == HttpURLConnection.HTTP_OK) {
+                            parseAndSaveToken(conn.inputStream.bufferedReader().use { it.readText() })
+                            android.util.Log.i("MalAuth", "refreshAccessToken: access token refreshed")
+                            true
+                        } else {
+                            val err = conn.errorStream?.bufferedReader()?.use { it.readText().take(300) } ?: ""
+                            android.util.Log.w("MalAuth", "refreshAccessToken FAILED code=$responseCode err=$err — user must sign in to MAL again")
+                            false
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.w("MalAuth", "refreshAccessToken failed: ${e.message}", e)
+                        false
+                    }
+                }
+            }
+        }
+    }
+
+    /** Refresh proactively when the stored token is known to have expired, then return the header. */
+    private suspend fun authHeader(): String? = withContext(Dispatchers.IO) {
+        if (authManager.needsRefresh()) {
+            android.util.Log.i("MalAuth", "authHeader: access token expired, refreshing before request")
+            refreshAccessToken()
+        }
+        authManager.getAuthHeader()
+    }
+
+    /** Authenticated PUT with one forced refresh + retry when MAL answers 401. */
+    private suspend fun authenticatedPut(url: URL, formParams: String): Int = withContext(Dispatchers.IO) {
+        for (attempt in 0..1) {
+            val header = authHeader() ?: return@withContext -3
+            val code = execPutWithAuth(url, formParams, header)
+            if (code == 401 && attempt == 0) {
+                android.util.Log.w("MalApi", "authenticatedPut: 401 from MAL, refreshing token and retrying once")
+                if (refreshAccessToken()) continue
+            }
+            return@withContext code
+        }
+        -3
+    }
+
+    /** Authenticated DELETE with the same refresh-and-retry behaviour as PUT. */
+    private suspend fun authenticatedDelete(url: URL): Int = withContext(Dispatchers.IO) {
+        for (attempt in 0..1) {
+            val header = authHeader() ?: return@withContext -3
+            try {
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "DELETE"
+                conn.setRequestProperty("Authorization", header)
+                conn.connectTimeout = TIMEOUT_MS
+                conn.readTimeout = TIMEOUT_MS
+                val code = conn.responseCode
+                if (code == 401 && attempt == 0) {
+                    android.util.Log.w("MalApi", "authenticatedDelete: 401 from MAL, refreshing token and retrying once")
+                    if (refreshAccessToken()) continue
+                }
+                return@withContext code
+            } catch (e: Exception) {
+                android.util.Log.w("MalApi", "authenticatedDelete failed: ${e.message}")
+                return@withContext -1
+            }
+        }
+        -3
+    }
+
+    private suspend fun fetchUserInfo() {
         val response = makeGetRequest("$MAL_API_BASE/users/@me?fields=name,picture")
         if (response != null) {
             try {
@@ -391,12 +503,12 @@ class MalApiService(context: Context) {
      * the site's load.json does not take the X-MAL-CLIENT-ID header; we still send the bearer token
      * when available. Returns the raw body on HTTP 200, otherwise null.
      */
-    private fun makeWebGetRequest(path: String): String? {
+    private suspend fun makeWebGetRequest(path: String): String? {
         return try {
             val conn = URL(path).openConnection() as HttpURLConnection
             conn.requestMethod = "GET"
             conn.instanceFollowRedirects = true
-            authManager.getAuthHeader()?.let { conn.setRequestProperty("Authorization", it) }
+            authHeader()?.let { conn.setRequestProperty("Authorization", it) }
             conn.connectTimeout = TIMEOUT_MS
             conn.readTimeout = TIMEOUT_MS
             val responseCode = conn.responseCode
@@ -674,8 +786,6 @@ class MalApiService(context: Context) {
     suspend fun updateAnimeStatus(animeId: Int, status: String?, score: Int? = null, episodesWatched: Int? = null): Boolean =
         withContext(Dispatchers.IO) {
             try {
-                val authHeader = authManager.getAuthHeader() ?: return@withContext false
-
                 val url = URL("$MAL_API_BASE/anime/$animeId/my_list_status")
 
                 val params = mutableListOf<String>()
@@ -687,7 +797,7 @@ class MalApiService(context: Context) {
                     return@withContext false
                 }
 
-                val responseCode = execPutWithAuth(url, params.joinToString("&"), authHeader)
+                val responseCode = authenticatedPut(url, params.joinToString("&"))
 
                 if (responseCode != HttpURLConnection.HTTP_OK && responseCode != 201) {
                     android.util.Log.w("MalApi", "updateAnimeStatus FAILED animeId=$animeId code=$responseCode")
@@ -704,16 +814,7 @@ class MalApiService(context: Context) {
     suspend fun deleteAnimeFromList(animeId: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val url = URL("$MAL_API_BASE/anime/$animeId/my_list_status")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "DELETE"
-            conn.setRequestProperty(
-                "Authorization",
-                authManager.getAuthHeader() ?: return@withContext false
-            )
-            conn.connectTimeout = TIMEOUT_MS
-            conn.readTimeout = TIMEOUT_MS
-
-            val responseCode = conn.responseCode
+            val responseCode = authenticatedDelete(url)
             responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_NOT_FOUND
         } catch (e: Exception) {
             e.printStackTrace()
@@ -735,8 +836,6 @@ class MalApiService(context: Context) {
         chaptersRead: Int? = null
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            val authHeader = authManager.getAuthHeader() ?: return@withContext false
-
             val url = URL("$MAL_API_BASE/manga/$malMangaId/my_list_status")
 
             val params = mutableListOf<String>()
@@ -748,7 +847,7 @@ class MalApiService(context: Context) {
                 return@withContext false
             }
 
-            val responseCode = execPutWithAuth(url, params.joinToString("&"), authHeader)
+            val responseCode = authenticatedPut(url, params.joinToString("&"))
 
             if (responseCode != HttpURLConnection.HTTP_OK && responseCode != 201) {
                 android.util.Log.w("MalApi", "updateMangaStatus FAILED mangaId=$malMangaId code=$responseCode")
@@ -765,16 +864,7 @@ class MalApiService(context: Context) {
     suspend fun deleteMangaFromList(malMangaId: Int): Boolean = withContext(Dispatchers.IO) {
         try {
             val url = URL("$MAL_API_BASE/manga/$malMangaId/my_list_status")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "DELETE"
-            conn.setRequestProperty(
-                "Authorization",
-                authManager.getAuthHeader() ?: return@withContext false
-            )
-            conn.connectTimeout = TIMEOUT_MS
-            conn.readTimeout = TIMEOUT_MS
-
-            val responseCode = conn.responseCode
+            val responseCode = authenticatedDelete(url)
             responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_NOT_FOUND
         } catch (e: Exception) {
             e.printStackTrace()
@@ -782,33 +872,34 @@ class MalApiService(context: Context) {
         }
     }
 
-    private fun makeGetRequest(path: String): String? {
-        return try {
-            val authHeader = authManager.getAuthHeader() ?: return null
+    private suspend fun makeGetRequest(path: String): String? = withContext(Dispatchers.IO) {
+        for (attempt in 0..1) {
+            val authHeader = authHeader() ?: return@withContext null
+            try {
+                val conn = URL(path).openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.setRequestProperty("Authorization", authHeader)
+                conn.setRequestProperty("X-MAL-CLIENT-ID", BuildConfig.MAL_CLIENT_ID)
+                conn.connectTimeout = TIMEOUT_MS
+                conn.readTimeout = TIMEOUT_MS
 
-            val url = URL(path)
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.setRequestProperty("Authorization", authHeader)
-            conn.setRequestProperty("X-MAL-CLIENT-ID", BuildConfig.MAL_CLIENT_ID)
-            conn.connectTimeout = TIMEOUT_MS
-            conn.readTimeout = TIMEOUT_MS
-
-            val responseCode = conn.responseCode
-            if (responseCode == HttpURLConnection.HTTP_OK) {
-                val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val response = reader.readText()
-                reader.close()
-                response
-            } else {
+                val responseCode = conn.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    return@withContext conn.inputStream.bufferedReader().use { it.readText() }
+                }
+                if (responseCode == 401 && attempt == 0) {
+                    android.util.Log.w("MalList", "makeGetRequest: 401 from MAL, refreshing token and retrying once")
+                    if (refreshAccessToken()) continue
+                }
                 val err = conn.errorStream?.bufferedReader()?.use { it.readText().take(200) } ?: ""
                 android.util.Log.w("MalList", "makeGetRequest HTTP $responseCode for $path err=$err")
-                null
+                return@withContext null
+            } catch (e: Exception) {
+                android.util.Log.w("MalList", "makeGetRequest failed: ${e.message}")
+                return@withContext null
             }
-        } catch (e: Exception) {
-            android.util.Log.w("MalList", "makeGetRequest failed: ${e.message}")
-            null
         }
+        null
     }
 
     /**

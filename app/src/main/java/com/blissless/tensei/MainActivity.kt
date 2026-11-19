@@ -473,6 +473,12 @@ class MainActivity : ComponentActivity() {
 
             val dialogThemeMode = remember(themeModeStr) { ThemeMode.fromValue(themeModeStr) }
             AppTheme(themeMode = dialogThemeMode, colorMode = resolvedColorMode) {
+            // Detail view behind the sync dialog's change counts; lives on top of the sync
+            // dialog and disappears together with it.
+            var showPendingSyncDetails by remember { mutableStateOf(false) }
+            LaunchedEffect(crossCopyPrompt?.visible) {
+                if (crossCopyPrompt?.visible != true) showPendingSyncDetails = false
+            }
             crossCopyPrompt?.takeIf { it.visible }?.let { prompt ->
                 com.blissless.tensei.ui.components.CrossProviderSyncDialog(
                     aniToMalAnime = prompt.aniToMalAnime,
@@ -483,8 +489,24 @@ class MainActivity : ComponentActivity() {
                     isOled = isOled,
                     onDismiss = { mainViewModel.dismissCrossProviderCopyPrompt() },
                     onSyncAniListToMal = { mainViewModel.applyCrossProviderCopy(toMal = true) },
-                    onSyncMalToAniList = { mainViewModel.applyCrossProviderCopy(toMal = false) }
+                    onSyncMalToAniList = { mainViewModel.applyCrossProviderCopy(toMal = false) },
+                    onShowPendingChanges = { showPendingSyncDetails = true }
                 )
+            }
+            if (showPendingSyncDetails && crossCopyPrompt?.visible == true) {
+                val prompt = crossCopyPrompt
+                if (prompt != null) {
+                    com.blissless.tensei.ui.components.PendingSyncChangesDialog(
+                        entries = prompt.entries,
+                        aniToMalAnime = prompt.aniToMalAnime,
+                        aniToMalManga = prompt.aniToMalManga,
+                        malToAniAnime = prompt.malToAniAnime,
+                        malToAniManga = prompt.malToAniManga,
+                        useMonochrome = resolvedColorMode == ColorMode.MONOCHROME,
+                        isOled = isOled,
+                        onDismiss = { showPendingSyncDetails = false }
+                    )
+                }
             }
 
             } // end AppTheme wrapping the cross-provider dialogs

@@ -261,7 +261,10 @@ fun StatusListScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = if (isManga) "${mangaList.size} manga" else "${animeList.size} anime",
+                                text = stringResource(
+                                    if (isManga) R.string.lists_count_manga else R.string.lists_count_anime,
+                                    if (isManga) mangaList.size else animeList.size
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

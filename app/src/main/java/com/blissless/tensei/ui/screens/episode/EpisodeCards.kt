@@ -432,15 +432,16 @@ internal fun RichTmdbEpisodeCard(
                         if (!image.isNullOrEmpty()) {
                             AsyncImage(model = image,                             contentDescription = stringResource(R.string.lists_episode, episodeNumber), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         } else {
-                            // Gradient placeholder with a faint episode number watermark
+                            // Gradient placeholder with a faint episode number watermark —
+                            // theme-aware so it doesn't render as a black block in light mode.
                             Box(
-                                modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(Color(0xFF2B2B2B), Color(0xFF141414))))
+                                modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(colors = listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surface)))
                             )
                             Text(
                                 text = "$episodeNumber",
                                 style = MaterialTheme.typography.displayMedium,
                                 fontWeight = FontWeight.Black,
-                                color = Color.White.copy(alpha = 0.08f),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
                                 modifier = Modifier.align(Alignment.Center)
                             )
                         }

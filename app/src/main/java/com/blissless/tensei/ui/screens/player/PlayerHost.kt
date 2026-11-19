@@ -82,6 +82,19 @@ fun PlayerHost(
         val playerDisplayTitle = if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
         val hideEpisodeDescription by viewModel.hideEpisodeDescription.collectAsState()
         val discordRichPresence by viewModel.discordRichPresence.collectAsState()
+        val loginProvider by viewModel.loginProvider.collectAsState(initial = com.blissless.tensei.mal.LoginProvider.NONE)
+        // Rich Presence uses the highest-quality cover art (AniList extraLarge / MAL large)
+        // because a portrait cover reads much better than a wide banner in Discord's small
+        // asset slot. The tracker page follows the active login, with AniList preferred.
+        val discordImage = anime.cover.takeIf { it.isNotBlank() }
+        val discordUrl = when (loginProvider) {
+            com.blissless.tensei.mal.LoginProvider.MAL ->
+                anime.malId?.let { "https://myanimelist.net/anime/$it" }
+            com.blissless.tensei.mal.LoginProvider.ANILIST,
+            com.blissless.tensei.mal.LoginProvider.BOTH ->
+                anime.siteUrl?.takeIf { it.isNotBlank() } ?: "https://anilist.co/anime/${anime.id}"
+            else -> null
+        }
 
         @Composable
         fun PlayerUi() {
@@ -98,6 +111,8 @@ fun PlayerHost(
             animeId = anime.id,
             malId = anime.malId ?: 0,
             animeYear = anime.year,
+            discordImage = discordImage,
+            discordUrl = discordUrl,
             isLoadingStream = state.isLoadingStream,
             episodeInfo = state.currentEpisodeInfo,
             currentServerName = state.currentServerName,

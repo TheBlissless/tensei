@@ -731,7 +731,7 @@ internal fun MangaDetailCharactersItem(
                                     ) {
                                         Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
                                             Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxSize(),
-                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A))
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                             ) {
                                                 AsyncImage(model = character.image?.large ?: "", contentDescription = character.name?.full,
                                                     contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -840,7 +840,7 @@ internal fun MangaDetailStaffItem(
                                         ) {
                                             Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
                                                 Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxSize(),
-                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A))
+                                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                                 ) {
                                                     AsyncImage(model = staffNode.image?.large ?: "", contentDescription = staffNode.name?.full,
                                                         contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

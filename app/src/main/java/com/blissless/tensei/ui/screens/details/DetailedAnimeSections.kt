@@ -887,7 +887,7 @@ internal fun AnimeDetailCharactersItem(
                                             Card(
                                                 shape = RoundedCornerShape(12.dp),
                                                 modifier = Modifier.fillMaxSize(),
-                                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A))
+                                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                             ) {
                                                 AsyncImage(
                                                     model = character.image?.large,
@@ -1048,7 +1048,7 @@ internal fun AnimeDetailStaffItem(
                                                 Card(
                                                     shape = RoundedCornerShape(12.dp),
                                                     modifier = Modifier.fillMaxSize(),
-                                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0A0A0A))
+                                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                                                 ) {
                                                     AsyncImage(
                                                         model = staff.image?.large,

@@ -100,11 +100,15 @@ fun HomeAnimeStatusDialog(
                             if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title,
                             style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Spacer(modifier = Modifier.height(4.dp))
+                        // Same rule as the list cards: three numbers (watched / aired / total)
+                        // only while the series is currently airing; finished series show
+                        // watched / total because aired would just repeat the total.
                         val latestEp = anime.latestEpisode?.takeIf { it > 0 }
                         val totalEp = anime.totalEpisodes.takeIf { it > 0 }
+                        val airing = anime.status == "RELEASING" || anime.status == "NOT_YET_RELEASED"
                         val progressText = when {
-                            latestEp != null && latestEp > 0 && totalEp != null -> "${anime.progress} / $latestEp / $totalEp"
-                            latestEp != null && latestEp > 0 -> "${anime.progress} / $latestEp"
+                            airing && latestEp != null && totalEp != null -> "${anime.progress} / $latestEp / $totalEp"
+                            airing && latestEp != null -> "${anime.progress} / $latestEp"
                             totalEp != null -> "${anime.progress} / $totalEp"
                             else -> "${anime.progress}"
                         }

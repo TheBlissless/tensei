@@ -88,6 +88,10 @@ class MalAuthManager(context: Context) {
         private const val KEY_TOKEN_TYPE = "token_type"
         private const val KEY_EXPIRES_IN = "expires_in"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
+        /** When the access token was stored — needed to know if `expires_in` has elapsed. */
+        private const val KEY_TOKEN_SAVED_AT = "token_saved_at"
+        /** Refresh a little before the token actually expires to avoid failed writes. */
+        private const val REFRESH_SKEW_MS = 2 * 60 * 1000L
         private const val KEY_USER_INFO = "user_info"
         private const val KEY_USER_NAME = "user_name"
         private const val KEY_USER_PICTURE = "user_picture"
@@ -115,6 +119,7 @@ class MalAuthManager(context: Context) {
             putString(KEY_ACCESS_TOKEN, token)
             putString(KEY_TOKEN_TYPE, tokenType)
             putInt(KEY_EXPIRES_IN, expiresIn)
+            putLong(KEY_TOKEN_SAVED_AT, System.currentTimeMillis())
             refreshToken?.let { putString(KEY_REFRESH_TOKEN, it) }
         }
         _accessToken.value = token
@@ -126,6 +131,7 @@ class MalAuthManager(context: Context) {
             remove(KEY_TOKEN_TYPE)
             remove(KEY_EXPIRES_IN)
             remove(KEY_REFRESH_TOKEN)
+            remove(KEY_TOKEN_SAVED_AT)
             remove(KEY_USER_INFO)
             remove(KEY_USER_NAME)
             remove(KEY_USER_PICTURE)
@@ -154,6 +160,23 @@ class MalAuthManager(context: Context) {
         val token = _accessToken.value ?: return null
         val tokenType = prefs.getString(KEY_TOKEN_TYPE, "Bearer") ?: "Bearer"
         return "$tokenType $token"
+    }
+
+    /** Stored OAuth refresh token, if the user authorized MAL with one. */
+    val refreshToken: String?
+        get() = prefs.getString(KEY_REFRESH_TOKEN, null)?.takeIf { it.isNotBlank() }
+
+    /**
+     * True when a refresh should be attempted before making a request. Older installs never
+     * stored the issue time, so they return false here and rely on the reactive 401 retry in
+     * [MalApiService] instead.
+     */
+    fun needsRefresh(now: Long = System.currentTimeMillis()): Boolean {
+        if (_accessToken.value == null || refreshToken == null) return false
+        val expiresIn = prefs.getInt(KEY_EXPIRES_IN, 0)
+        val savedAt = prefs.getLong(KEY_TOKEN_SAVED_AT, 0L)
+        if (expiresIn <= 0 || savedAt <= 0L) return false
+        return now >= savedAt + expiresIn * 1000L - REFRESH_SKEW_MS
     }
     
     fun saveCodeVerifier(verifier: String) {

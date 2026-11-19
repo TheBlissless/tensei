@@ -2,6 +2,7 @@ package com.blissless.tensei.viewmodel
 
 import com.blissless.tensei.viewmodel.MainViewModel
 import com.blissless.tensei.data.models.MangaMedia
+import com.blissless.tensei.data.prefs.UserPreferences
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -28,7 +29,9 @@ import com.blissless.tensei.data.anime.deleteListEntry
  * false so it re-appears on the next start, while the one-time post-login prompt uses true.
  * [aniToMalChanges]/[malToAniChanges] are the number of entries that would change on each
  * provider, so the dialog can show how far out of sync each side is. The ...Anime/...Manga
- * fields break that total down by type so the dialog can show exactly what differs. */
+ * fields break that total down by type so the dialog can show exactly what differs. [entries]
+ * carries the per-entry diff behind those counts so the "pending changes" list can show
+ * exactly which titles differ and how (status/score/progress on each side). */
 data class CrossProviderCopyPrompt(
     val visible: Boolean,
     val markDoneOnDismiss: Boolean = true,
@@ -37,7 +40,27 @@ data class CrossProviderCopyPrompt(
     val aniToMalAnime: Int = 0,
     val aniToMalManga: Int = 0,
     val malToAniAnime: Int = 0,
-    val malToAniManga: Int = 0
+    val malToAniManga: Int = 0,
+    val entries: List<PendingSyncEntry> = emptyList()
+)
+
+/**
+ * One entry-level difference between the two providers. Both sides' values are kept (statuses
+ * normalized to the AniList-style keys "CURRENT"/"PLANNING"/"COMPLETED"/"PAUSED"/"DROPPED");
+ * a side the entry is missing from has a null status. The pending-changes UI renders these per
+ * direction: the chosen source's values win, the target's values are replaced.
+ */
+data class PendingSyncEntry(
+    val title: String,
+    val isManga: Boolean,
+    val onAniList: Boolean,
+    val onMal: Boolean,
+    val aniStatus: String?,
+    val aniScore: Int,
+    val aniProgress: Int,
+    val malStatus: String?,
+    val malScore: Int,
+    val malProgress: Int
 )
 
 /**
@@ -66,6 +89,13 @@ data class CrossProviderCopyProgress(
 private val _crossProviderCopyProgress = MutableStateFlow<CrossProviderCopyProgress>(CrossProviderCopyProgress())
 val MainViewModel.crossProviderCopyProgress: StateFlow<CrossProviderCopyProgress>
     get() = _crossProviderCopyProgress.asStateFlow()
+
+/** True while the settings "review sync changes" action is computing the diff or its dialog is
+ *  open. The UI disables the button during this time so repeated taps cannot launch several
+ *  parallel (and very slow) provider-list comparisons. */
+private val _crossProviderReviewLoading = MutableStateFlow(false)
+val MainViewModel.crossProviderReviewLoading: StateFlow<Boolean>
+    get() = _crossProviderReviewLoading.asStateFlow()
 
 private const val SYNC_NOTIFICATION_CHANNEL = "cross_provider_sync"
 private const val SYNC_NOTIFICATION_ID = 2002
@@ -135,10 +165,17 @@ private fun hasNotificationPermission(context: Context): Boolean =
 /**
  * Offer the one-time copy when BOTH providers are logged in. Called after login callbacks.
  * Shows the overlay prompt once (guarded by a persisted flag) so the user can pick a direction,
- * or skip. After the copy, ongoing diff-sync keeps the two providers reconciled.
+ * or skip. After the copy, ongoing diff-sync keeps the two providers reconciled. When the
+ * "automatic sync" setting is on with a chosen direction, no prompt is shown — the copy runs
+ * silently in that direction instead.
  */
 fun MainViewModel.offerCrossProviderSync() {
     if (!isBothActive) return
+    if (userPreferences.autoCrossSync.value && userPreferences.autoCrossSyncDirection.value != null) {
+        // Automatic mode opted in: sync in the chosen direction without asking.
+        viewModelScope.launch { autoCrossProviderSyncIfChanged() }
+        return
+    }
     if (userPreferences.isCrossProviderCopyDone()) {
         // One-time copy already handled — ensure ongoing diff-sync is running.
         viewModelScope.launch { runCrossProviderDiffSync() }
@@ -146,50 +183,87 @@ fun MainViewModel.offerCrossProviderSync() {
     }
     // Only ask when the two providers' lists actually differ; identical lists need no dialog.
     viewModelScope.launch {
-        val counts = computeCrossProviderDiffCounts()
-        if (counts != null && (counts.aniToMal > 0 || counts.malToAniList > 0)) {
-            _crossProviderCopyPrompt.value = CrossProviderCopyPrompt(
-                visible = true,
-                aniToMalChanges = counts.aniToMal,
-                malToAniChanges = counts.malToAniList,
-                aniToMalAnime = counts.aniToMalAnime,
-                aniToMalManga = counts.aniToMalManga,
-                malToAniAnime = counts.malToAniListAnime,
-                malToAniManga = counts.malToAniListManga
-            )
+        val counts = computeCrossProviderDiffCounts() ?: return@launch
+        if (counts.aniToMal > 0 || counts.malToAniList > 0) {
+            _crossProviderCopyPrompt.value = counts.toPrompt(markDoneOnDismiss = true)
         }
     }
 }
 
 /**
  * Force-show the copy dialog, bypassing the one-time flag. Used on app startup while both
- * providers are logged in so the user can manually decide whether to sync. [markDoneOnDismiss]
- * must be false here so dismissing on startup never suppresses the one-time post-login question.
- * The dialog only appears when the two providers' lists actually differ.
+ * providers are logged in so the user can manually decide whether to sync, and by the
+ * "review sync changes" button in settings (which sets [forceShow] so the dialog appears even
+ * when the automatic setting would otherwise swallow it, and even when both sides are already
+ * in sync). [markDoneOnDismiss] must be false for the startup ask so dismissing never
+ * suppresses the one-time post-login question. Without [forceShow], the dialog only appears
+ * when the two providers' lists actually differ — and when the automatic sync setting is on
+ * with a chosen direction, the copy is applied in that direction instead of asking.
  */
-fun MainViewModel.showCrossProviderCopyDialog(markDoneOnDismiss: Boolean = true) {
-    if (!isBothActive) return
+fun MainViewModel.showCrossProviderCopyDialog(markDoneOnDismiss: Boolean = true, forceShow: Boolean = false) {
+    if (_crossProviderCopyPrompt.value?.visible == true) return
+    if (!isBothActive) {
+        if (forceShow) {
+            viewModelScope.launch { _toastMessage.emit(context.getString(R.string.settings_sync_toast_login_required)) }
+        }
+        return
+    }
+    // The settings button forces the dialog; mark it busy so repeated taps cannot start
+    // multiple diff computations. It stays disabled until the dialog is dismissed/applied
+    // (or until the comparison fails, see below).
+    if (forceShow) _crossProviderReviewLoading.value = true
     viewModelScope.launch {
         val counts = computeCrossProviderDiffCounts()
-        if (counts != null && (counts.aniToMal > 0 || counts.malToAniList > 0)) {
-            _crossProviderCopyPrompt.value = CrossProviderCopyPrompt(
-                visible = true,
-                markDoneOnDismiss = markDoneOnDismiss,
-                aniToMalChanges = counts.aniToMal,
-                malToAniChanges = counts.malToAniList,
-                aniToMalAnime = counts.aniToMalAnime,
-                aniToMalManga = counts.aniToMalManga,
-                malToAniAnime = counts.malToAniListAnime,
-                malToAniManga = counts.malToAniListManga
-            )
+        if (counts == null) {
+            if (forceShow) {
+                _crossProviderReviewLoading.value = false
+                _toastMessage.emit(context.getString(R.string.runtime_sync_unreachable_toast))
+            }
+            return@launch
+        }
+        val hasChanges = counts.aniToMal > 0 || counts.malToAniList > 0
+        // Automatic mode opted in (and not forced from settings): sync silently instead of asking.
+        if (!forceShow && userPreferences.autoCrossSync.value && userPreferences.autoCrossSyncDirection.value != null) {
+            autoCrossProviderSyncIfChanged(counts)
+            return@launch
+        }
+        if (forceShow || hasChanges) {
+            _crossProviderCopyPrompt.value = counts.toPrompt(markDoneOnDismiss = markDoneOnDismiss)
         }
     }
 }
+
+/**
+ * Apply the automatic cross-provider copy in the user's chosen direction when the two
+ * providers have actually diverged. Recomputes the diff when no [counts] are supplied.
+ * The manual settings button never lands here — it always shows the dialog instead.
+ */
+private suspend fun MainViewModel.autoCrossProviderSyncIfChanged(counts: CrossProviderDiffCounts? = null) {
+    val direction = userPreferences.autoCrossSyncDirection.value ?: return
+    val diff = counts ?: computeCrossProviderDiffCounts() ?: return
+    if (diff.aniToMal > 0 || diff.malToAniList > 0) {
+        applyCrossProviderCopy(toMal = direction == UserPreferences.AUTO_SYNC_DIRECTION_ANI_TO_MAL)
+    }
+}
+
+/** Build the prompt state (with per-entry details) from a computed diff. */
+private fun CrossProviderDiffCounts.toPrompt(markDoneOnDismiss: Boolean) = CrossProviderCopyPrompt(
+    visible = true,
+    markDoneOnDismiss = markDoneOnDismiss,
+    aniToMalChanges = aniToMal,
+    malToAniChanges = malToAniList,
+    aniToMalAnime = aniToMalAnime,
+    aniToMalManga = aniToMalManga,
+    malToAniAnime = malToAniListAnime,
+    malToAniManga = malToAniListManga,
+    entries = entries
+)
 
 /** Dismiss the copy prompt without performing a copy ("Don't sync existing entries"). */
 fun MainViewModel.dismissCrossProviderCopyPrompt() {
     val markDone = _crossProviderCopyPrompt.value?.markDoneOnDismiss ?: true
     _crossProviderCopyPrompt.value = CrossProviderCopyPrompt(visible = false)
+    _crossProviderReviewLoading.value = false
     // Mark done so the one-time post-login prompt doesn't keep nagging (the app-startup ask
     // opts out of this); new changes still apply to both providers via the live write-through sync.
     if (markDone) {
@@ -212,14 +286,16 @@ private data class CrossProviderDiffCounts(
     val aniToMalAnime: Int = 0,
     val aniToMalManga: Int = 0,
     val malToAniListAnime: Int = 0,
-    val malToAniListManga: Int = 0
+    val malToAniListManga: Int = 0,
+    val entries: List<PendingSyncEntry> = emptyList()
 )
 
 /**
- * Computes how many entries differ between the two providers in each direction (anime + manga).
- * Returns null when the lists cannot be compared (either provider unreachable), in which case
- * the cross-provider prompt is not shown — there is nothing meaningful to sync to an unreachable
- * provider, and both directions of the copy abort in the same situation.
+ * Computes how many entries differ between the two providers in each direction (anime + manga),
+ * plus the per-entry diff for the "pending changes" list. Returns null when the lists cannot be
+ * compared (either provider unreachable), in which case the cross-provider prompt is not shown —
+ * there is nothing meaningful to sync to an unreachable provider, and both directions of the
+ * copy abort in the same situation.
  */
 private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProviderDiffCounts? {
     val tag = "CrossSync"
@@ -231,12 +307,9 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
     }
     val aniAnime = _currentlyWatching.value + _planningToWatch.value +
         _completed.value + _onHold.value + _dropped.value
-    val aniAnimeByMalId = aniAnime.mapNotNull { a ->
-        a.malId?.let { m -> m to ListSnapshot(a.listStatus, a.userScore ?: 0, a.progress) }
-    }.toMap()
-    val aniMangaByMalId = fetchAllAniListManga().mapNotNull { m ->
-        m.malId?.let { id -> id to ListSnapshot(m.listStatus, m.userScore ?: 0, m.progress) }
-    }.toMap()
+    // Keep the full models (not just snapshots) so the pending-changes list can show titles.
+    val aniAnimeByMalId = aniAnime.mapNotNull { a -> a.malId?.let { it to a } }.toMap()
+    val aniMangaByMalId = fetchAllAniListManga().mapNotNull { m -> m.malId?.let { it to m } }.toMap()
 
     // MAL truth.
     val malAnime = try {
@@ -258,14 +331,15 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
     var toAniAnime = 0
     var toMalManga = 0
     var toAniManga = 0
+    val entries = mutableListOf<PendingSyncEntry>()
 
     // Anime.
     val malAnimeIds = malAnime.map { it.node.id }.toSet()
     for (e in malAnime) {
         val t = aniAnimeByMalId[e.node.id]
         val differs = t == null ||
-            t.status != mapFromMalStatus(e.list_status?.status) ||
-            t.score != (e.list_status?.score ?: 0) ||
+            t.listStatus != mapFromMalStatus(e.list_status?.status) ||
+            (t.userScore ?: 0) != (e.list_status?.score ?: 0) ||
             t.progress != (e.list_status?.num_episodes_watched ?: 0)
         if (differs) {
             // MAL → AniList: the entry is added to AniList (t == null) or updated there.
@@ -275,16 +349,41 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
             // counterpart on AniList, REMOVED from MAL.
             toMal++
             toMalAnime++
+            entries += PendingSyncEntry(
+                title = (t?.title?.ifEmpty { null } ?: e.node.title.ifEmpty { null })
+                    ?: context.getString(R.string.comp_unknown),
+                isManga = false,
+                onAniList = t != null,
+                onMal = true,
+                aniStatus = t?.listStatus,
+                aniScore = t?.userScore ?: 0,
+                aniProgress = t?.progress ?: 0,
+                malStatus = mapFromMalStatus(e.list_status?.status).ifEmpty { null },
+                malScore = e.list_status?.score ?: 0,
+                malProgress = e.list_status?.num_episodes_watched ?: 0
+            )
         }
     }
     // Entries only on AniList affect BOTH directions: they would be added to MAL, and (being
     // absent from MAL) removed from AniList when MAL is the source of truth.
-    for (malId in aniAnimeByMalId.keys) {
+    for ((malId, t) in aniAnimeByMalId) {
         if (malId !in malAnimeIds) {
             toMal++
             toMalAnime++
             toAniList++
             toAniAnime++
+            entries += PendingSyncEntry(
+                title = t.title.ifEmpty { context.getString(R.string.comp_unknown) },
+                isManga = false,
+                onAniList = true,
+                onMal = false,
+                aniStatus = t.listStatus,
+                aniScore = t.userScore ?: 0,
+                aniProgress = t.progress,
+                malStatus = null,
+                malScore = 0,
+                malProgress = 0
+            )
         }
     }
 
@@ -293,8 +392,8 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
     for (e in malManga) {
         val t = aniMangaByMalId[e.node.id]
         val differs = t == null ||
-            t.status != mapMangaStatusFromMal(e.list_status?.status) ||
-            t.score != (e.list_status?.score ?: 0) ||
+            t.listStatus != mapMangaStatusFromMal(e.list_status?.status) ||
+            (t.userScore ?: 0) != (e.list_status?.score ?: 0) ||
             t.progress != (e.list_status?.num_chapters_read ?: 0)
         if (differs) {
             toAniList++
@@ -302,15 +401,40 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
             // Same as anime: updated on MAL, or REMOVED from MAL when absent on AniList.
             toMal++
             toMalManga++
+            entries += PendingSyncEntry(
+                title = (t?.title?.ifEmpty { null } ?: e.node.title.ifEmpty { null })
+                    ?: context.getString(R.string.comp_unknown),
+                isManga = true,
+                onAniList = t != null,
+                onMal = true,
+                aniStatus = t?.listStatus,
+                aniScore = t?.userScore ?: 0,
+                aniProgress = t?.progress ?: 0,
+                malStatus = mapMangaStatusFromMal(e.list_status?.status).ifEmpty { null },
+                malScore = e.list_status?.score ?: 0,
+                malProgress = e.list_status?.num_chapters_read ?: 0
+            )
         }
     }
     // Entries only on AniList affect BOTH directions (add to MAL / remove from AniList).
-    for (malId in aniMangaByMalId.keys) {
+    for ((malId, t) in aniMangaByMalId) {
         if (malId !in malMangaIds) {
             toMal++
             toMalManga++
             toAniList++
             toAniManga++
+            entries += PendingSyncEntry(
+                title = t.title.ifEmpty { context.getString(R.string.comp_unknown) },
+                isManga = true,
+                onAniList = true,
+                onMal = false,
+                aniStatus = t.listStatus,
+                aniScore = t.userScore ?: 0,
+                aniProgress = t.progress,
+                malStatus = null,
+                malScore = 0,
+                malProgress = 0
+            )
         }
     }
 
@@ -320,7 +444,8 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
         aniToMalAnime = toMalAnime,
         aniToMalManga = toMalManga,
         malToAniListAnime = toAniAnime,
-        malToAniListManga = toAniManga
+        malToAniListManga = toAniManga,
+        entries = entries.sortedBy { it.title.lowercase() }
     )
 }
 
@@ -331,6 +456,7 @@ private suspend fun MainViewModel.computeCrossProviderDiffCounts(): CrossProvide
  */
 fun MainViewModel.applyCrossProviderCopy(toMal: Boolean) {
     _crossProviderCopyPrompt.value = CrossProviderCopyPrompt(visible = false)
+    _crossProviderReviewLoading.value = false
     userPreferences.setCrossProviderCopyDone(true)
     // Persist the main list provider; it drives which list populates the home screen.
     userPreferences.setMalAsMainProvider(!toMal)

@@ -507,6 +507,8 @@ class MainViewModel : ViewModel() {
     val showBufferIndicator: StateFlow<Boolean> get() = userPreferences.showBufferIndicator
     val checkUpdatesOnStart: StateFlow<Boolean> get() = userPreferences.checkUpdatesOnStart
     val malAsMainProvider: StateFlow<Boolean> get() = userPreferences.malAsMainProvider
+    val autoCrossSync: StateFlow<Boolean> get() = userPreferences.autoCrossSync
+    val autoCrossSyncDirection: StateFlow<String?> get() = userPreferences.autoCrossSyncDirection
     val autoUpdateExtensions: StateFlow<Boolean> get() = userPreferences.autoUpdateExtensions
     val streamMethod: StateFlow<String> get() = userPreferences.streamMethod
     val defaultStreamExtension: StateFlow<String?> get() = userPreferences.defaultStreamExtension

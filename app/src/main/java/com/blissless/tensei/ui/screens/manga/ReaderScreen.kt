@@ -150,6 +150,21 @@ fun MangaReaderScreen(
     val chapterImages by viewModel.mangaChapterImages.collectAsState()
     val chapterImagesError by viewModel.mangaChapterImagesError.collectAsState()
     val chapterImageHeaders by viewModel.mangaImageHeaders.collectAsState()
+    // Rich Presence uses the highest-quality cover art (AniList extraLarge / MAL large)
+    // because a portrait cover reads much better than a wide banner in Discord's small asset
+    // slot. The tracker page follows the active login, with AniList preferred.
+    val loginProvider by viewModel.loginProvider.collectAsState(
+        initial = com.blissless.tensei.mal.LoginProvider.NONE
+    )
+    val discordImage = manga.cover.takeIf { it.isNotBlank() }
+    val discordUrl = when (loginProvider) {
+        com.blissless.tensei.mal.LoginProvider.MAL ->
+            manga.malId?.let { "https://myanimelist.net/manga/$it" }
+        com.blissless.tensei.mal.LoginProvider.ANILIST,
+        com.blissless.tensei.mal.LoginProvider.BOTH ->
+            manga.siteUrl?.takeIf { it.isNotBlank() } ?: "https://anilist.co/manga/${manga.id}"
+        else -> null
+    }
     var currentChapterIndex by remember { mutableIntStateOf(initialChapterIndex.coerceAtLeast(0)) }
     var readerMode by remember { mutableStateOf(
         when (viewModel.mangaReaderMode.value) {
@@ -355,6 +370,8 @@ fun MangaReaderScreen(
                     com.blissless.tensei.discord.DiscordRichPresence.setMangaPresence(
                         mangaTitle = manga.title,
                         chapterLabel = chapter.title.ifEmpty { chapter.chapterId },
+                        imageUrl = discordImage,
+                        targetUrl = discordUrl,
                     )
                 }
             }

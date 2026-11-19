@@ -137,6 +137,8 @@ fun PlayerScreen(
     isInPiPMode: Boolean = false,
     onPlayerBoundsChanged: ((left: Int, top: Int, right: Int, bottom: Int) -> Unit)? = null,
     discordRichPresence: Boolean = false,
+    discordImage: String? = null,
+    discordUrl: String? = null,
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -327,6 +329,8 @@ fun PlayerScreen(
         autoSkipEnding = autoSkipEnding,
         autoPlayNextEpisode = autoPlayNextEpisode,
         discordRichPresence = discordRichPresence,
+        discordImage = discordImage,
+        discordUrl = discordUrl,
         episodeInfo = episodeInfo,
         extensionServers = extensionServers,
         extensionOkHttpClient = extensionOkHttpClient,

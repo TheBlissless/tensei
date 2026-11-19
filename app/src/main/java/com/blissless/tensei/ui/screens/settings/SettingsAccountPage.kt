@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.InvertColors
@@ -106,6 +107,7 @@ import com.blissless.tensei.ui.components.appIconDrawable
 import com.blissless.tensei.ui.theme.ColorMode
 import com.blissless.tensei.ui.theme.ThemeMode
 import com.blissless.tensei.mal.LoginProvider
+import com.blissless.tensei.data.prefs.UserPreferences
 import com.blissless.tensei.ui.screens.extensions.ExtensionsScreen
 import com.blissless.tensei.viewmodel.ExtensionsViewModel
 import com.blissless.tensei.update.UpdateViewModel
@@ -141,6 +143,10 @@ import com.blissless.tensei.viewmodel.setDefaultMagnetExtension
 import com.blissless.tensei.viewmodel.setDefaultStreamExtension
 import com.blissless.tensei.viewmodel.setDefaultSubtitleLang
 import com.blissless.tensei.viewmodel.setTrackingPercentage
+import com.blissless.tensei.viewmodel.setAutoCrossSync
+import com.blissless.tensei.viewmodel.setAutoCrossSyncDirection
+import com.blissless.tensei.viewmodel.crossProviderReviewLoading
+import com.blissless.tensei.viewmodel.showCrossProviderCopyDialog
 import com.blissless.tensei.viewmodel.setForwardSkipSeconds
 import com.blissless.tensei.viewmodel.setBackwardSkipSeconds
 import com.blissless.tensei.viewmodel.setAutoSkipOpening
@@ -194,10 +200,17 @@ internal fun AccountSettingsPage(
 ) {
     var showAniListLogoutConfirmation by remember { mutableStateOf(false) }
     var showMalLogoutConfirmation by remember { mutableStateOf(false) }
+    // Opened when the user enables automatic sync without having picked a direction yet —
+    // the choice is mandatory, cancelling keeps automatic sync off.
+    var showSyncDirectionDialog by remember { mutableStateOf(false) }
     val loginProvider by viewModel.loginProvider.collectAsState(initial = LoginProvider.NONE)
     val trackingPercentage by viewModel.trackingPercentage.collectAsState(initial = 85)
     val mangaSyncThreshold by viewModel.mangaSyncThreshold.collectAsState()
     val discordRichPresence by viewModel.discordRichPresence.collectAsState(initial = false)
+    val autoCrossSync by viewModel.autoCrossSync.collectAsState(initial = false)
+    val autoCrossSyncDirection by viewModel.autoCrossSyncDirection.collectAsState(initial = null)
+    // One tap only: computing the provider diff is slow and repeated taps spawned parallel runs.
+    val crossProviderReviewLoading by viewModel.crossProviderReviewLoading.collectAsState(initial = false)
 
     val userName by viewModel.userName.collectAsState()
     val userAvatar by viewModel.userAvatar.collectAsState()
@@ -343,6 +356,54 @@ internal fun AccountSettingsPage(
             )
         }
 
+        // Automatic cross-provider sync: runs the copy in the chosen direction at startup /
+        // after login instead of showing the direction dialog. The direction is mandatory —
+        // enabling it without one opens the picker below.
+        SettingsCard {
+            SettingsToggle(
+                title = stringResource(R.string.settings_auto_sync_title),
+                description = stringResource(R.string.settings_auto_sync_desc),
+                checked = autoCrossSync,
+                onCheckedChange = { enabled ->
+                    if (enabled && autoCrossSyncDirection == null) {
+                        showSyncDirectionDialog = true
+                    } else {
+                        viewModel.setAutoCrossSync(enabled)
+                    }
+                }
+            )
+        }
+        if (autoCrossSync) {
+            SettingsCard {
+                SettingsRadioItem(
+                    selected = autoCrossSyncDirection == UserPreferences.AUTO_SYNC_DIRECTION_ANI_TO_MAL,
+                    onClick = { viewModel.setAutoCrossSyncDirection(UserPreferences.AUTO_SYNC_DIRECTION_ANI_TO_MAL) },
+                    icon = Icons.Filled.Sync,
+                    title = stringResource(R.string.settings_auto_sync_direction_ani_to_mal),
+                    description = stringResource(R.string.settings_auto_sync_direction_ani_to_mal_desc)
+                )
+                SettingsRadioItem(
+                    selected = autoCrossSyncDirection == UserPreferences.AUTO_SYNC_DIRECTION_MAL_TO_ANI,
+                    onClick = { viewModel.setAutoCrossSyncDirection(UserPreferences.AUTO_SYNC_DIRECTION_MAL_TO_ANI) },
+                    icon = Icons.Filled.Sync,
+                    title = stringResource(R.string.settings_auto_sync_direction_mal_to_ani),
+                    description = stringResource(R.string.settings_auto_sync_direction_mal_to_ani_desc)
+                )
+            }
+        }
+
+        // Manual override: always opens the direction dialog with the pending changes, even
+        // when automatic sync is enabled or both sides are already in sync.
+        SettingsCard {
+            ClickableSettingsRow(
+                onClick = { viewModel.showCrossProviderCopyDialog(markDoneOnDismiss = false, forceShow = true) },
+                icon = Icons.Filled.Sync,
+                title = stringResource(R.string.settings_show_sync_dialog_title),
+                subtitle = stringResource(R.string.settings_show_sync_dialog_desc),
+                enabled = !crossProviderReviewLoading
+            )
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
         SectionHeader("DISCORD")
         SettingsCard {
@@ -353,6 +414,51 @@ internal fun AccountSettingsPage(
                 onCheckedChange = { viewModel.setDiscordRichPresence(it) }
             )
         }
+    }
+
+    if (showSyncDirectionDialog) {
+        AlertDialog(
+            onDismissRequest = { showSyncDirectionDialog = false },
+            title = { Text(stringResource(R.string.settings_auto_sync_dialog_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.settings_auto_sync_dialog_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsRadioItem(
+                        selected = autoCrossSyncDirection == UserPreferences.AUTO_SYNC_DIRECTION_ANI_TO_MAL,
+                        onClick = {
+                            viewModel.setAutoCrossSyncDirection(UserPreferences.AUTO_SYNC_DIRECTION_ANI_TO_MAL)
+                            viewModel.setAutoCrossSync(true)
+                            showSyncDirectionDialog = false
+                        },
+                        icon = Icons.Filled.Sync,
+                        title = stringResource(R.string.settings_auto_sync_direction_ani_to_mal),
+                        description = stringResource(R.string.settings_auto_sync_direction_ani_to_mal_desc)
+                    )
+                    SettingsRadioItem(
+                        selected = autoCrossSyncDirection == UserPreferences.AUTO_SYNC_DIRECTION_MAL_TO_ANI,
+                        onClick = {
+                            viewModel.setAutoCrossSyncDirection(UserPreferences.AUTO_SYNC_DIRECTION_MAL_TO_ANI)
+                            viewModel.setAutoCrossSync(true)
+                            showSyncDirectionDialog = false
+                        },
+                        icon = Icons.Filled.Sync,
+                        title = stringResource(R.string.settings_auto_sync_direction_mal_to_ani),
+                        description = stringResource(R.string.settings_auto_sync_direction_mal_to_ani_desc)
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showSyncDirectionDialog = false }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        )
     }
 
     if (showAniListLogoutConfirmation) {

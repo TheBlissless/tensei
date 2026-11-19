@@ -72,6 +72,7 @@ fun CrossProviderSyncDialog(
     onDismiss: () -> Unit,
     onSyncAniListToMal: () -> Unit,
     onSyncMalToAniList: () -> Unit,
+    onShowPendingChanges: (() -> Unit)? = null,
     useMonochrome: Boolean = false,
     isOled: Boolean = false,
 ) {
@@ -259,6 +260,25 @@ fun CrossProviderSyncDialog(
                         },
                         fontWeight = FontWeight.SemiBold
                     )
+                }
+                // Per-entry diff behind the counts above — only offered when something differs.
+                if (onShowPendingChanges != null &&
+                    (aniToMalAnime + aniToMalManga + malToAniAnime + malToAniManga) > 0
+                ) {
+                    Spacer(Modifier.height(6.dp))
+                    TextButton(
+                        onClick = onShowPendingChanges,
+                        modifier = Modifier
+                            .clip(Radius.controlShape)
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        shape = Radius.controlShape
+                    ) {
+                        Text(
+                            stringResource(R.string.comp_sync_view_changes),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
                 Spacer(Modifier.height(6.dp))
                 TextButton(

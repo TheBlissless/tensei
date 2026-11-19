@@ -94,24 +94,36 @@ data class HomeAnimeCardBounds(
 /**
  * Episode counter shown on Home/status cards.
  *
- * CURRENT: watched / aired / total. Every other list: available / total
- * (planning shows how many episodes are out, e.g. `5 / ?`). Unknown values
- * render as `?` instead of hiding the column.
+ * The three-number form (watched / aired / total) is reserved for anime that are
+ * currently airing, and applies to every status that tracks the user's own progress:
+ * CURRENT, PAUSED (on hold) and DROPPED. Finished series collapse to watched / total —
+ * aired equals total there, so the middle number would only repeat the last one.
+ * PLANNING/COMPLETED keep available / total (nothing meaningful is watched yet / all
+ * aired episodes are watched). Unknown values render as `?` instead of hiding the column.
  */
 internal fun animeEpisodeProgressText(anime: AnimeMedia, listType: String): String {
     val total = anime.totalEpisodes
     val aired = anime.latestEpisode?.takeIf { it > 0 }
     val totalLabel = if (total > 0) total.toString() else "?"
-    // A finished/cancelled series has aired all its episodes even though AniList only
-    // reports nextAiringEpisode (and therefore latestEpisode) for releasing shows.
-    val allEpisodesAired = listType == "COMPLETED" ||
-        (anime.status != "RELEASING" && anime.status != "NOT_YET_RELEASED")
-    val available = aired ?: if (total > 0 && allEpisodesAired) total else null
-    val availableLabel = available?.toString() ?: "?"
-    return if (listType == "CURRENT") {
-        "${anime.progress} / $availableLabel / $totalLabel"
-    } else {
-        "$availableLabel / $totalLabel"
+    // Currently airing = not finished yet; AniList only reports nextAiringEpisode (and
+    // therefore latestEpisode) for releasing shows, so `aired` is null once a series
+    // finishes even though every episode is out.
+    val airing = anime.status == "RELEASING" || anime.status == "NOT_YET_RELEASED"
+    return when (listType) {
+        // Statuses that show the user's progress: watched / aired / total while airing
+        // (e.g. `5 / 8 / 12`), otherwise watched / total (e.g. `5 / 12`).
+        "CURRENT", "PAUSED", "DROPPED" -> when {
+            airing && aired != null -> "${anime.progress} / $aired / $totalLabel"
+            else -> "${anime.progress} / $totalLabel"
+        }
+        // Planning/completed show what is available: aired / total for airing shows,
+        // and the full total otherwise (a finished/cancelled series has aired everything).
+        else -> {
+            val allEpisodesAired = listType == "COMPLETED" || !airing
+            val available = aired ?: if (total > 0 && allEpisodesAired) total else null
+            val availableLabel = available?.toString() ?: "?"
+            "$availableLabel / $totalLabel"
+        }
     }
 }
 

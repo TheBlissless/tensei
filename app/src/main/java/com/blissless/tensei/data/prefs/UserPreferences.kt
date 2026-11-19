@@ -64,6 +64,12 @@ class UserPreferences(context: Context) {
         internal const val KEY_MAL_MANGA_FAVORITES = "mal_manga_favorites"
         internal const val KEY_CROSS_PROVIDER_COPY_DONE = "cross_provider_copy_done"
         internal const val KEY_MAL_AS_MAIN_PROVIDER = "mal_as_main_provider"
+        internal const val KEY_AUTO_CROSS_SYNC = "auto_cross_provider_sync"
+        internal const val KEY_AUTO_CROSS_SYNC_DIRECTION = "auto_cross_provider_sync_direction"
+
+        // Directions for the automatic cross-provider sync (see [autoCrossSyncDirection]).
+        internal const val AUTO_SYNC_DIRECTION_ANI_TO_MAL = "ani_to_mal"
+        internal const val AUTO_SYNC_DIRECTION_MAL_TO_ANI = "mal_to_ani"
         internal const val KEY_CHECK_UPDATES_ON_START = "check_updates_on_start"
         internal const val KEY_SWIPE_VOLUME = "swipe_volume"
         internal const val KEY_SWIPE_BRIGHTNESS = "swipe_brightness"
@@ -360,6 +366,9 @@ class UserPreferences(context: Context) {
         _showBufferIndicator.value = sharedPreferences.getBoolean(KEY_SHOW_BUFFER_INDICATOR, true)
         _checkUpdatesOnStart.value = sharedPreferences.getBoolean(KEY_CHECK_UPDATES_ON_START, true)
         _malAsMainProvider.value = sharedPreferences.getBoolean(KEY_MAL_AS_MAIN_PROVIDER, false)
+        _autoCrossSync.value = sharedPreferences.getBoolean(KEY_AUTO_CROSS_SYNC, false)
+        _autoCrossSyncDirection.value = sharedPreferences.getString(KEY_AUTO_CROSS_SYNC_DIRECTION, null)
+            ?.takeIf { it == AUTO_SYNC_DIRECTION_ANI_TO_MAL || it == AUTO_SYNC_DIRECTION_MAL_TO_ANI }
         _swipeVolume.value = sharedPreferences.getBoolean(KEY_SWIPE_VOLUME, false)
         _swipeBrightness.value = sharedPreferences.getBoolean(KEY_SWIPE_BRIGHTNESS, false)
         _swipeSwap.value = sharedPreferences.getBoolean(KEY_SWIPE_SWAP, false)
@@ -696,6 +705,17 @@ class UserPreferences(context: Context) {
     private val _malAsMainProvider = MutableStateFlow(false)
     val malAsMainProvider: StateFlow<Boolean> = _malAsMainProvider.asStateFlow()
 
+    // When both providers are logged in and this is enabled, the cross-provider copy runs
+    // automatically in [autoCrossSyncDirection] at startup/login instead of showing the
+    // direction dialog. The direction is mandatory: enabling without one keeps the dialog flow.
+    private val _autoCrossSync = MutableStateFlow(false)
+    val autoCrossSync: StateFlow<Boolean> = _autoCrossSync.asStateFlow()
+
+    // Which provider is the source of truth for the automatic sync: null = not chosen yet,
+    // otherwise AUTO_SYNC_DIRECTION_ANI_TO_MAL or AUTO_SYNC_DIRECTION_MAL_TO_ANI.
+    private val _autoCrossSyncDirection = MutableStateFlow<String?>(null)
+    val autoCrossSyncDirection: StateFlow<String?> = _autoCrossSyncDirection.asStateFlow()
+
     // Swipe Gesture Controls
     private val _swipeVolume = MutableStateFlow(false)
     val swipeVolume: StateFlow<Boolean> = _swipeVolume.asStateFlow()
@@ -727,6 +747,19 @@ class UserPreferences(context: Context) {
     fun setMalAsMainProvider(enabled: Boolean) {
         _malAsMainProvider.value = enabled
         sharedPreferences.edit { putBoolean(KEY_MAL_AS_MAIN_PROVIDER, enabled) }
+    }
+
+    fun setAutoCrossSync(enabled: Boolean) {
+        _autoCrossSync.value = enabled
+        sharedPreferences.edit { putBoolean(KEY_AUTO_CROSS_SYNC, enabled) }
+    }
+
+    fun setAutoCrossSyncDirection(direction: String?) {
+        val valid = direction?.takeIf {
+            it == AUTO_SYNC_DIRECTION_ANI_TO_MAL || it == AUTO_SYNC_DIRECTION_MAL_TO_ANI
+        }
+        _autoCrossSyncDirection.value = valid
+        sharedPreferences.edit { putString(KEY_AUTO_CROSS_SYNC_DIRECTION, valid) }
     }
 
     fun setSwipeVolume(enabled: Boolean) {

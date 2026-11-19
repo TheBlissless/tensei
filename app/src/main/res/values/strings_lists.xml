@@ -3,6 +3,8 @@
     <string name="lists_progress">Progress</string>
     <string name="lists_episodes_aired">%1$d episodes aired</string>
     <string name="lists_one_episode_aired">1 episode aired</string>
+    <string name="lists_count_anime">%1$d anime</string>
+    <string name="lists_count_manga">%1$d manga</string>
     <string name="lists_back">Back</string>
     <string name="lists_resume_ep">Resume Ep %1$d</string>
     <string name="lists_ep_1">Ep 1</string>
