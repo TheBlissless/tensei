@@ -131,11 +131,14 @@ object Endpoints {
         /** Image CDN base for posters, stills, and backdrops. */
         const val IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
-        /** Search for a TV show by title. */
-        fun searchTv(query: String): String = "$API_BASE/search/tv?query=$query"
+        /**
+         * Search for a TV show by title. Anime is frequently marked adult on TMDB, so adult
+         * titles must always be included or legitimate series return zero results.
+         */
+        fun searchTv(query: String): String = "$API_BASE/search/tv?query=$query&include_adult=true"
 
-        /** Search for a movie by title. */
-        fun searchMovie(query: String): String = "$API_BASE/search/movie?query=$query"
+        /** Search for a movie by title (adult-inclusive for the same reason as [searchTv]). */
+        fun searchMovie(query: String): String = "$API_BASE/search/movie?query=$query&include_adult=true"
 
         /** TV show details (seasons, episode count, genres). */
         fun tvDetails(tvId: Int): String = "$API_BASE/tv/$tvId?language=en-US"

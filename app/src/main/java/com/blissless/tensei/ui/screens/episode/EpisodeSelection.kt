@@ -351,7 +351,14 @@ fun RichEpisodeScreen(
             var retries = 0
             while (retries < 2) {
                 try {
-                    val episodes = viewModel.fetchTmdbEpisodes(anime.title, anime.id, anime.year, anime.format, animeEpisodes = anime.totalEpisodes.takeIf { it > 0 })
+                    val episodes = viewModel.fetchTmdbEpisodes(
+                        title = anime.title,
+                        id = anime.id,
+                        year = anime.year,
+                        format = anime.format,
+                        animeEpisodes = anime.totalEpisodes.takeIf { it > 0 },
+                        alternateTitles = listOfNotNull(anime.titleEnglish)
+                    )
                     viewModel.cacheTmdbEpisodes(anime.id, episodes)
                     tmdbEpisodes = episodes
                     break

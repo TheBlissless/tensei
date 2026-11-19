@@ -388,7 +388,15 @@ suspend fun MainViewModel.getAllTags(): List<MediaTag> {
 //  loadAniListFavoritesFromStorage, toggleAniListFavorite, refreshReleasingAnimeProgress)
 // Misc
 
-suspend fun MainViewModel.fetchTmdbEpisodes(title: String, id: Int, year: Int? = null, format: String? = null, latest: Int = Int.MAX_VALUE, animeEpisodes: Int? = null) = repository.fetchTmdbEpisodes(title, id, year, format, latest, animeEpisodes)
+suspend fun MainViewModel.fetchTmdbEpisodes(
+    title: String,
+    id: Int,
+    year: Int? = null,
+    format: String? = null,
+    latest: Int = Int.MAX_VALUE,
+    animeEpisodes: Int? = null,
+    alternateTitles: List<String> = emptyList()
+) = repository.fetchTmdbEpisodes(title, id, year, format, latest, animeEpisodes, alternateTitles)
 
 fun MainViewModel.getCachedTmdbEpisodes(animeId: Int, status: String? = null): List<TmdbEpisode>? = cacheManager.getCachedTmdbEpisodes(animeId, status)
 

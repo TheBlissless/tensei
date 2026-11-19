@@ -53,21 +53,48 @@ suspend fun AnimeRepository.fetchTmdbEpisodes(
         animeYear: Int? = null,
         animeFormat: String? = null,
         latestAiredEpisode: Int = Int.MAX_VALUE,
-        animeEpisodes: Int? = null
+        animeEpisodes: Int? = null,
+        alternateTitles: List<String> = emptyList()
     ): List<TmdbEpisode> = withContext(Dispatchers.IO) {
         try {
             // Detect format from title if not provided
             val detectedFormat = animeFormat ?: detectFormatFromTitle(animeTitle)
-            val baseTitle = extractBaseTitle(animeTitle)
-            var searchResults = searchTmdb(baseTitle, detectedFormat)
-            if (searchResults.isEmpty()) searchResults = searchTmdb(animeTitle, detectedFormat)
-            // Also try searching with year if available
-            if (searchResults.isEmpty() && animeYear != null) {
-                searchResults = searchTmdb("$animeTitle $animeYear", detectedFormat)
-            }
-            if (searchResults.isEmpty()) return@withContext emptyList()
 
-            val bestMatch = findBestMatch(searchResults, animeTitle, animeYear) ?: return@withContext emptyList()
+            // AniList's primary title is usually romaji, which TMDB indexes poorly. Try every
+            // known title variant (and a punctuation-stripped form) until one produces results,
+            // then score against that same variant so title similarity stays meaningful.
+            val candidates = LinkedHashSet<String>()
+            fun addCandidate(value: String?) {
+                val trimmed = value?.trim().orEmpty()
+                if (trimmed.isNotBlank()) candidates.add(trimmed)
+                strippedTitle(trimmed).takeIf { it.isNotBlank() }?.let { candidates.add(it) }
+            }
+            addCandidate(extractBaseTitle(animeTitle))
+            addCandidate(animeTitle)
+            alternateTitles.forEach { addCandidate(it) }
+            if (animeYear != null) {
+                candidates.toList().forEach { addCandidate("$it $animeYear") }
+            }
+
+            var matchedTitle = animeTitle
+            var searchResults = emptyList<TmdbSearchResult>()
+            for (candidate in candidates) {
+                searchResults = searchTmdb(candidate, detectedFormat)
+                if (searchResults.isNotEmpty()) {
+                    matchedTitle = candidate
+                    break
+                }
+            }
+            if (searchResults.isEmpty()) {
+                Log.w("TmdbDebug", "fetchTmdbEpisodes: no results for animeId=$animeId candidates=$candidates")
+                return@withContext emptyList()
+            }
+
+            val bestMatch = findBestMatch(searchResults, matchedTitle, animeYear)
+            if (bestMatch == null) {
+                Log.w("TmdbDebug", "fetchTmdbEpisodes: no acceptable match for animeId=$animeId title=$matchedTitle results=${searchResults.size}")
+                return@withContext emptyList()
+            }
             
             // Check if this is a movie (has title field) vs TV show (has name field)
             val isMovieSearch = bestMatch.title != null
@@ -163,6 +190,8 @@ internal fun AnimeRepository.searchTmdb(title: String, format: String? = null): 
                     val response = movieConnection.inputStream.bufferedReader().readText()
                     val searchResponse = json.decodeFromString<TmdbSearchResponse>(response)
                     results.addAll(searchResponse.results)
+                } else {
+                    Log.w("TmdbDebug", "searchMovie HTTP ${movieConnection.responseCode} for '$title'")
                 }
                 movieConnection.disconnect()
                 
@@ -179,6 +208,8 @@ internal fun AnimeRepository.searchTmdb(title: String, format: String? = null): 
                     if (tvConnection.responseCode == 200) {
                         val response = tvConnection.inputStream.bufferedReader().readText()
                         results.addAll(json.decodeFromString<TmdbSearchResponse>(response).results)
+                    } else {
+                        Log.w("TmdbDebug", "searchTv HTTP ${tvConnection.responseCode} for '$title'")
                     }
                     tvConnection.disconnect()
                 }
@@ -195,6 +226,8 @@ internal fun AnimeRepository.searchTmdb(title: String, format: String? = null): 
                 if (tvConnection.responseCode == 200) {
                     val response = tvConnection.inputStream.bufferedReader().readText()
                     results.addAll(json.decodeFromString<TmdbSearchResponse>(response).results)
+                } else {
+                    Log.w("TmdbDebug", "searchTv HTTP ${tvConnection.responseCode} for '$title'")
                 }
                 tvConnection.disconnect()
                 
@@ -211,6 +244,8 @@ internal fun AnimeRepository.searchTmdb(title: String, format: String? = null): 
                     if (movieConnection.responseCode == 200) {
                         val response = movieConnection.inputStream.bufferedReader().readText()
                         results.addAll(json.decodeFromString<TmdbSearchResponse>(response).results)
+                    } else {
+                        Log.w("TmdbDebug", "searchMovie HTTP ${movieConnection.responseCode} for '$title'")
                     }
                     movieConnection.disconnect()
                 }
@@ -236,7 +271,10 @@ internal fun AnimeRepository.fetchTvDetails(tmdbId: Int): TmdbTvDetails? {
             if (connection.responseCode == 200) {
                 val response = connection.inputStream.bufferedReader().readText()
                 json.decodeFromString<TmdbTvDetails>(response)
-            } else null
+            } else {
+                Log.w("TmdbDebug", "fetchTvDetails HTTP ${connection.responseCode} for tmdbId=$tmdbId")
+                null
+            }
         } catch (e: Exception) {
             Log.e("TmdbDebug", "fetchTvDetails failed for tmdbId=$tmdbId", e)
             null
@@ -685,6 +723,10 @@ internal fun AnimeRepository.findBestMatch(results: List<TmdbSearchResult>, orig
     }
 
 internal fun AnimeRepository.normalizeTitle(title: String): String = title.lowercase().replace(Regex("[^a-z0-9\\s]"), "").replace(Regex("\\s+"), " ").trim()
+
+/** Remove punctuation such as `!?` from a search query while preserving letters from any script. */
+internal fun strippedTitle(title: String): String =
+    title.replace(Regex("[^\\p{L}\\p{N}\\s]"), " ").replace(Regex("\\s+"), " ").trim()
 
 internal fun AnimeRepository.detectFormatFromTitle(title: String): String? {
         val lowerTitle = title.lowercase()

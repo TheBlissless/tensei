@@ -230,8 +230,12 @@ fun PlayerHost(
             if (!state.playerFullscreen && viewModel.getCachedTmdbEpisodes(anime.id) == null) {
                 try {
                     val episodes = viewModel.fetchTmdbEpisodes(
-                        anime.title, anime.id, anime.year, anime.format,
+                        title = anime.title,
+                        id = anime.id,
+                        year = anime.year,
+                        format = anime.format,
                         animeEpisodes = anime.totalEpisodes.takeIf { it > 0 },
+                        alternateTitles = listOfNotNull(anime.titleEnglish),
                     )
                     viewModel.cacheTmdbEpisodes(anime.id, episodes)
                 } catch (_: Exception) {}
