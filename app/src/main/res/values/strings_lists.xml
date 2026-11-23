@@ -16,6 +16,8 @@
     <string name="lists_close_player">Close player</string>
     <string name="lists_enter_fullscreen">Enter fullscreen</string>
     <string name="lists_play">Play</string>
+    <string name="lists_watch_again">Watch again</string>
+    <string name="lists_all_episodes">All Episodes</string>
     <string name="lists_episode">Episode %1$d</string>
     <string name="lists_current">Current</string>
     <string name="lists_more">More</string>

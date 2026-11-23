@@ -165,6 +165,11 @@ fun MangaReaderScreen(
             manga.siteUrl?.takeIf { it.isNotBlank() } ?: "https://anilist.co/manga/${manga.id}"
         else -> null
     }
+    // Tracker buttons shown under the Discord presence: AniList always has a page for
+    // the AniList id; MAL needs the MAL id, falling back to a search link.
+    val discordAnilistUrl = manga.siteUrl?.takeIf { it.isNotBlank() } ?: "https://anilist.co/manga/${manga.id}"
+    val discordMalUrl = manga.malId?.let { "https://myanimelist.net/manga/$it" }
+        ?: runCatching { "https://myanimelist.net/manga.php?q=" + java.net.URLEncoder.encode(manga.title, "UTF-8") }.getOrNull()
     var currentChapterIndex by remember { mutableIntStateOf(initialChapterIndex.coerceAtLeast(0)) }
     var readerMode by remember { mutableStateOf(
         when (viewModel.mangaReaderMode.value) {
@@ -372,6 +377,8 @@ fun MangaReaderScreen(
                         chapterLabel = chapter.title.ifEmpty { chapter.chapterId },
                         imageUrl = discordImage,
                         targetUrl = discordUrl,
+                        anilistUrl = discordAnilistUrl,
+                        malUrl = discordMalUrl,
                     )
                 }
             }

@@ -75,9 +75,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -116,6 +114,7 @@ import com.blissless.tensei.viewmodel.setDefaultExtensionPackage
 import com.blissless.tensei.viewmodel.setDefaultMagnetExtension
 import com.blissless.tensei.viewmodel.setDefaultStreamExtension
 import com.blissless.tensei.viewmodel.setStreamMethod
+import com.blissless.tensei.viewmodel.setAlwaysShowAllEpisodes
 import com.blissless.tensei.util.toast
 import com.blissless.tensei.viewmodel.getCachedTmdbEpisodes
 import com.blissless.tensei.viewmodel.fetchTmdbEpisodes
@@ -141,6 +140,8 @@ fun RichEpisodeScreen(
     val playbackPositions by viewModel.playbackPositions.collectAsState()
     val playbackDurations by viewModel.playbackDurations.collectAsState()
     val hideEpisodeDescriptions by viewModel.hideEpisodeDescription.collectAsState(initial = true)
+    // "Always show full episode list" (settings) disables the anti-spoiler collapse.
+    val alwaysShowAllEpisodes by viewModel.alwaysShowAllEpisodes.collectAsState(initial = false)
 
     var tmdbEpisodes by remember { mutableStateOf<List<TmdbEpisode>>(emptyList()) }
     var isLoadingEpisodes by remember { mutableStateOf(true) }
@@ -152,6 +153,14 @@ fun RichEpisodeScreen(
     val availableExtensions by viewModel.availableExtensions.collectAsState()
     val defaultPkg by viewModel.defaultExtensionPackage.collectAsState()
     var selectedExtensionPkg by remember { mutableStateOf(defaultPkg.ifEmpty { null }) }
+    // Anti-spoiler: collapsed by default so future episode titles/thumbnails stay
+    // hidden; "All Episodes" expands the list to everything that exists. Starts
+    // expanded when the "Always show full episode list" setting is on, and stays
+    // expanded if the setting is turned on while this screen is open.
+    var showAllEpisodes by remember { mutableStateOf(alwaysShowAllEpisodes) }
+    LaunchedEffect(alwaysShowAllEpisodes) {
+        if (alwaysShowAllEpisodes) showAllEpisodes = true
+    }
     var extensionEpisodesNumbers by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var hasExtensionData by remember { mutableStateOf(false) }
     var isLoadingExtensionEpisodes by remember { mutableStateOf(false) }
@@ -183,7 +192,18 @@ fun RichEpisodeScreen(
     // Also re-evaluate when stream method changes
     LaunchedEffect(defaultPkg, currentStreamMethod, defaultStreamExt) {
         if (currentStreamMethod == "direct") {
-            if (defaultPkg.isNotEmpty() && selectedExtensionPkg == null && selectedStreamAuthority == null) {
+            // External mode: drop any Tensei (stream/magnet) selection made earlier in
+            // this session so the saved external extension is (re)selected below —
+            // switching from Tensei to external used to leave the extension deselected.
+            if (selectedStreamAuthority != null || isStreamActive) {
+                selectedStreamAuthority = null
+                isStreamActive = false
+            }
+            if (selectedMagnetAuthority != null || isMagnetActive) {
+                selectedMagnetAuthority = null
+                isMagnetActive = false
+            }
+            if (defaultPkg.isNotEmpty() && selectedExtensionPkg == null) {
                 selectedExtensionPkg = defaultPkg
             }
         } else {
@@ -282,9 +302,11 @@ fun RichEpisodeScreen(
         }
     }
 
-    // Filter episodes based on active source
-    val displayEpisodes = remember(tmdbEpisodes, episodeCount, isMagnetActive, isMagnetReady, isExtensionReady, selectedExtensionPkg, isStreamActive) {
-        val base = tmdbEpisodes.filter { it.episode <= episodeCount }
+    // Filter episodes based on active source. The spoiler cutoff keeps only the
+    // watched episodes plus the next one visible until "All Episodes" is pressed.
+    val spoilerCutoff = if (showAllEpisodes) Int.MAX_VALUE else currentProgress + 1
+    val displayEpisodes = remember(tmdbEpisodes, episodeCount, spoilerCutoff, isMagnetActive, isMagnetReady, isExtensionReady, selectedExtensionPkg, isStreamActive) {
+        val base = tmdbEpisodes.filter { it.episode <= episodeCount && it.episode <= spoilerCutoff }
         when {
             isMagnetActive && isMagnetReady -> base
             isStreamActive -> base
@@ -294,12 +316,13 @@ fun RichEpisodeScreen(
         }
     }
 
-    val availableEpisodeNumbers = remember(episodeCount, isMagnetActive, isMagnetReady, isExtensionReady, selectedExtensionPkg, isStreamActive) {
+    val availableEpisodeNumbers = remember(episodeCount, spoilerCutoff, isMagnetActive, isMagnetReady, isExtensionReady, selectedExtensionPkg, isStreamActive) {
+        val visibleCount = episodeCount.coerceAtMost(spoilerCutoff)
         when {
-            isMagnetActive && isMagnetReady -> (1..episodeCount).toList()
-            isStreamActive -> (1..episodeCount).toList()
-            isExtensionReady -> (1..episodeCount).toList()
-            selectedExtensionPkg == null && !isMagnetActive && !isStreamActive -> (1..episodeCount).toList()
+            isMagnetActive && isMagnetReady -> (1..visibleCount).toList()
+            isStreamActive -> (1..visibleCount).toList()
+            isExtensionReady -> (1..visibleCount).toList()
+            selectedExtensionPkg == null && !isMagnetActive && !isStreamActive -> (1..visibleCount).toList()
             else -> emptyList()
         }
     }
@@ -444,13 +467,15 @@ fun RichEpisodeScreen(
                 .background(if (isOled) Color.Black else MaterialTheme.colorScheme.background)
                 .nestedScroll(nestedScrollConnection)
         ) {
-            // Netflix-style hero with anime info
+            // Netflix-style hero with anime info — banner rendered exactly like the
+            // detailed anime screen (no blur, 0.4 alpha dim, 200dp, plain Crop) so both
+            // screens show the same height/zoom/position and brightness.
             val hasBanner = !anime.banner.isNullOrEmpty() || anime.cover.isNotEmpty()
             if (hasBanner) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(232.dp)
+                        .height(200.dp)
                         .pointerInput(Unit) {
                             detectVerticalDragGestures(
                                 onDragEnd = { scope.launch { handleDragEnd() } },
@@ -467,12 +492,12 @@ fun RichEpisodeScreen(
                         model = anime.banner.takeIf { !it.isNullOrEmpty() } ?: anime.cover,
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().blur(radius = 8.dp).scale(1.04f)
+                        modifier = Modifier.fillMaxSize().graphicsLayer { this.alpha = 0.4f }
                     )
                     // Top scrim for close-button legibility
-                    Box(modifier = Modifier.fillMaxWidth().height(110.dp).align(Alignment.TopCenter).background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent))))
+                    Box(modifier = Modifier.fillMaxWidth().height(90.dp).align(Alignment.TopCenter).background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.4f), Color.Transparent))))
                     // Bottom scrim for text legibility
-                    Box(modifier = Modifier.fillMaxWidth().height(170.dp).align(Alignment.BottomCenter).background(Brush.verticalGradient(colors = listOf(Color.Transparent, if (isOled) Color.Black else MaterialTheme.colorScheme.background.copy(alpha = 0.92f)))))
+                    Box(modifier = Modifier.fillMaxWidth().height(150.dp).align(Alignment.BottomCenter).background(Brush.verticalGradient(colors = listOf(Color.Transparent, if (isOled) Color.Black else MaterialTheme.colorScheme.background.copy(alpha = 0.85f)))))
                     Row(
                         modifier = Modifier.align(Alignment.BottomStart).padding(start = 14.dp, end = 14.dp, bottom = 18.dp),
                         verticalAlignment = Alignment.Bottom
@@ -500,7 +525,7 @@ fun RichEpisodeScreen(
                                         Spacer(modifier = Modifier.width(5.dp))
                                          Text(text = stringResource(R.string.lists_progress), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text(text = "$currentProgress / ${if (total > 0) total else "??"}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
+                                        Text(text = "$currentProgress / ${if (total > 0) total else "?"}", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                 }
                                 if (released > 0) {
@@ -560,7 +585,7 @@ fun RichEpisodeScreen(
             // Scrollable content: chips + episodes in one LazyColumn
             LazyColumn(
                 modifier = Modifier.fillMaxSize().padding(
-                    top = (if (hasBanner) 216.dp + statusBarsPadding.calculateTopPadding() else statusBarsPadding.calculateTopPadding()),
+                    top = (if (hasBanner) 184.dp + statusBarsPadding.calculateTopPadding() else statusBarsPadding.calculateTopPadding()),
                     bottom = navigationBarsPadding.calculateBottomPadding()
                 ),
                 state = listState
@@ -603,6 +628,25 @@ fun RichEpisodeScreen(
                                 ) {
                                      Text(stringResource(R.string.lists_latest), maxLines = 1)
                                 }
+                            }
+                        }
+                        // Anti-spoiler: episodes beyond the next one to watch are hidden
+                        // (their titles/thumbnails spoil future plot); "All Episodes"
+                        // reveals the full list and remembers that choice so every
+                        // future episode list starts fully shown ("always show full
+                        // episode list"). Revert via Settings → Episodes.
+                        if (!showAllEpisodes && episodeCount > currentProgress + 1) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    showAllEpisodes = true
+                                    viewModel.setAlwaysShowAllEpisodes(true)
+                                },
+                                shape = RoundedCornerShape(50),
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                            ) {
+                                Text(stringResource(R.string.lists_all_episodes), maxLines = 1)
                             }
                         }
                         Spacer(modifier = Modifier.height(12.dp))

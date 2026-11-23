@@ -105,6 +105,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Headers
 
 // The two reader implementations (continuous vertical scroll and paged)
@@ -381,18 +382,30 @@ internal fun PagedMangaReader(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
-                // Detect double-taps at the pager level using the Initial pass,
-                // which runs BEFORE HorizontalPager's own gesture detection.
-                .pointerInput(pagerState.currentPage) {
+                // Double-tap zoom detection at the pager level (runs before
+                // HorizontalPager's own gesture handling). Only a quick second tap
+                // in the MIDDLE zone counts as a double-tap: rapid side-zone tapping
+                // is page flipping and every one of those taps must turn a page, not
+                // get swallowed as a zoom trigger. The second-down wait is bounded
+                // (instead of waiting forever for the next down) and the pointerInput
+                // is unkeyed, so a page change mid-gesture can no longer drop touches.
+                .pointerInput(Unit) {
+                    // Resolved on the PointerInputScope receiver (always available here)
+                    // rather than inside the gesture scope.
+                    val doubleTapTimeoutMs = viewConfiguration.doubleTapTimeoutMillis
                     awaitEachGesture {
                         val down1 = awaitFirstDown(requireUnconsumed = false)
-                        val t1 = down1.uptimeMillis
-                        waitForUpOrCancellation() ?: return@awaitEachGesture
-                        val down2 = awaitFirstDown(requireUnconsumed = false)
-                        val t2 = down2.uptimeMillis
-                        if (t2 - t1 < 300) {
+                        val up1 = waitForUpOrCancellation() ?: return@awaitEachGesture
+                        val middleZone = up1.position.x > size.width * 0.3f && up1.position.x < size.width * 0.7f
+                        val down2 = withTimeoutOrNull(doubleTapTimeoutMs) {
+                            awaitFirstDown(requireUnconsumed = false)
+                        } ?: return@awaitEachGesture
+                        val quick = down2.uptimeMillis - up1.uptimeMillis <= doubleTapTimeoutMs
+                        if (middleZone && quick) {
                             val page = pagerState.currentPage
                             doubleTapTriggers[page] = (doubleTapTriggers[page] ?: 0) + 1
+                            // Consume the second down so the image's instant tap
+                            // detector (Final pass) doesn't also fire a single tap.
                             down2.consume()
                         }
                     }
@@ -415,6 +428,7 @@ internal fun PagedMangaReader(
                     .onSizeChanged { pageLayoutSize = it.toSize() },
                 fillWidth = false,
                 headers = headers,
+                instantTap = true,
                 doubleTapTrigger = doubleTapTriggers[pageIndex] ?: 0,
                 onSingleTap = { tap ->
                     if (isZoomed) return@MihonZoomableImage

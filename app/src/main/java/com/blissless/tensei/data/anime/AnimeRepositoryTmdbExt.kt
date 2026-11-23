@@ -389,10 +389,23 @@ internal suspend fun AnimeRepository.calculateEpisodeOffset(
         val recursiveOffset = calculateRecursiveOffset(animeId)
         val aniListMedia = fetchAnimeRelationsForOffset(animeId)
         val totalEps = aniListMedia?.episodes ?: 0
-        
+
         // If AniList has episode count, use it (more reliable for long-running anime like Detective Conan)
         if (totalEps > 0) {
-            return Pair(recursiveOffset, totalEps)
+            // The prequel-sum offset only applies when the matched TMDB entry pools MORE
+            // episodes than this anime itself has — that means the prequel seasons live
+            // inside the SAME TMDB entry (AniList splits them, TMDB doesn't, e.g. the
+            // "Kaguya-sama" entry containing all seasons). When the pool matches the
+            // anime's own AniList count the entry is self-contained (e.g. "Dragon Ball Z":
+            // 291 on both sides) and offsetting would start the list halfway into the
+            // show, returning the wrong episode list.
+            if (recursiveOffset > 0) {
+                val totalPoolEpisodes = allSeasonDetails.sumOf { it.episodes.size }
+                if (totalPoolEpisodes > totalEps) {
+                    return Pair(recursiveOffset, totalEps)
+                }
+            }
+            return Pair(0, totalEps)
         }
 
         // AniList doesn't know the episode count yet (common for a currently-airing

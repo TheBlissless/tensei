@@ -157,6 +157,8 @@ import com.blissless.tensei.viewmodel.setSwipeBrightness
 import com.blissless.tensei.viewmodel.setSwipeSwap
 import com.blissless.tensei.viewmodel.setSupportsPiP
 import com.blissless.tensei.viewmodel.setDiscordRichPresence
+import com.blissless.tensei.viewmodel.setDiscordHideSmallImage
+import com.blissless.tensei.viewmodel.setDiscordHideButtons
 import com.blissless.tensei.viewmodel.setCheckUpdatesOnStart
 import com.blissless.tensei.viewmodel.setAutoUpdateExtensions
 import com.blissless.tensei.viewmodel.setHideEpisodeDescription
@@ -207,6 +209,8 @@ internal fun AccountSettingsPage(
     val trackingPercentage by viewModel.trackingPercentage.collectAsState(initial = 85)
     val mangaSyncThreshold by viewModel.mangaSyncThreshold.collectAsState()
     val discordRichPresence by viewModel.discordRichPresence.collectAsState(initial = false)
+    val discordHideSmallImage by viewModel.discordHideSmallImage.collectAsState(initial = false)
+    val discordHideButtons by viewModel.discordHideButtons.collectAsState(initial = false)
     val autoCrossSync by viewModel.autoCrossSync.collectAsState(initial = false)
     val autoCrossSyncDirection by viewModel.autoCrossSyncDirection.collectAsState(initial = null)
     // One tap only: computing the provider diff is slow and repeated taps spawned parallel runs.
@@ -412,6 +416,18 @@ internal fun AccountSettingsPage(
                 description = stringResource(R.string.settings_discord_desc),
                 checked = discordRichPresence,
                 onCheckedChange = { viewModel.setDiscordRichPresence(it) }
+            )
+            SettingsToggle(
+                title = stringResource(R.string.settings_discord_hide_small_title),
+                description = stringResource(R.string.settings_discord_hide_small_desc),
+                checked = discordHideSmallImage,
+                onCheckedChange = { viewModel.setDiscordHideSmallImage(it) }
+            )
+            SettingsToggle(
+                title = stringResource(R.string.settings_discord_hide_buttons_title),
+                description = stringResource(R.string.settings_discord_hide_buttons_desc),
+                checked = discordHideButtons,
+                onCheckedChange = { viewModel.setDiscordHideButtons(it) }
             )
         }
     }

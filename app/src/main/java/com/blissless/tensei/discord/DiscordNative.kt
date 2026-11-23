@@ -20,7 +20,16 @@ object DiscordNative {
     fun isAvailable(): Boolean = loaded
 
     external fun nativeInitialize(appId: String)
+
+    /**
+     * Sets the rich presence. [name] is the activity name shown next to the verb
+     * ("Watching Tensei"); [button1Label]/[button1Url] and [button2Label]/[button2Url]
+     * add the up-to-two clickable buttons under the presence (e.g. AniList and
+     * MyAnimeList links). Null/blank button fields skip that button; a null
+     * [smallImage] hides the small asset.
+     */
     external fun nativeSetPresence(
+        name: String?,
         details: String?,
         state: String?,
         type: Int,
@@ -32,6 +41,10 @@ object DiscordNative {
         smallText: String?,
         largeUrl: String?,
         smallUrl: String?,
+        button1Label: String?,
+        button1Url: String?,
+        button2Label: String?,
+        button2Url: String?,
     )
     external fun nativeClearPresence()
     external fun nativeRunCallbacks()

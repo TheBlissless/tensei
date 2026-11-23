@@ -34,6 +34,10 @@ object RepoKindDetector {
     fun detect(url: String, body: ByteArray): RepoKind {
         val text = String(body, Charsets.UTF_8).trimStart()
         if (!text.startsWith("{") && !text.startsWith("[")) {
+            // An HTML page (someone pasted a github.com repo URL) is not a payload we
+            // can parse either way; fall back to the URL hint instead of assuming the
+            // Mihon protobuf index.
+            if (text.startsWith("<")) return urlHint(url)
             // Binary payload — the Mihon protobuf index.
             return RepoKind.MANGA
         }
@@ -56,7 +60,24 @@ object RepoKindDetector {
     }
 
     private fun detectArray(url: String, arr: JsonArray): RepoKind {
-        val first = arr.firstOrNull() as? JsonObject ?: return urlHint(url)
+        val entries = arr.take(20).mapNotNull { it as? JsonObject }
+        if (entries.isEmpty()) return urlHint(url)
+
+        // Aniyomi-style anime repositories reuse the Mihon index.min.json payload, so
+        // the format alone can't tell them apart — the ENTRIES can. A repository whose
+        // entries live under "eu.kanade.tachiyomi.animeextension.*" packages or are
+        // named "Aniyomi: ..." is an anime repo (e.g. yuzono/anime-repo) even though
+        // it carries the numeric nsfw flags and flat array of a Mihon store.
+        val animeMarkers = entries.count { entry ->
+            val pkg = (entry["pkg"] as? JsonPrimitive)?.content.orEmpty()
+            val name = (entry["name"] as? JsonPrimitive)?.content.orEmpty()
+            pkg.contains("animeextension", ignoreCase = true) ||
+                pkg.contains("aniyomi", ignoreCase = true) ||
+                name.startsWith("Aniyomi", ignoreCase = true)
+        }
+        if (animeMarkers > 0 && animeMarkers >= entries.size / 2) return RepoKind.ANIME
+
+        val first = entries.first()
         // Anime entries declare their own type.
         if (first.containsKey("type")) return RepoKind.ANIME
         // Mihon's legacy index flags NSFW numerically (0/1) and names extensions "Tachiyomi: X".

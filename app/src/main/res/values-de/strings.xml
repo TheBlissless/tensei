@@ -61,6 +61,10 @@
     <string name="settings_sync_toast_login_required">Melde dich bei AniList und MyAnimeList an, um zu synchronisieren</string>
     <string name="settings_discord_title">Discord Rich Presence</string>
     <string name="settings_discord_desc">Zeige an, was du schaust/liest auf Discord\nFunktioniert möglicherweise nur mit der offiziellen Discord-App</string>
+    <string name="settings_discord_hide_small_title">Kleines Presence-Bild ausblenden</string>
+    <string name="settings_discord_hide_small_desc">Blendet das kleine App-Icon neben dem Artwork in der Discord Rich Presence aus</string>
+    <string name="settings_discord_hide_buttons_title">Rich-Presence-Schaltflächen ausblenden</string>
+    <string name="settings_discord_hide_buttons_desc">Blendet die AniList- und MyAnimeList-Schaltflächen unter der Discord Rich Presence aus</string>
     <string name="settings_section_theme_mode">DESIGNMODUS</string>
     <string name="settings_theme_system">Systemdesign</string>
     <string name="settings_theme_system_desc">Folgt der Design-Einstellung deines Geräts</string>
@@ -80,6 +84,8 @@
     <string name="settings_section_episodes">EPISODEN</string>
     <string name="settings_hide_episode_desc">Episodenbeschreibungen ausblenden</string>
     <string name="settings_hide_episode_desc_detail">In Episodenlisten nur Nummer und Titel der Episode anzeigen</string>
+    <string name="settings_always_show_all_episodes_title">Episodenliste immer vollständig anzeigen</string>
+    <string name="settings_always_show_all_episodes_desc">Zeigt alle Episoden sofort an, statt zukünftige Episoden hinter der Schaltfläche „Alle Episoden“ zu verbergen. Das Tippen auf diese Schaltfläche aktiviert diese Option automatisch</string>
     <string name="settings_section_app_icon">APP-SYMBOL</string>
     <string name="settings_icon_default">Standard</string>
     <string name="settings_icon_default_desc">Standard-App-Symbol</string>

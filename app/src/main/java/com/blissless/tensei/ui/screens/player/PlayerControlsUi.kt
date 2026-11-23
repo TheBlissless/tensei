@@ -195,7 +195,9 @@ fun BoxScope.PlayerControlsUi(
                         ) {
                             IconButton(
                                 onClick = {
-                                    exitFullscreen()
+                                    // Back is fully owned by the host: in fullscreen it
+                                    // leaves fullscreen (returning to the episode list),
+                                    // in the minimized player it closes the player.
                                     onBackClick?.invoke()
                                 },
                                 modifier = Modifier.size(if (isCompact) 32.dp else 40.dp)
@@ -208,6 +210,10 @@ fun BoxScope.PlayerControlsUi(
                                 )
                             }
                             Spacer(modifier = Modifier.width(4.dp))
+                            // The anime name / episode title block is only shown in the
+                            // fullscreen top bar — the minimized player shows that info in
+                            // the header below the video instead, so the compact top bar
+                            // keeps only the back button.
                             if (!isCompact) {
                                 Column(modifier = Modifier.weight(1f, fill = false)) {
                                     if (animeName.isNotEmpty()) {
@@ -246,60 +252,6 @@ fun BoxScope.PlayerControlsUi(
                                         if (s.isFetchingTimestamps || s.isChangingServer) {
                                             CircularProgressIndicator(
                                                 modifier = Modifier.size(12.dp),
-                                                strokeWidth = 1.5.dp,
-                                                color = if (disableMaterialColors) Color.White else playerAccentColor()
-                                            )
-                                        }
-                                    }
-                                }
-                            } else {
-                                // Compact (portrait phone) layout: mirrors the non-compact
-                                // (fullscreen) layout — a 2-line Column with the anime name
-                                // on top, then a Row with the episode title + "·" + "Episode X/Y".
-                                // Previously this was a single condensed line that only showed
-                                // one of (episode title | anime name), which was less informative
-                                // than the fullscreen layout. Now both layouts show the same
-                                // information, just with smaller typography in compact mode to
-                                // fit the narrower top bar.
-                                Column(modifier = Modifier.weight(1f, fill = false)) {
-                                    if (animeName.isNotEmpty()) {
-                                        Text(
-                                            text = animeName,
-                                            color = Color.White,
-                                            style = MaterialTheme.typography.labelMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        // Compact (minimized) layout hides the episode title/number for
-                                        // movies too; the anime name above is enough.
-                                        if (!isMovie) {
-                                            if (!episodeTitle.isNullOrEmpty()) {
-                                                Text(
-                                                    text = episodeTitle,
-                                                    color = Color.White.copy(alpha = 0.7f),
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis,
-                                                    modifier = Modifier.weight(1f, fill = false)
-                                                )
-                                                Text("·", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
-                                            }
-                                            Text(
-                                                text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
-                                                color = Color.White.copy(alpha = 0.7f),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                maxLines = 1
-                                            )
-                                        }
-                                        if (s.isFetchingTimestamps || s.isChangingServer) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(10.dp),
                                                 strokeWidth = 1.5.dp,
                                                 color = if (disableMaterialColors) Color.White else playerAccentColor()
                                             )
@@ -582,6 +534,20 @@ fun BoxScope.PlayerControlsUi(
                                 supportsPiP = supportsPiP,
                                 onPiPToggle = { onPiPToggle?.invoke(it) },
                             )
+
+                            // Fullscreen toggle — placed directly right of the settings icon
+                            // in both the fullscreen and the minimized (compact) top bar.
+                            IconButton(
+                                onClick = { toggleFullscreen() },
+                                modifier = Modifier.size(if (isCompact) 30.dp else 40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                    contentDescription = if (isFullscreen) stringResource(R.string.player_exit_fullscreen) else stringResource(R.string.player_fullscreen),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(if (isCompact) 18.dp else 24.dp)
+                                )
+                            }
 
                         }
                     }
@@ -903,67 +869,42 @@ fun BoxScope.PlayerControlsUi(
                     // Remaining time lives in the tappable left indicator above the bar (YouTube-style),
                     // so no second "-mm:ss" line here.
 
-                    // Bottom row with speed selector on left and time on right
+                    // Playback speed lives outside the layout branch so it survives
+                    // fullscreen <-> minimized toggles (the player composable is kept
+                    // alive across them and the engine keeps its speed).
                     var currentSpeed by rememberSaveable { mutableFloatStateOf(1f) }
-                    val speedOptions = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = if (isCompact) 2.dp else 0.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Playback speed selector on the left
-                        PlaybackSpeedSelector(
-                            currentSpeed = currentSpeed,
-                            showMenu = s.showSpeedMenu,
-                            onShowMenuChange = { s.showSpeedMenu = it },
-                            onSpeedChange = { speed ->
-                                currentSpeed = speed
-                                engine.setPlaybackSpeed(speed)
-                            },
-                            isCompact = isCompact,
-                        )
-
-                        // Autoplay + Fullscreen (linked)
-                        if (isCompact) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = Color.Transparent,
-                                onClick = { toggleFullscreen() }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                                        contentDescription = if (isFullscreen) stringResource(R.string.player_exit_fullscreen) else stringResource(R.string.player_fullscreen),
-                                        tint = Color.White,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                }
-                            }
-                        } else {
-                            AutoplayFullscreenRow(
-                                autoPlayNextEpisode = autoPlayNextEpisode,
-                                isFullscreen = isFullscreen,
-                                onAutoPlayChange = { onAutoPlayNextEpisodeChanged?.invoke(it) },
-                                onFullscreenToggle = { toggleFullscreen() },
+                    // Bottom row (fullscreen only): playback speed on the left, autoplay on
+                    // the right. The compact (minimized) layout hides this row entirely —
+                    // its speed dial and fullscreen button are gone, leaving the scrub bar
+                    // as the last element so the progress bar sits at the very bottom of
+                    // the player.
+                    if (!isCompact) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 0.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Playback speed selector on the left
+                            PlaybackSpeedSelector(
+                                currentSpeed = currentSpeed,
+                                showMenu = s.showSpeedMenu,
+                                onShowMenuChange = { s.showSpeedMenu = it },
+                                onSpeedChange = { speed ->
+                                    currentSpeed = speed
+                                    engine.setPlaybackSpeed(speed)
+                                },
                                 isCompact = isCompact,
+                            )
+
+                            // Autoplay toggle on the right (the fullscreen button now lives
+                            // in the top bar, right of the settings icon).
+                            AutoplayRow(
+                                autoPlayNextEpisode = autoPlayNextEpisode,
+                                onAutoPlayChange = { onAutoPlayNextEpisodeChanged?.invoke(it) },
                                 isOled = isOled,
                             )
                         }
-                    }
-                    if (isCompact) {
-                        // The compact bottom title row (episode title + Ep X/Y) has been
-                        // removed — the same information is now shown in the compact top
-                        // bar (which mirrors the fullscreen 2-line layout: anime name on
-                        // top, episode title + "·" + "Episode X/Y" on the bottom). Keeping
-                        // it in both places was redundant and crowded the bottom controls
-                        // area. A small spacer is kept so the speed/fullscreen row doesn't
-                        // sit flush against the scrubber.
-                        Spacer(modifier = Modifier.height(2.dp))
                     }
                 }
             }

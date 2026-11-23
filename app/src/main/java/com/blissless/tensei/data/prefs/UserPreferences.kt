@@ -98,6 +98,9 @@ class UserPreferences(context: Context) {
         internal const val KEY_MAX_PERFORMANCE = "max_performance"
         internal const val KEY_SUPPORTS_PIP = "supports_pip"
         internal const val KEY_DISCORD_RICH_PRESENCE = "discord_rich_presence"
+        internal const val KEY_DISCORD_HIDE_SMALL_IMAGE = "discord_hide_small_image"
+        internal const val KEY_DISCORD_HIDE_BUTTONS = "discord_hide_buttons"
+        internal const val KEY_ALWAYS_SHOW_ALL_EPISODES = "always_show_all_episodes"
     }
 
     internal val sharedPreferences: SharedPreferences =
@@ -180,6 +183,18 @@ class UserPreferences(context: Context) {
 
     private val _discordRichPresence = MutableStateFlow(false)
     val discordRichPresence: StateFlow<Boolean> = _discordRichPresence.asStateFlow()
+
+    // Hides the small image asset on the Discord rich presence (app icon / author avatar)
+    private val _discordHideSmallImage = MutableStateFlow(false)
+    val discordHideSmallImage: StateFlow<Boolean> = _discordHideSmallImage.asStateFlow()
+
+    // Hides the AniList / MyAnimeList buttons under the Discord rich presence
+    private val _discordHideButtons = MutableStateFlow(false)
+    val discordHideButtons: StateFlow<Boolean> = _discordHideButtons.asStateFlow()
+
+    // Disables the anti-spoiler collapse so episode lists always show every episode
+    private val _alwaysShowAllEpisodes = MutableStateFlow(false)
+    val alwaysShowAllEpisodes: StateFlow<Boolean> = _alwaysShowAllEpisodes.asStateFlow()
 
     // Thumbnail extraction for seekbar preview
     private val _enableThumbnailPreview = MutableStateFlow(false)
@@ -338,6 +353,9 @@ class UserPreferences(context: Context) {
         _autoPlayNextEpisode.value = sharedPreferences.getBoolean(KEY_AUTO_PLAY_NEXT_EPISODE, true)
         _supportsPiP.value = sharedPreferences.getBoolean(KEY_SUPPORTS_PIP, true)
         _discordRichPresence.value = sharedPreferences.getBoolean(KEY_DISCORD_RICH_PRESENCE, false)
+        _discordHideSmallImage.value = sharedPreferences.getBoolean(KEY_DISCORD_HIDE_SMALL_IMAGE, false)
+        _discordHideButtons.value = sharedPreferences.getBoolean(KEY_DISCORD_HIDE_BUTTONS, false)
+        _alwaysShowAllEpisodes.value = sharedPreferences.getBoolean(KEY_ALWAYS_SHOW_ALL_EPISODES, false)
         _enableThumbnailPreview.value = sharedPreferences.getBoolean(KEY_ENABLE_THUMBNAIL_PREVIEW, false)
         _preferredScraper.value = sharedPreferences.getString(KEY_PREFERRED_SCRAPER, "Animekai") ?: "Animekai"
         _defaultExtensionPackage.value = sharedPreferences.getString(KEY_DEFAULT_EXTENSION, "") ?: ""
@@ -538,6 +556,24 @@ class UserPreferences(context: Context) {
     fun setDiscordRichPresence(enabled: Boolean) {
         _discordRichPresence.value = enabled
         sharedPreferences.edit { putBoolean(KEY_DISCORD_RICH_PRESENCE, enabled) }
+    }
+
+    /** Hides the small image asset (app icon / author avatar) on the Discord presence. */
+    fun setDiscordHideSmallImage(enabled: Boolean) {
+        _discordHideSmallImage.value = enabled
+        sharedPreferences.edit { putBoolean(KEY_DISCORD_HIDE_SMALL_IMAGE, enabled) }
+    }
+
+    /** Hides the AniList / MyAnimeList buttons under the Discord presence. */
+    fun setDiscordHideButtons(enabled: Boolean) {
+        _discordHideButtons.value = enabled
+        sharedPreferences.edit { putBoolean(KEY_DISCORD_HIDE_BUTTONS, enabled) }
+    }
+
+    /** Shows every episode up front instead of hiding unwatched ones behind the anti-spoiler button. */
+    fun setAlwaysShowAllEpisodes(enabled: Boolean) {
+        _alwaysShowAllEpisodes.value = enabled
+        sharedPreferences.edit { putBoolean(KEY_ALWAYS_SHOW_ALL_EPISODES, enabled) }
     }
 
     /**

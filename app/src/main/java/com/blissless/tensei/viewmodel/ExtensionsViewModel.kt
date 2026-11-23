@@ -308,7 +308,13 @@ class ExtensionsViewModel(application: Application) : AndroidViewModel(applicati
         repo.copy(
             extensions = repo.extensions.map { ext ->
                 val resolvedApk = resolveApkUrl(repoUrl, ext.apk)
-                val resolvedIcon = if (ext.icon.isNotBlank()) resolveIconUrl(repoUrl, ext.icon) else ext.icon
+                val resolvedIcon = when {
+                    ext.icon.isNotBlank() -> resolveIconUrl(repoUrl, ext.icon)
+                    // Mihon-style flat indexes (index.min.json) don't list icons; they keep
+                    // them at icon/<pkg>.png (e.g. the yuzono anime repository).
+                    ext.packageName.isNotBlank() -> resolveIconUrl(repoUrl, "icon/${ext.packageName}.png")
+                    else -> ext.icon
+                }
                 ext.copy(apk = resolvedApk, icon = resolvedIcon)
             }
         )

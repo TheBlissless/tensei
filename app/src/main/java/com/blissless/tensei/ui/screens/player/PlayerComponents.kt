@@ -313,22 +313,18 @@ internal fun SkipButtonsOverlay(
 }
 
 /**
- * Autoplay toggle and fullscreen button row.
+ * Autoplay toggle row.
  *
- * Displays a compact row with an autoplay switch and a fullscreen
- * toggle icon. Both are clickable and share a dark rounded background.
+ * Displays a compact pill with an autoplay switch. The fullscreen button that
+ * used to share this row moved to the top bar (right of the settings icon).
  *
  * @param autoPlayNextEpisode Current autoplay state
- * @param isFullscreen        Current fullscreen state
  * @param onAutoPlayChange    Called when autoplay toggle is clicked
- * @param onFullscreenToggle  Called when fullscreen icon is clicked
  */
 @Composable
-internal fun AutoplayFullscreenRow(
+internal fun AutoplayRow(
     autoPlayNextEpisode: Boolean,
-    isFullscreen: Boolean,
     onAutoPlayChange: (Boolean) -> Unit,
-    onFullscreenToggle: () -> Unit,
     isCompact: Boolean = false,
     isOled: Boolean = false,
 ) {
@@ -344,7 +340,7 @@ internal fun AutoplayFullscreenRow(
             Row(
                 modifier = Modifier.padding(
                     start = if (isCompact) 4.dp else 12.dp,
-                    end = if (isCompact) 1.dp else 6.dp,
+                    end = if (isCompact) 4.dp else 12.dp,
                     top = if (isCompact) 3.dp else 8.dp,
                     bottom = if (isCompact) 3.dp else 8.dp
                 ),
@@ -371,27 +367,6 @@ internal fun AutoplayFullscreenRow(
                         )
                     )
                 }
-            }
-        }
-        Surface(
-            onClick = onFullscreenToggle,
-            color = Color.Transparent
-        ) {
-            Row(
-                modifier = Modifier.padding(
-                    start = if (isCompact) 1.dp else 6.dp,
-                    end = if (isCompact) 4.dp else 12.dp,
-                    top = if (isCompact) 2.dp else 8.dp,
-                    bottom = if (isCompact) 2.dp else 8.dp
-                ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
-                    contentDescription = if (isFullscreen) stringResource(R.string.player_content_desc_exit_fullscreen) else stringResource(R.string.player_content_desc_enter_fullscreen),
-                    tint = Color.White,
-                    modifier = Modifier.size(if (isCompact) 10.dp else 18.dp)
-                )
             }
         }
     }

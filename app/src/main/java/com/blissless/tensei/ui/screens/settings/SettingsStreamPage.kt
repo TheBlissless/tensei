@@ -351,7 +351,10 @@ internal fun StreamSettingsPage(
                         standardExtensions.forEach { ext ->
                             val isSelected = ext.packageName == defaultExtPackage
                             TextButton(
-                                onClick = { viewModel.setDefaultExtensionPackage(ext.packageName); viewModel.setDefaultStreamExtension(null); showExtPicker = false },
+                                // Keep the saved Tensei (stream/magnet) selection intact so
+                                // switching between Tensei and external never deselects the
+                                // other method's extension.
+                                onClick = { viewModel.setDefaultExtensionPackage(ext.packageName); showExtPicker = false },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
@@ -394,7 +397,10 @@ internal fun StreamSettingsPage(
                         streamExtensions.forEach { (name, authority) ->
                             val isSelected = authority == defaultStreamExtension
                             TextButton(
-                                onClick = { viewModel.setDefaultStreamExtension(authority); viewModel.setDefaultExtensionPackage(""); viewModel.setDefaultMagnetExtension(""); showExtPicker = false },
+                                // Only clear the torrent default (the other Tensei source
+                                // slot); the external extension package stays saved so
+                                // switching to external later keeps its selection.
+                                onClick = { viewModel.setDefaultStreamExtension(authority); viewModel.setDefaultMagnetExtension(""); showExtPicker = false },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(
@@ -439,7 +445,10 @@ internal fun StreamSettingsPage(
                         magnetExtensions.forEach { (name, authority) ->
                             val isSelected = authority == defaultMagnetExtension
                             TextButton(
-                                onClick = { viewModel.setDefaultMagnetExtension(authority); viewModel.setDefaultExtensionPackage(""); viewModel.setDefaultStreamExtension(null); showExtPicker = false },
+                                // Only clear the stream default (the other Tensei source
+                                // slot); the external extension package stays saved so
+                                // switching to external later keeps its selection.
+                                onClick = { viewModel.setDefaultMagnetExtension(authority); viewModel.setDefaultStreamExtension(null); showExtPicker = false },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Row(

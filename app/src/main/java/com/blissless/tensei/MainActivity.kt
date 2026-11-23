@@ -386,7 +386,13 @@ class MainActivity : ComponentActivity() {
         }
         handleAuthCallback(intent)
 
-        // Auto-connect Discord Rich Presence if previously enabled
+        // Auto-connect Discord Rich Presence if previously enabled. Sync the
+        // "hide the small image" and "hide the buttons" settings first so the very
+        // first presence honors them.
+        com.blissless.tensei.discord.DiscordRichPresence.hideSmallImage =
+            mainViewModel.discordHideSmallImage.value
+        com.blissless.tensei.discord.DiscordRichPresence.hideButtons =
+            mainViewModel.discordHideButtons.value
         if (mainViewModel.discordRichPresence.value) {
             com.blissless.tensei.discord.DiscordRichPresence.connect()
         }

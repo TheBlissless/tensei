@@ -154,6 +154,7 @@ import com.blissless.tensei.viewmodel.setDiscordRichPresence
 import com.blissless.tensei.viewmodel.setCheckUpdatesOnStart
 import com.blissless.tensei.viewmodel.setAutoUpdateExtensions
 import com.blissless.tensei.viewmodel.setHideEpisodeDescription
+import com.blissless.tensei.viewmodel.setAlwaysShowAllEpisodes
 import com.blissless.tensei.viewmodel.loadAvailableMagnetExtensions
 import com.blissless.tensei.viewmodel.loadAvailableStreamExtensions
 import com.blissless.tensei.viewmodel.getVideoCacheSize
@@ -281,6 +282,7 @@ internal fun AppearanceSettingsPage(
         }
 
         val hideEpisodeDescription by viewModel.hideEpisodeDescription.collectAsState(initial = true)
+        val alwaysShowAllEpisodes by viewModel.alwaysShowAllEpisodes.collectAsState(initial = false)
 
         SectionHeader(stringResource(R.string.settings_section_episodes))
         SettingsCard {
@@ -289,6 +291,12 @@ internal fun AppearanceSettingsPage(
                 description = stringResource(R.string.settings_hide_episode_desc_detail),
                 checked = hideEpisodeDescription,
                 onCheckedChange = { viewModel.setHideEpisodeDescription(it) }
+            )
+            SettingsToggle(
+                title = stringResource(R.string.settings_always_show_all_episodes_title),
+                description = stringResource(R.string.settings_always_show_all_episodes_desc),
+                checked = alwaysShowAllEpisodes,
+                onCheckedChange = { viewModel.setAlwaysShowAllEpisodes(it) }
             )
         }
 

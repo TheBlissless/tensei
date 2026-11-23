@@ -51,8 +51,9 @@ enum class ExtensionType(val label: String) {
          *
          * Tensei/Blissless extensions name themselves after the ecosystem they belong to:
          * `com.blissless.<name>.manga`, `com.blissless.<name>.anime.stream` and
-         * `com.blissless.<name>.anime.torrent`. Mihon's manga extensions live under
-         * `eu.kanade.tachiyomi.extension.*`.
+         * `com.blissless.<name>.anime.torrent`. Aniyomi-style anime extensions live under
+         * `eu.kanade.tachiyomi.animeextension.*` (e.g. the yuzono repository), Mihon's
+         * manga extensions under `eu.kanade.tachiyomi.extension.*`.
          */
         fun fromPackageName(packageName: String): ExtensionType {
             if (packageName.isBlank()) return UNKNOWN
@@ -60,6 +61,7 @@ enum class ExtensionType(val label: String) {
             if (lower.endsWith(".manga")) return MANGA
             if (lower.endsWith(".anime.stream")) return STREAM
             if (lower.endsWith(".anime.torrent")) return TORRENT
+            if (lower.startsWith("eu.kanade.tachiyomi.animeextension.")) return ANIME
             if (lower.startsWith("eu.kanade.tachiyomi.extension.")) return MANGA
             val segments = lower.split(".")
             if (segments.contains("manga")) return MANGA

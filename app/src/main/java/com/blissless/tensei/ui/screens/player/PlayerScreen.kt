@@ -139,6 +139,8 @@ fun PlayerScreen(
     discordRichPresence: Boolean = false,
     discordImage: String? = null,
     discordUrl: String? = null,
+    discordAnilistUrl: String? = null,
+    discordMalUrl: String? = null,
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
@@ -331,6 +333,9 @@ fun PlayerScreen(
         discordRichPresence = discordRichPresence,
         discordImage = discordImage,
         discordUrl = discordUrl,
+        episodeTitle = episodeTitle,
+        discordAnilistUrl = discordAnilistUrl,
+        discordMalUrl = discordMalUrl,
         episodeInfo = episodeInfo,
         extensionServers = extensionServers,
         extensionOkHttpClient = extensionOkHttpClient,

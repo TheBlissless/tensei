@@ -16,6 +16,8 @@
     <string name="lists_close_player">Player schließen</string>
     <string name="lists_enter_fullscreen">Vollbildmodus aktivieren</string>
     <string name="lists_play">Abspielen</string>
+    <string name="lists_watch_again">Erneut ansehen</string>
+    <string name="lists_all_episodes">Alle Episoden</string>
     <string name="lists_episode">Episode %1$d</string>
     <string name="lists_current">Aktuell</string>
     <string name="lists_more">Mehr</string>

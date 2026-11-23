@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -93,6 +95,15 @@ fun MihonZoomableImage(
      * page; the vertical reader can ignore it (or use it to toggle the chrome).
      */
     onSingleTap: ((Offset) -> Unit)? = null,
+    /**
+     * When true the single tap fires the moment the finger lifts, without waiting
+     * out the double-tap timeout. Used by the paged (horizontal) reader, where the
+     * double-tap-to-zoom is handled at the pager level and a delayed page turn felt
+     * laggy (and quick consecutive taps fell into the double-tap window and got
+     * eaten). When false the classic detectTapGestures behaviour is used, which
+     * keeps the image-level double-tap-to-zoom working for the vertical reader.
+     */
+    instantTap: Boolean = false,
     /**
      * When false, all gesture handling (tap, double-tap-zoom, pinch, pan) is
      * skipped. The image is displayed without any interactive behaviour. Used
@@ -304,44 +315,57 @@ fun MihonZoomableImage(
             .onSizeChanged { intSize ->
                 layoutSize = intSize.toSize()
             }
-            // Tap detector — always active so double-tap-to-zoom works even
-            // when gesturesEnabled is false (vertical scroll reader).
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onTap = { tap ->
-                        if (!lastGestureWasVertical) {
-                            onSingleTap?.invoke(tap)
-                        }
-                    },
-                    onDoubleTap = { tap ->
-                        if (!isReady()) return@detectTapGestures
-                        cancelRunningAnimation()
-                        animatedJob = scope.launch {
-                            val s0 = scale
-                            val ox0 = offsetX
-                            val oy0 = offsetY
-                            val s1: Float
-                            val ox1: Float
-                            val oy1: Float
-                            if (s0 > 1.01f) {
-                                s1 = MIN_ZOOM; ox1 = 0f; oy1 = 0f
-                            } else {
-                                s1 = DOUBLE_TAP_ZOOM
-                                val target = focalAdjust(tap, s0, s1, Offset(ox0, oy0))
-                                val (cx, cy) = clampOffset(target.x, target.y, s1)
-                                ox1 = cx; oy1 = cy
-                            }
-                            animate(
-                                initialValue = 0f, targetValue = 1f,
-                                animationSpec = tween(ANIM_DURATION_MS)
-                            ) { progress, _ ->
-                                scale = s0 + (s1 - s0) * progress
-                                offsetX = ox0 + (ox1 - ox0) * progress
-                                offsetY = oy0 + (oy1 - oy0) * progress
-                            }
-                        }
+            // Tap detector. In instant-tap mode (paged reader) the tap fires on lift in
+            // the Final pass — no double-tap timeout, so page turns are immediate, and
+            // anything that consumed the gesture in an earlier pass (pager scroll, the
+            // pager-level double-tap detector consuming the second tap of a double-tap)
+            // automatically suppresses it. Otherwise the classic detector is used so
+            // double-tap-to-zoom still works (vertical scroll reader).
+            .pointerInput(instantTap) {
+                if (instantTap) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Final)
+                        if (down.isConsumed) return@awaitEachGesture
+                        val up = waitForUpOrCancellation(pass = PointerEventPass.Final) ?: return@awaitEachGesture
+                        onSingleTap?.invoke(up.position)
                     }
-                )
+                } else {
+                    detectTapGestures(
+                        onTap = { tap ->
+                            if (!lastGestureWasVertical) {
+                                onSingleTap?.invoke(tap)
+                            }
+                        },
+                        onDoubleTap = { tap ->
+                            if (!isReady()) return@detectTapGestures
+                            cancelRunningAnimation()
+                            animatedJob = scope.launch {
+                                val s0 = scale
+                                val ox0 = offsetX
+                                val oy0 = offsetY
+                                val s1: Float
+                                val ox1: Float
+                                val oy1: Float
+                                if (s0 > 1.01f) {
+                                    s1 = MIN_ZOOM; ox1 = 0f; oy1 = 0f
+                                } else {
+                                    s1 = DOUBLE_TAP_ZOOM
+                                    val target = focalAdjust(tap, s0, s1, Offset(ox0, oy0))
+                                    val (cx, cy) = clampOffset(target.x, target.y, s1)
+                                    ox1 = cx; oy1 = cy
+                                }
+                                animate(
+                                    initialValue = 0f, targetValue = 1f,
+                                    animationSpec = tween(ANIM_DURATION_MS)
+                                ) { progress, _ ->
+                                    scale = s0 + (s1 - s0) * progress
+                                    offsetX = ox0 + (ox1 - ox0) * progress
+                                    offsetY = oy0 + (oy1 - oy0) * progress
+                                }
+                            }
+                        }
+                    )
+                }
             }
             // Pinch/pan gesture handler — only active when gestures are enabled
             // (paged reader). In vertical-scroll mode this is skipped so

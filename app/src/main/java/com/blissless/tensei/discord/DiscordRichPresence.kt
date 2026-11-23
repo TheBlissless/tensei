@@ -13,9 +13,30 @@ object DiscordRichPresence {
     private const val REPO_URL = "https://github.com/TheBlissless/tensei"
     private const val APP_NAME = "Tensei"
     private const val TAG = "DiscordRPC"
+
+    /** Button labels for the tracker links shown under the presence. */
+    private const val BUTTON_ANILIST_LABEL = "AniList"
+    private const val BUTTON_MAL_LABEL = "MyAnimeList"
+
     private var initialized = false
     private val handler = Handler(Looper.getMainLooper())
     private const val CALLBACK_INTERVAL_MS = 1000L
+
+    /**
+     * When true the small asset (the app icon / author avatar badge) is left off the
+     * presence — mirrors the "hide the small image" setting. Read on every presence
+     * update so toggling the setting takes effect on the next refresh.
+     */
+    @Volatile
+    var hideSmallImage: Boolean = false
+
+    /**
+     * When true the tracker link buttons (AniList / MyAnimeList) are left off the
+     * presence — mirrors the "hide the rich presence buttons" setting. Read on every
+     * presence update so toggling the setting takes effect on the next refresh.
+     */
+    @Volatile
+    var hideButtons: Boolean = false
 
     private val callbackRunnable = object : Runnable {
         override fun run() {
@@ -60,12 +81,19 @@ object DiscordRichPresence {
     /**
      * Presence while watching an episode.
      *
-     * Assets: the large image is the anime's highest-quality cover art, its hover text is the
-     * anime title and clicking it opens the anime's page on the tracker the user is logged into
-     * ([targetUrl], AniList preferred when both are active). The small image is the app icon,
-     * linking to the repository. Both images use plain https URLs — the same mechanism the
-     * browsing presence uses successfully. Discord does not resolve `mp:`-prefixed URLs or
-     * uploaded asset keys here: those rendered as two white "?" squares while watching.
+     * Layout: the activity name is "Tensei", so with the Watching activity type the
+     * header reads "Watching Tensei"; the details line is the anime name and the state
+     * line is "Episode X: Episode title". Two buttons under the presence open the
+     * anime's AniList and MyAnimeList pages; they are omitted when [hideButtons] is set.
+     *
+     * Assets: the large image is the anime's cover art (Discord renders it in its own
+     * fixed aspect — the app can only choose which artwork to send), its hover text is
+     * the anime title and clicking it opens the anime's page on the tracker the user is
+     * logged into ([targetUrl], AniList preferred when both are active). The small image
+     * is the app icon, linking to the repository; it is omitted entirely when
+     * [hideSmallImage] is set. Both images use plain https URLs — Discord does not
+     * resolve `mp:`-prefixed URLs or uploaded asset keys here: those rendered as two
+     * white "?" squares while watching.
      */
     fun setAnimePresence(
         animeName: String,
@@ -75,9 +103,16 @@ object DiscordRichPresence {
         currentPositionMs: Long = 0L,
         imageUrl: String? = null,
         targetUrl: String? = null,
+        episodeTitle: String? = null,
+        anilistUrl: String? = null,
+        malUrl: String? = null,
     ) {
         if (!initialized) return
-        val epText = if (totalEpisodes > 0) "Episode $episode / $totalEpisodes" else "Episode $episode"
+        val epText = when {
+            !episodeTitle.isNullOrBlank() -> "Episode $episode: ${episodeTitle.trim()}"
+            totalEpisodes > 0 -> "Episode $episode / $totalEpisodes"
+            else -> "Episode $episode"
+        }
         val nowSec = System.currentTimeMillis() / 1000
         val endTs: Long
         val startTs: Long
@@ -91,6 +126,7 @@ object DiscordRichPresence {
         }
         Log.i(TAG, "setAnimePresence: $animeName - $epText, startTs=$startTs endTs=$endTs")
         DiscordNative.nativeSetPresence(
+            name = APP_NAME,
             details = animeName,
             state = epText,
             type = 3,
@@ -98,28 +134,36 @@ object DiscordRichPresence {
             endTimestamp = endTs,
             largeImage = artwork(imageUrl),
             largeText = animeName.ifBlank { APP_NAME },
-            smallImage = ICON_URL,
-            smallText = APP_NAME,
+            smallImage = if (hideSmallImage) null else ICON_URL,
+            smallText = if (hideSmallImage) null else APP_NAME,
             largeUrl = targetUrl?.takeIf { it.isNotBlank() } ?: REPO_URL,
-            smallUrl = REPO_URL,
+            smallUrl = if (hideSmallImage) null else REPO_URL,
+            button1Label = if (hideButtons) null else BUTTON_ANILIST_LABEL,
+            button1Url = if (hideButtons) null else anilistUrl?.takeIf { it.isNotBlank() },
+            button2Label = if (hideButtons) null else BUTTON_MAL_LABEL,
+            button2Url = if (hideButtons) null else malUrl?.takeIf { it.isNotBlank() },
         )
     }
 
     /**
-     * Presence while reading a manga chapter. Same asset layout as [setAnimePresence]:
-     * manga cover art + title + tracker page link when available, app icon next to it,
-     * static fallbacks for missing metadata.
+     * Presence while reading a manga chapter. Same layout as [setAnimePresence]:
+     * "Watching Tensei" header, manga title on the details line, chapter label on the
+     * state line, manga cover + tracker page link, and the AniList / MyAnimeList
+     * buttons underneath.
      */
     fun setMangaPresence(
         mangaTitle: String,
         chapterLabel: String,
         imageUrl: String? = null,
         targetUrl: String? = null,
+        anilistUrl: String? = null,
+        malUrl: String? = null,
     ) {
         if (!initialized) return
         val startTs = System.currentTimeMillis() / 1000
         Log.i(TAG, "setMangaPresence: $mangaTitle - $chapterLabel")
         DiscordNative.nativeSetPresence(
+            name = APP_NAME,
             details = mangaTitle,
             state = chapterLabel,
             type = 3,
@@ -127,10 +171,14 @@ object DiscordRichPresence {
             endTimestamp = 0,
             largeImage = artwork(imageUrl),
             largeText = mangaTitle.ifBlank { APP_NAME },
-            smallImage = ICON_URL,
-            smallText = APP_NAME,
+            smallImage = if (hideSmallImage) null else ICON_URL,
+            smallText = if (hideSmallImage) null else APP_NAME,
             largeUrl = targetUrl?.takeIf { it.isNotBlank() } ?: REPO_URL,
-            smallUrl = REPO_URL,
+            smallUrl = if (hideSmallImage) null else REPO_URL,
+            button1Label = if (hideButtons) null else BUTTON_ANILIST_LABEL,
+            button1Url = if (hideButtons) null else anilistUrl?.takeIf { it.isNotBlank() },
+            button2Label = if (hideButtons) null else BUTTON_MAL_LABEL,
+            button2Url = if (hideButtons) null else malUrl?.takeIf { it.isNotBlank() },
         )
     }
 
@@ -138,17 +186,22 @@ object DiscordRichPresence {
         if (!initialized) return
         Log.i(TAG, "setBrowsingPresence")
         DiscordNative.nativeSetPresence(
-            details = APP_NAME,
+            name = APP_NAME,
+            details = null,
             state = "Exploring Anime & Manga",
             type = 3,
             startTimestamp = 0,
             endTimestamp = 0,
             largeImage = ICON_URL,
             largeText = APP_NAME,
-            smallImage = PROFILE_URL,
-            smallText = "TheBlissless",
+            smallImage = if (hideSmallImage) null else PROFILE_URL,
+            smallText = if (hideSmallImage) null else "TheBlissless",
             largeUrl = REPO_URL,
-            smallUrl = "https://github.com/TheBlissless",
+            smallUrl = if (hideSmallImage) null else "https://github.com/TheBlissless",
+            button1Label = if (hideButtons) null else BUTTON_ANILIST_LABEL,
+            button1Url = if (hideButtons) null else "https://anilist.co",
+            button2Label = if (hideButtons) null else BUTTON_MAL_LABEL,
+            button2Url = if (hideButtons) null else "https://myanimelist.net",
         )
     }
 

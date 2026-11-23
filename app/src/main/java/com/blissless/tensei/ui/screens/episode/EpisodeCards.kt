@@ -42,10 +42,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ButtonDefaults
@@ -126,7 +125,8 @@ import com.blissless.tensei.util.toast
 /**
  * Compact rich episode list shown below the video player when it is not in fullscreen.
  * Mirrors the rich episode screen styling but drops the anime banner header — the video
- * itself acts as the header.
+ * itself acts as the header. Its header shows the anime name, the current episode
+ * number + title and the episode description beneath them.
  */
 @Composable
 fun RichEpisodeList(
@@ -143,8 +143,6 @@ fun RichEpisodeList(
     episodeTitle: String? = null,
     isMovie: Boolean = false,
     onEpisodeSelect: (Int) -> Unit,
-    onClose: (() -> Unit)? = null,
-    onEnterFullscreen: (() -> Unit)? = null,
     hideDescription: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -161,39 +159,67 @@ fun RichEpisodeList(
     }
 
     Column(modifier.fillMaxSize().background(if (isOled) Color.Black else MaterialTheme.colorScheme.background)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // Header: anime name, episode number + title, and the episode description
+        // beneath the episode title (the minimized player screen's info block).
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            if (onClose != null) {
-                IconButton(onClick = onClose) {
-                     Icon(Icons.Default.Close, contentDescription = stringResource(R.string.lists_close_player), tint = headerContentColor)
-                }
+            if (animeTitle.isNotEmpty()) {
+                Text(
+                    animeTitle,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = headerContentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
-            Column(modifier = Modifier.weight(1f)) {
-                if (animeTitle.isNotEmpty()) {
+            if (!isMovie) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        animeTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = headerContentColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (!isMovie && !episodeTitle.isNullOrEmpty()) {
-                    Text(
-                        episodeTitle,
+                        text = stringResource(R.string.player_episode_label, currentEpisode) +
+                            if (episodeCount > 0) "/$episodeCount" else "",
                         style = MaterialTheme.typography.labelSmall,
-                        color = headerContentColor.copy(alpha = 0.6f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        fontWeight = FontWeight.SemiBold,
+                        color = headerContentColor.copy(alpha = 0.8f),
+                        maxLines = 1
                     )
+                    if (!episodeTitle.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "·",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = headerContentColor.copy(alpha = 0.4f)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            episodeTitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = headerContentColor.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
                 }
-            }
-            if (onEnterFullscreen != null) {
-                IconButton(onClick = onEnterFullscreen) {
-                     Icon(Icons.Default.Fullscreen, contentDescription = stringResource(R.string.lists_enter_fullscreen), tint = headerContentColor)
+                if (!hideDescription) {
+                    val currentTmdbEpisode = tmdbEpisodes.find { it.episode == currentEpisode }
+                    val description = currentTmdbEpisode?.description
+                    if (!description.isNullOrBlank()) {
+                        Text(
+                            description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = headerContentColor.copy(alpha = 0.6f),
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
             }
         }
@@ -449,7 +475,7 @@ internal fun RichTmdbEpisodeCard(
                         Box(
                             modifier = Modifier.fillMaxWidth().height(30.dp).align(Alignment.BottomCenter).background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f))))
                         )
-if (hasAired) {
+                        if (hasAired) {
                             FilledTonalIconButton(
                                 onClick = onPlay,
                                 modifier = Modifier.align(Alignment.Center).size(36.dp),
@@ -459,7 +485,17 @@ if (hasAired) {
                                     contentColor = Color.White
                                 )
                             ) {
-                                 Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.lists_play), modifier = Modifier.size(22.dp))
+                                // Watched episodes get the watch-again icon so the play
+                                // button reads as "re-watch", not "not started yet".
+                                if (isWatched) {
+                                    Icon(
+                                        Icons.Default.Replay,
+                                        contentDescription = stringResource(R.string.lists_watch_again),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                } else {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.lists_play), modifier = Modifier.size(22.dp))
+                                }
                             }
                         }
                         // Continue watching bar, flush with the bottom of the cover

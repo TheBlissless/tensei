@@ -494,6 +494,9 @@ class MainViewModel : ViewModel() {
     val autoPlayNextEpisode: StateFlow<Boolean> get() = userPreferences.autoPlayNextEpisode
     val supportsPiP: StateFlow<Boolean> get() = userPreferences.supportsPiP
     val discordRichPresence: StateFlow<Boolean> get() = userPreferences.discordRichPresence
+    val discordHideSmallImage: StateFlow<Boolean> get() = userPreferences.discordHideSmallImage
+    val discordHideButtons: StateFlow<Boolean> get() = userPreferences.discordHideButtons
+    val alwaysShowAllEpisodes: StateFlow<Boolean> get() = userPreferences.alwaysShowAllEpisodes
     val localFavorites: StateFlow<Map<Int, StoredFavorite>> get() = userPreferences.localFavorites
     val localAnimeStatus: StateFlow<Map<Int, LocalAnimeEntry>> get() = userPreferences.localAnimeStatus
     val defaultExtensionPackage: StateFlow<String> get() = userPreferences.defaultExtensionPackage

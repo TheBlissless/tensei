@@ -81,6 +81,11 @@ fun MainViewModel.setSupportsPiP(enabled: Boolean) =
     userPreferences.setSupportsPiP(enabled)
 
 fun MainViewModel.setDiscordRichPresence(enabled: Boolean) {
+    // Keep the runtime flags in sync so the next presence update reflects the settings.
+    com.blissless.tensei.discord.DiscordRichPresence.hideSmallImage =
+        userPreferences.discordHideSmallImage.value
+    com.blissless.tensei.discord.DiscordRichPresence.hideButtons =
+        userPreferences.discordHideButtons.value
     userPreferences.setDiscordRichPresence(enabled)
     if (enabled) {
         com.blissless.tensei.discord.DiscordRichPresence.connect()
@@ -89,6 +94,22 @@ fun MainViewModel.setDiscordRichPresence(enabled: Boolean) {
         com.blissless.tensei.discord.DiscordRichPresence.disconnect()
     }
 }
+
+/** Toggles the small image asset on the Discord presence; applies from the next refresh. */
+fun MainViewModel.setDiscordHideSmallImage(enabled: Boolean) {
+    userPreferences.setDiscordHideSmallImage(enabled)
+    com.blissless.tensei.discord.DiscordRichPresence.hideSmallImage = enabled
+}
+
+/** Toggles the AniList / MyAnimeList buttons on the Discord presence; applies from the next refresh. */
+fun MainViewModel.setDiscordHideButtons(enabled: Boolean) {
+    userPreferences.setDiscordHideButtons(enabled)
+    com.blissless.tensei.discord.DiscordRichPresence.hideButtons = enabled
+}
+
+/** Disables the anti-spoiler collapse so every episode list shows all episodes. */
+fun MainViewModel.setAlwaysShowAllEpisodes(enabled: Boolean) =
+    userPreferences.setAlwaysShowAllEpisodes(enabled)
 
 fun MainViewModel.setAutoCrossSync(enabled: Boolean) =
     userPreferences.setAutoCrossSync(enabled)

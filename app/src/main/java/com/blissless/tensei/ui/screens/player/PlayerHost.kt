@@ -95,6 +95,11 @@ fun PlayerHost(
                 anime.siteUrl?.takeIf { it.isNotBlank() } ?: "https://anilist.co/anime/${anime.id}"
             else -> null
         }
+        // Tracker buttons shown under the Discord presence: AniList always has a page
+        // for the AniList id; MAL needs the MAL id, falling back to a search link.
+        val discordAnilistUrl = anime.siteUrl?.takeIf { it.isNotBlank() } ?: "https://anilist.co/anime/${anime.id}"
+        val discordMalUrl = anime.malId?.let { "https://myanimelist.net/anime/$it" }
+            ?: runCatching { "https://myanimelist.net/anime.php?q=" + java.net.URLEncoder.encode(playerDisplayTitle, "UTF-8") }.getOrNull()
 
         @Composable
         fun PlayerUi() {
@@ -113,6 +118,8 @@ fun PlayerHost(
             animeYear = anime.year,
             discordImage = discordImage,
             discordUrl = discordUrl,
+            discordAnilistUrl = discordAnilistUrl,
+            discordMalUrl = discordMalUrl,
             isLoadingStream = state.isLoadingStream,
             episodeInfo = state.currentEpisodeInfo,
             currentServerName = state.currentServerName,
@@ -197,11 +204,18 @@ fun PlayerHost(
                 viewModel.getCacheDataSourceFactory(referer, state.extensionOkHttpClient, state.extensionVideoHeaders)
             },
             onBackClick = {
-                state.playerFullscreen = true
-                state.showPlayer = false
-                state.currentVideoUrl = null
-                state.pendingSeekPosition = null
-                state.clearExtensionPlayback()
+                // Back from the fullscreen player first returns to the episode list
+                // (the minimized player with the list below the video); a second back
+                // from there closes the player entirely.
+                if (state.playerFullscreen) {
+                    state.playerFullscreen = false
+                } else {
+                    state.playerFullscreen = true
+                    state.showPlayer = false
+                    state.currentVideoUrl = null
+                    state.pendingSeekPosition = null
+                    state.clearExtensionPlayback()
+                }
             },
             isFullscreen = state.playerFullscreen,
             onFullscreenChanged = { state.playerFullscreen = it },
@@ -276,13 +290,6 @@ fun PlayerHost(
                 isMovie = isMovie,
                 hideDescription = hideEpisodeDescription,
                 onEpisodeSelect = { ep -> controller.loadAndPlayEpisode(anime, ep) },
-                onClose = {
-                    state.showPlayer = false
-                    state.currentVideoUrl = null
-                    state.pendingSeekPosition = null
-                    state.clearExtensionPlayback()
-                },
-                onEnterFullscreen = { state.playerFullscreen = true },
             )
         }
         }
@@ -298,10 +305,17 @@ fun PlayerHost(
             }
             else -> {
                 if (state.showPlayer && state.currentVideoUrl != null) {
-                    state.playerFullscreen = true
-                    state.showPlayer = false
-                    state.currentVideoUrl = null
-                    state.clearExtensionPlayback()
+                    // Mirror the on-screen back button: system back in fullscreen first
+                    // returns to the episode list (minimized player); from there it
+                    // closes the player.
+                    if (state.playerFullscreen) {
+                        state.playerFullscreen = false
+                    } else {
+                        state.playerFullscreen = true
+                        state.showPlayer = false
+                        state.currentVideoUrl = null
+                        state.clearExtensionPlayback()
+                    }
                 }
             }
         }
