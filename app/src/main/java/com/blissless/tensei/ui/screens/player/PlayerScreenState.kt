@@ -63,6 +63,19 @@ class PlayerScreenState(
     var bufferIntent by mutableStateOf(false)
     var isOffline by mutableStateOf(false)
     var controlsVisible by mutableStateOf(false)
+
+    /**
+     * Bumped on every pointer press inside the controls layer (buttons, bars,
+     * background). Keyed into the auto-hide effect so every interaction re-arms
+     * the full 2s timer — without it, taps that arrive after the controls have
+     * been visible for a while race the fading deadline, and a tap landing on
+     * the top bar as it fades falls through to the tap zones underneath (the
+     * "fullscreen button sometimes doesn't work" bug).
+     */
+    var controlsInteractionTick by mutableIntStateOf(0)
+
+    /** True while a pointer is pressed anywhere inside the controls layer. The auto-hide never fires mid-press. */
+    var pointerDownOnControls by mutableStateOf(false)
     var currentPosition by mutableLongStateOf(0L)
     var duration by mutableLongStateOf(0L)
     var bufferedPosition by mutableLongStateOf(0L)

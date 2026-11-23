@@ -137,17 +137,18 @@ fun MihonZoomableImage(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // Build the ImageRequest with both memory and disk caching disabled.
+    // Build the ImageRequest with the DISK cache disabled and the MEMORY cache
+    // enabled.
     //
-    // Chapter pages are fetched fresh from the network every time they're
-    // scrolled into view — no bitmap memory cache, no on-disk cache. This is
-    // a deliberate choice (matching oni): the user explicitly wants zero
-    // on-device storage of chapter content.
+    // "Zero on-device storage of chapter content" is the rule, so the disk cache
+    // stays off — nothing is ever written to storage. The in-memory LRU is
+    // enabled though: it holds decoded bitmaps in RAM only (never persisted,
+    // gone when the process dies), which is what keeps page flips off the
+    // network. With it disabled, every flip re-downloaded the page and paging
+    // BACK re-fetched pages the user had just looked at.
     //
-    // Trade-off: scrolling back through already-seen pages re-downloads them.
-    // On a fast connection this is usually imperceptible; on a slow connection
-    // there may be a brief placeholder flicker. Preloading of adjacent pages
-    // still works (Coil's prefetcher just bypasses the caches too).
+    // Trade-off: memory footprint (manga pages decode to a few MB each; Coil's
+    // LRU caps itself at a fraction of the heap, evicting under pressure).
     //
     // We deliberately DON'T crossfade here: the existing reader UX expects
     // pages to appear instantly when scrolled into view, and a crossfade on
@@ -156,7 +157,7 @@ fun MihonZoomableImage(
         val reqHeaders = headers
         ImageRequest.Builder(context)
             .data(imageUrl)
-            .memoryCachePolicy(CachePolicy.DISABLED)
+            .memoryCachePolicy(CachePolicy.ENABLED)
             .diskCachePolicy(CachePolicy.DISABLED)
             .apply {
                 if (reqHeaders != null) {

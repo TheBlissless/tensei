@@ -586,12 +586,15 @@ internal fun PlayerEngineEffects(
             }
         }
     }
-    LaunchedEffect(s.showControls, s.isPlaying, s.isDragging, s.hasError, s.showServerMenu, s.showQualityMenu, s.showSpeedMenu, s.showSubtitleMenu, s.showPlayerSettings, s.isManuallySeeking, s.fastHideUntil) {
+    LaunchedEffect(s.showControls, s.isPlaying, s.isDragging, s.hasError, s.showServerMenu, s.showQualityMenu, s.showSpeedMenu, s.showSubtitleMenu, s.showPlayerSettings, s.isManuallySeeking, s.fastHideUntil, s.controlsInteractionTick) {
         if (s.showControls && s.isPlaying && !s.isDragging && !s.hasError && !s.showServerMenu && !s.showQualityMenu && !s.showSpeedMenu && !s.showSubtitleMenu && !s.showPlayerSettings && !s.isManuallySeeking) {
             // Right after a seek the user is done interacting: hide much sooner than usual.
             val fastHide = System.currentTimeMillis() < s.fastHideUntil
             delay((if (fastHide) 700 else 2000).milliseconds)
-            if (s.showControls && !s.isDragging && !s.hasError && s.isPlaying && !s.showServerMenu && !s.showSpeedMenu && !s.showSubtitleMenu && !s.showPlayerSettings && !s.isManuallySeeking) {
+            // Re-check after the delay: still valid AND the user is not mid-press on the
+            // controls (a finger down on a button must never have the controls fade out
+            // under it — that race made the fullscreen button intermittently miss taps).
+            if (s.showControls && !s.isDragging && !s.hasError && s.isPlaying && !s.showServerMenu && !s.showSpeedMenu && !s.showSubtitleMenu && !s.showPlayerSettings && !s.isManuallySeeking && !s.pointerDownOnControls) {
                 s.showControls = false
             }
         }

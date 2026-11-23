@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,9 +46,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Replay
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -89,6 +88,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
@@ -148,6 +148,8 @@ fun RichEpisodeList(
     isMovie: Boolean = false,
     onEpisodeSelect: (Int) -> Unit,
     hideDescription: Boolean = false,
+    /** Mirrors the "Always show full episode list" setting: when ON the list starts fully expanded. */
+    alwaysShowEpisodes: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = (currentEpisode - 1).coerceAtLeast(0))
@@ -160,7 +162,12 @@ fun RichEpisodeList(
     // stay hidden (their titles/thumbnails spoil future plot). "All Episodes" expands the
     // list for this session only — deliberately NOT persisted, so the cutoff returns the
     // next time the minimized player opens or another anime is played (remember(animeId)).
-    var showAllEpisodes by remember(animeId) { mutableStateOf(false) }
+    // The only thing that makes the list start expanded is the Settings toggle, mirrored
+    // in via alwaysShowEpisodes (seeded once per anime, then live-applied when it turns on).
+    var showAllEpisodes by remember(animeId) { mutableStateOf(alwaysShowEpisodes) }
+    LaunchedEffect(alwaysShowEpisodes) {
+        if (alwaysShowEpisodes) showAllEpisodes = true
+    }
     val spoilerCutoff = if (showAllEpisodes) Int.MAX_VALUE else currentProgress + 1
     val visibleCount = episodeCount.coerceAtMost(spoilerCutoff)
 
@@ -283,33 +290,28 @@ fun RichEpisodeList(
                     }
                 }
                 // Anti-spoiler reveal: the hidden episodes continue right below the
-                // current (next-to-watch) episode card. Session-only expansion.
+                // current (next-to-watch) episode card. Session-only expansion —
+                // pressing the button never writes the "always show full episode list"
+                // setting; only the Settings toggle can make the list start expanded.
                 if (!showAllEpisodes && episodeCount > currentProgress + 1) {
                     item {
-                        // Crunchyroll-style "All Episodes" button: full-width bar, 8dp
-                        // corners, dark surface fill with a bold centered label (their
-                        // ghost-button recipe: #23252B + white 14/700 text).
-                        Button(
-                            onClick = { showAllEpisodes = true },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isOled) Color(0xFF23252B) else MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = if (isOled) Color.White else MaterialTheme.colorScheme.onSurface
-                            ),
+                        // Plain text button — just the words "All Episodes", no
+                        // background, border, or any other chrome.
+                        Text(
+                            text = stringResource(R.string.lists_all_episodes),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
-                                .height(48.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.lists_all_episodes),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Clip
-                            )
-                        }
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { showAllEpisodes = true }
+                                .padding(horizontal = 12.dp, vertical = 14.dp)
+                        )
                     }
                 }
             }

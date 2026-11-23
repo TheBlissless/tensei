@@ -447,11 +447,14 @@ internal fun PagedMangaReader(
                     val isPrevZone = if (isRtl) tap.x > width * 0.7f else tap.x < width * 0.3f
 
                     scope.launch {
+                        // Instant snap (scrollToPage, no animation): a tap-driven turn
+                        // must swap the page the moment the finger lifts. Swipes keep
+                        // the pager's own physics.
                         when {
                             isPrevZone && pagerState.currentPage > 0 ->
-                                pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                pagerState.scrollToPage(pagerState.currentPage - 1)
                             !isPrevZone && pagerState.currentPage < chapterImages.lastIndex ->
-                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                pagerState.scrollToPage(pagerState.currentPage + 1)
                             !isPrevZone && pagerState.currentPage == chapterImages.lastIndex ->
                                 onNextChapter()
                             isPrevZone && pagerState.currentPage == 0 ->

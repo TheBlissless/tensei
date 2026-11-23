@@ -81,6 +81,10 @@ fun PlayerHost(
         val tmdbEpisodes by viewModel.tmdbEpisodeCache.collectAsState()
         val playerDisplayTitle = if (preferEnglishTitles && !anime.titleEnglish.isNullOrEmpty()) anime.titleEnglish else anime.title
         val hideEpisodeDescription by viewModel.hideEpisodeDescription.collectAsState()
+        // "Always show full episode list" — the ONLY thing that makes the minimized
+        // player's episode list start expanded (the All Episodes button itself is
+        // session-only and never writes this pref).
+        val alwaysShowAllEpisodes by viewModel.alwaysShowAllEpisodes.collectAsState(initial = false)
         val discordRichPresence by viewModel.discordRichPresence.collectAsState()
         val loginProvider by viewModel.loginProvider.collectAsState(initial = com.blissless.tensei.mal.LoginProvider.NONE)
         // Rich Presence uses the highest-quality cover art (AniList extraLarge / MAL large)
@@ -289,6 +293,7 @@ fun PlayerHost(
                 episodeTitle = state.currentEpisodeTitle,
                 isMovie = isMovie,
                 hideDescription = hideEpisodeDescription,
+                alwaysShowEpisodes = alwaysShowAllEpisodes,
                 onEpisodeSelect = { ep -> controller.loadAndPlayEpisode(anime, ep) },
             )
         }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,6 +90,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
@@ -114,7 +116,6 @@ import com.blissless.tensei.viewmodel.setDefaultExtensionPackage
 import com.blissless.tensei.viewmodel.setDefaultMagnetExtension
 import com.blissless.tensei.viewmodel.setDefaultStreamExtension
 import com.blissless.tensei.viewmodel.setStreamMethod
-import com.blissless.tensei.viewmodel.setAlwaysShowAllEpisodes
 import com.blissless.tensei.util.toast
 import com.blissless.tensei.viewmodel.getCachedTmdbEpisodes
 import com.blissless.tensei.viewmodel.fetchTmdbEpisodes
@@ -709,22 +710,29 @@ fun RichEpisodeScreen(
 
                 // Anti-spoiler reveal: episodes beyond the next one to watch stay hidden
                 // (their titles/thumbnails spoil future plot), so the list ends at the
-                // current episode card. "All Episodes" continues right below it and
-                // remembers that choice so every future episode list starts fully shown
-                // ("always show full episode list"). Revert via Settings → Episodes.
+                // current episode card. "All Episodes" expands the list for THIS VIEW
+                // ONLY — pressing it never writes the "always show full episode list"
+                // setting. The anti-spoiler cutoff returns every time the list opens;
+                // only flipping the Settings toggle makes lists start fully expanded.
                 if (!showAllEpisodes && episodeCount > currentProgress + 1) {
                     item {
-                        OutlinedButton(
-                            onClick = {
-                                showAllEpisodes = true
-                                viewModel.setAlwaysShowAllEpisodes(true)
-                            },
-                            shape = RoundedCornerShape(50),
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-                        ) {
-                            Text(stringResource(R.string.lists_all_episodes), maxLines = 1)
-                        }
+                        // Plain text button — just the words "All Episodes", no
+                        // background, border, or any other chrome.
+                        Text(
+                            text = stringResource(R.string.lists_all_episodes),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { showAllEpisodes = true }
+                                .padding(horizontal = 12.dp, vertical = 14.dp)
+                        )
                     }
                 }
 

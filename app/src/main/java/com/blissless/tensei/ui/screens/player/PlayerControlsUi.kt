@@ -12,8 +12,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -165,6 +168,29 @@ fun BoxScope.PlayerControlsUi(
         modifier = Modifier.fillMaxSize()
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
+            // Press observer for the control BARS (top and bottom). Observes every
+            // down/up WITHOUT consuming, so buttons keep working: each press bumps
+            // controlsInteractionTick (re-arming the auto-hide timer) and holds
+            // pointerDownOnControls for the duration of the press, so the controls can
+            // never fade out while the user's finger is on them — the tap that used to
+            // race the fade deadline and fall through to the zones underneath.
+            // Deliberately NOT a full-size overlay: a hit-testable full-screen box here
+            // would swallow the "tap the video to hide the controls" taps that must keep
+            // falling through to the gesture zones underneath.
+            val controlsPressObserver = Modifier.pointerInput(Unit) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    s.controlsInteractionTick++
+                    s.pointerDownOnControls = true
+                    try {
+                        // Observe the release without consuming it: returns null when
+                        // another handler cancelled the gesture — clear the flag either way.
+                        waitForUpOrCancellation()
+                    } finally {
+                        s.pointerDownOnControls = false
+                    }
+                }
+            }
             // Darkening overlay when controls are visible
             Box(
                 modifier = Modifier
@@ -183,6 +209,7 @@ fun BoxScope.PlayerControlsUi(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
+                        .then(controlsPressObserver)
                         .padding(if (isCompact) 4.dp else 16.dp)
                 ) {
                     Row(
@@ -695,7 +722,8 @@ fun BoxScope.PlayerControlsUi(
                         .fillMaxWidth()
                         .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
                         .then(if (isCompact) Modifier else Modifier.navigationBarsPadding())
-                        .pointerInput(Unit) { detectTapGestures(onTap = { s.showControls = !s.showControls }) }
+                        .then(controlsPressObserver)
+                        .pointerInput(Unit) { detectTapGestures(onTap = { s.controlsInteractionTick++; s.showControls = !s.showControls }) }
                         .padding(horizontal = if (isCompact) 10.dp else 16.dp)
                         .padding(bottom = if (isCompact) 2.dp else 12.dp, top = if (isCompact) 12.dp else 12.dp)
                 ) {
