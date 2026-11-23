@@ -158,17 +158,19 @@ fun RichEpisodeList(
     // the theme — white-on-white was unreadable in light mode while OLED stays true black.
     val headerContentColor = if (isOled) Color.White else MaterialTheme.colorScheme.onBackground
 
-    // Anti-spoiler, applied fresh on every entry: episodes beyond the next one to watch
-    // stay hidden (their titles/thumbnails spoil future plot). "All Episodes" expands the
-    // list for this session only — deliberately NOT persisted, so the cutoff returns the
-    // next time the minimized player opens or another anime is played (remember(animeId)).
+    // Anti-spoiler, applied fresh on every entry: the list shows the current episode
+    // AND the next one right below it (so "what plays next" is always visible in the
+    // minimized player); everything beyond that stays hidden (titles/thumbnails of
+    // further episodes spoil future plot). "All Episodes" expands the list for this
+    // session only — deliberately NOT persisted, so the cutoff returns the next time
+    // the minimized player opens or another anime is played (remember(animeId)).
     // The only thing that makes the list start expanded is the Settings toggle, mirrored
     // in via alwaysShowEpisodes (seeded once per anime, then live-applied when it turns on).
     var showAllEpisodes by remember(animeId) { mutableStateOf(alwaysShowEpisodes) }
     LaunchedEffect(alwaysShowEpisodes) {
         if (alwaysShowEpisodes) showAllEpisodes = true
     }
-    val spoilerCutoff = if (showAllEpisodes) Int.MAX_VALUE else currentProgress + 1
+    val spoilerCutoff = if (showAllEpisodes) Int.MAX_VALUE else currentProgress + 2
     val visibleCount = episodeCount.coerceAtMost(spoilerCutoff)
 
     // Keep the list anchored at the currently playing episode when it changes
@@ -247,7 +249,13 @@ fun RichEpisodeList(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                // Same bottom clearance as the episode list screen: the last item
+                // (the All Episodes button) must stay fully visible above the
+                // system navigation bar instead of scrolling off screen.
+                contentPadding = PaddingValues(
+                    top = 8.dp,
+                    bottom = 8.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                )
             ) {
                 items(visibleCount) { index ->
                     val ep = index + 1
@@ -290,10 +298,11 @@ fun RichEpisodeList(
                     }
                 }
                 // Anti-spoiler reveal: the hidden episodes continue right below the
-                // current (next-to-watch) episode card. Session-only expansion —
-                // pressing the button never writes the "always show full episode list"
-                // setting; only the Settings toggle can make the list start expanded.
-                if (!showAllEpisodes && episodeCount > currentProgress + 1) {
+                // NEXT episode card (current + next stay visible). Session-only
+                // expansion — pressing the button never writes the "always show full
+                // episode list" setting; only the Settings toggle can make the list
+                // start expanded.
+                if (!showAllEpisodes && episodeCount > currentProgress + 2) {
                     item {
                         // Plain text button — just the words "All Episodes", no
                         // background, border, or any other chrome.

@@ -59,6 +59,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,6 +74,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -167,30 +169,27 @@ fun BoxScope.PlayerControlsUi(
         exit = fadeOut(animationSpec = tween(100)),
         modifier = Modifier.fillMaxSize()
     ) {
+        // Fullscreen <-> minimized toggles resize the player WITHOUT recreating this
+        // controls subtree, and after such a transition the button pressables and
+        // pointer handlers could end up wedged — the fullscreen button then only
+        // worked again after the controls were hidden and reshown (which recreates
+        // the subtree). key(isFullscreen) rebuilds the controls content on every
+        // toggle, so the bars are always freshly wired — the same fresh state the
+        // manual hide/reshow produced, now automatic. s.controlsVisible is unchanged
+        // at a toggle, so no fade/slide animation replays; this is invisible.
+        key(isFullscreen) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Press observer for the control BARS (top and bottom). Observes every
-            // down/up WITHOUT consuming, so buttons keep working: each press bumps
-            // controlsInteractionTick (re-arming the auto-hide timer) and holds
-            // pointerDownOnControls for the duration of the press, so the controls can
-            // never fade out while the user's finger is on them — the tap that used to
-            // race the fade deadline and fall through to the zones underneath.
-            // Deliberately NOT a full-size overlay: a hit-testable full-screen box here
-            // would swallow the "tap the video to hide the controls" taps that must keep
-            // falling through to the gesture zones underneath.
-            val controlsPressObserver = Modifier.pointerInput(Unit) {
-                awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
-                    s.controlsInteractionTick++
-                    s.pointerDownOnControls = true
-                    try {
-                        // Observe the release without consuming it: returns null when
-                        // another handler cancelled the gesture — clear the flag either way.
-                        waitForUpOrCancellation()
-                    } finally {
-                        s.pointerDownOnControls = false
-                    }
-                }
-            }
+            // Press observers for the control BARS (top and bottom). They observe
+            // every down/up WITHOUT consuming, so buttons keep working: each press
+            // bumps controlsInteractionTick (re-arming the auto-hide timer) and
+            // holds pointerDownOnControls for the duration of the press, so the
+            // controls can never fade out while the user's finger is on them — the
+            // tap that used to race the fade deadline and fall through to the zones
+            // underneath. Deliberately NOT a full-size overlay: a hit-testable
+            // full-screen box here would swallow the "tap the video to hide the
+            // controls" taps that must keep falling through to the gesture zones
+            // underneath. Each bar gets its own pointerInput — the observer is
+            // never shared as a single Modifier instance between nodes.
             // Darkening overlay when controls are visible
             Box(
                 modifier = Modifier
@@ -209,7 +208,7 @@ fun BoxScope.PlayerControlsUi(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Brush.verticalGradient(colors = listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)))
-                        .then(controlsPressObserver)
+                        .pointerInput(Unit) { observeControlsPress(s) }
                         .padding(if (isCompact) 4.dp else 16.dp)
                 ) {
                     Row(
@@ -722,7 +721,7 @@ fun BoxScope.PlayerControlsUi(
                         .fillMaxWidth()
                         .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
                         .then(if (isCompact) Modifier else Modifier.navigationBarsPadding())
-                        .then(controlsPressObserver)
+                        .pointerInput(Unit) { observeControlsPress(s) }
                         .pointerInput(Unit) { detectTapGestures(onTap = { s.controlsInteractionTick++; s.showControls = !s.showControls }) }
                         .padding(horizontal = if (isCompact) 10.dp else 16.dp)
                         .padding(bottom = if (isCompact) 2.dp else 12.dp, top = if (isCompact) 12.dp else 12.dp)
@@ -946,6 +945,7 @@ fun BoxScope.PlayerControlsUi(
                 }
             }
         }
+        } // key(isFullscreen) — rebuilds the controls bars fresh on every fullscreen toggle
     }
 
     // Skip Opening/Ending buttons - outside controls AnimatedVisibility so they're visible even when UI is hidden.
@@ -1034,5 +1034,32 @@ fun BoxScope.PlayerControlsUi(
                 saveSubtitleProfileData(s.subtitleProfileData)
             }
         )
+    }
+}
+
+/**
+ * Press observer for a control bar (top gradient Box / bottom gradient Column).
+ * Observes every down/up WITHOUT consuming anything, so buttons and the bar's own
+ * tap handlers keep working:
+ *  - each press bumps [PlayerScreenState.controlsInteractionTick], re-arming the
+ *    controls auto-hide timer (a tap must never race the fading deadline), and
+ *  - [PlayerScreenState.pointerDownOnControls] is held true for the duration of
+ *    the press, so the controls can never fade out under the user's finger.
+ *
+ * Applied as its own pointerInput per bar — the observer must never be shared as
+ * a single Modifier instance between the two nodes. Returns "null" from
+ * [waitForUpOrCancellation] (another handler cancelled the gesture) is fine: the
+ * flag is cleared either way via finally.
+ */
+private suspend fun PointerInputScope.observeControlsPress(s: PlayerScreenState) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false)
+        s.controlsInteractionTick++
+        s.pointerDownOnControls = true
+        try {
+            waitForUpOrCancellation()
+        } finally {
+            s.pointerDownOnControls = false
+        }
     }
 }
