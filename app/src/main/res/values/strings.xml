@@ -84,7 +84,7 @@
     <string name="settings_hide_episode_desc">Hide Episode Descriptions</string>
     <string name="settings_hide_episode_desc_detail">Show only the episode number and title in episode lists</string>
     <string name="settings_always_show_all_episodes_title">Always Show Full Episode List</string>
-    <string name="settings_always_show_all_episodes_desc">Shows every episode up front instead of hiding future episodes behind the \u201CAll Episodes\u201D button. Pressing that button turns this on automatically</string>
+    <string name="settings_always_show_all_episodes_desc">Shows every episode up front instead of hiding future episodes behind the \u201CAll Episodes\u201D button</string>
     <string name="settings_section_app_icon">APP ICON</string>
     <string name="settings_icon_default">Default</string>
     <string name="settings_icon_default_desc">Standard app icon</string>

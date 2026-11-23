@@ -227,6 +227,9 @@ object AiringScheduleWidget : GlanceAppWidget() {
         val items = data.entries
             .filter { it.dayOfWeek == dow && it.airingAt >= todayStart && it.airingAt < todayEnd }
             .sortedBy { it.airingAt }
+        // How many of today's entries have already aired — the header tracks both
+        // the day's total and what is left to watch.
+        val airedCount = items.count { it.airingAt <= nowTs }
 
         val ago = if (data.lastUpdateTime > 0) {
             val d = System.currentTimeMillis() - data.lastUpdateTime
@@ -261,7 +264,12 @@ object AiringScheduleWidget : GlanceAppWidget() {
                     Text(context.getString(dayNames[dow]), style = TextStyle(
                         color = cp(titleColor), fontSize = 16.sp, fontWeight = FontWeight.Bold
                     ))
-                    Text(context.getString(R.string.app_airing_today_count, items.size), style = TextStyle(
+                    val subtitle = when {
+                        items.isEmpty() -> context.getString(R.string.app_no_anime_airing_today)
+                        airedCount == 0 -> context.getString(R.string.app_airing_today_count, items.size)
+                        else -> context.getString(R.string.app_airing_today_detailed, items.size, airedCount)
+                    }
+                    Text(subtitle, style = TextStyle(
                         color = cp(mutedColor), fontSize = 12.sp
                     ))
                 }

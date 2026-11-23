@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -444,14 +442,13 @@ fun PlayerScreen(
         // 2. Active Gesture Zones (Middle Layer)
         // These handle seeking and toggling controls. Defined first so they are "under" the padding zones.
 
-        // Left Seek Zone (30% width, offset by padding)
+        // Left Seek Zone (30% width, flush to the screen edge)
         // Also handles vertical drag for volume when swipeVolume is enabled
         var lastLeftTapTime by remember { mutableLongStateOf(0L) }
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(0.3f)
-                .padding(start = if (isCompact) 0.dp else 40.dp)
                 .align(Alignment.CenterStart)
                 .pointerInput(swipeVolume, swipeBrightness, swipeSwap) {
                     val leftEnabled = if (swipeSwap) swipeBrightness else swipeVolume
@@ -518,14 +515,13 @@ fun PlayerScreen(
                 .pointerInput(Unit) { detectTapGestures(onTap = { if (!s.hasError) s.showControls = !s.showControls }) }
         )
 
-        // Right Seek Zone (30% width, offset by padding)
+        // Right Seek Zone (30% width, flush to the screen edge)
         // Also handles vertical drag for brightness when swipeBrightness is enabled
         var lastRightTapTime by remember { mutableLongStateOf(0L) }
         Box(
             modifier = Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(0.3f)
-                .padding(end = if (isCompact) 0.dp else 40.dp)
                 .align(Alignment.CenterEnd)
                 .pointerInput(swipeVolume, swipeBrightness, swipeSwap) {
                     val rightEnabled = if (swipeSwap) swipeVolume else swipeBrightness
@@ -581,29 +577,12 @@ fun PlayerScreen(
                 }
         )
 
-        // 3. Padding Zones (Top Layer over Active Zones, Under UI Controls)
-        // These consume touches to prevent UI toggling in safe areas.
-        // Defined after active zones so they take precedence in overlap areas.
+        // 3. Padding Zone (Top Layer over Active Zones, Under UI Controls)
+        // Consumes touches near the top edge to prevent UI toggling in the status-bar
+        // area. The former left/right deadzones were removed — the seek zones now
+        // cover the full width, edge to edge.
         // Only in fullscreen — compact player uses minimal chrome.
         if (!isCompact) {
-            // Left Padding
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(40.dp)
-                    .align(Alignment.CenterStart)
-                    .pointerInput(Unit) { detectTapGestures(onTap = {}) }
-            )
-
-            // Right Padding
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(40.dp)
-                    .align(Alignment.CenterEnd)
-                    .pointerInput(Unit) { detectTapGestures(onTap = {}) }
-            )
-
             // Top Padding (Matches side padding logic)
             Box(
                 modifier = Modifier
@@ -648,6 +627,7 @@ fun PlayerScreen(
             currentCategory = currentCategory,
             extensionServers = extensionServers,
             extensionName = extensionName,
+            isInPiPMode = isInPiPMode,
             isFullscreen = isFullscreen,
             isCompact = isCompact,
             isLatestEpisode = isLatestEpisode,

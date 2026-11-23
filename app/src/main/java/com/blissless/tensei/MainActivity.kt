@@ -157,6 +157,7 @@ import eu.kanade.tachiyomi.animesource.model.Video
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
@@ -175,8 +176,12 @@ import com.blissless.tensei.viewmodel.handleAuthRedirect
 class MainActivity : ComponentActivity() {
 
     private val mainViewModel: MainViewModel by viewModels()
-    private val _widgetClicks = kotlinx.coroutines.flow.MutableSharedFlow<Int>(replay = 1, extraBufferCapacity = 1)
-    val widgetClicks: kotlinx.coroutines.flow.SharedFlow<Int> = _widgetClicks
+    // Widget → anime detail navigation. A Channel (not a SharedFlow with replay):
+    // a cold-start widget tap is buffered until the UI subscribes, and once
+    // consumed it is gone — a replayed SharedFlow would re-open the same anime
+    // on every activity recreation (rotation, process death restore).
+    private val _widgetClicks = kotlinx.coroutines.channels.Channel<Int>(capacity = kotlinx.coroutines.channels.Channel.BUFFERED)
+    val widgetClicks: kotlinx.coroutines.flow.Flow<Int> = _widgetClicks.receiveAsFlow()
 
     var isInPiPMode = mutableStateOf(false)
         private set
@@ -380,7 +385,7 @@ class MainActivity : ComponentActivity() {
 
         mainViewModel.init(applicationContext, hasToken)
 
-        intent.getIntExtra("widget_anime_id", 0).let { if (it > 0) _widgetClicks.tryEmit(it) }
+        intent.getIntExtra("widget_anime_id", 0).let { if (it > 0) _widgetClicks.trySend(it) }
         if (intent.getBooleanExtra("open_extensions", false)) {
             mainViewModel.requestOpenExtensions()
         }
@@ -609,7 +614,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleAuthCallback(intent)
-        intent.getIntExtra("widget_anime_id", 0).let { if (it > 0) _widgetClicks.tryEmit(it) }
+        intent.getIntExtra("widget_anime_id", 0).let { if (it > 0) _widgetClicks.trySend(it) }
         if (intent.getBooleanExtra("open_extensions", false)) {
             mainViewModel.requestOpenExtensions()
         }

@@ -153,7 +153,7 @@ suspend fun AnimeRepository.fetchTmdbEpisodes(
                 }.awaitAll().filterNotNull()
             }
 
-            val (episodeOffset, maxEpisodes) = calculateEpisodeOffset(tvDetails, allSeasonDetails, animeTitle, animeId, bestMatch.name, searchResults.size)
+            val (episodeOffset, maxEpisodes) = calculateEpisodeOffset(tvDetails, allSeasonDetails, animeTitle, animeId, bestMatch.name, searchResults.size, animeEpisodes)
 
             val result = buildEpisodesFromPool(allSeasonDetails, episodeOffset, latestAiredEpisode, maxEpisodes)
             result
@@ -377,36 +377,44 @@ internal fun AnimeRepository.buildEpisodesFromPool(
     }
 
 internal suspend fun AnimeRepository.calculateEpisodeOffset(
-        tvDetails: TmdbTvDetails,
-        allSeasonDetails: List<TmdbSeasonDetails>,
-        animeTitle: String,
-        animeId: Int,
-        tmdbName: String?,
-        tmdbResultsCount: Int = 1
-    ): Pair<Int, Int> {
-        
-        // Always fetch AniList episode count first - it's the most reliable for anime
-        val recursiveOffset = calculateRecursiveOffset(animeId)
-        val aniListMedia = fetchAnimeRelationsForOffset(animeId)
-        val totalEps = aniListMedia?.episodes ?: 0
+    tvDetails: TmdbTvDetails,
+    allSeasonDetails: List<TmdbSeasonDetails>,
+    animeTitle: String,
+    animeId: Int,
+    tmdbName: String?,
+    tmdbResultsCount: Int = 1,
+    animeEpisodes: Int? = null
+): Pair<Int, Int> {
 
-        // If AniList has episode count, use it (more reliable for long-running anime like Detective Conan)
-        if (totalEps > 0) {
-            // The prequel-sum offset only applies when the matched TMDB entry pools MORE
-            // episodes than this anime itself has — that means the prequel seasons live
-            // inside the SAME TMDB entry (AniList splits them, TMDB doesn't, e.g. the
-            // "Kaguya-sama" entry containing all seasons). When the pool matches the
-            // anime's own AniList count the entry is self-contained (e.g. "Dragon Ball Z":
-            // 291 on both sides) and offsetting would start the list halfway into the
-            // show, returning the wrong episode list.
-            if (recursiveOffset > 0) {
-                val totalPoolEpisodes = allSeasonDetails.sumOf { it.episodes.size }
-                if (totalPoolEpisodes > totalEps) {
-                    return Pair(recursiveOffset, totalEps)
-                }
+    // Always fetch AniList episode count first - it's the most reliable for anime.
+    // The caller's locally stored count is the fallback when the live query fails
+    // (rate limit / hiccup): without it "Dragon Ball Z" fell into the no-count
+    // branch and the prequel offset shifted its list to episode 154.
+    val recursiveOffset = calculateRecursiveOffset(animeId)
+    val aniListMedia = fetchAnimeRelationsForOffset(animeId)
+    val totalEps = aniListMedia?.episodes ?: animeEpisodes ?: 0
+
+    // If AniList has episode count, use it (more reliable for long-running anime like Detective Conan)
+    if (totalEps > 0) {
+        // The prequel-sum offset only applies when the matched TMDB entry pools the
+        // prequel seasons AND this anime's episodes — that means both live inside
+        // the SAME entry (AniList splits them, TMDB doesn't, e.g. the "Kaguya-sama"
+        // entry containing all seasons). The entry must therefore be large enough
+        // to hold offset + this anime's episodes (small slack for TMDB listing a
+        // few episodes more or less than AniList). When the entry only holds this
+        // anime itself — "Dragon Ball Z": 291 on both sides, with the 153-episode
+        // "Dragon Ball" prequel in its OWN entry — offsetting would start the list
+        // halfway into the show ("Saiyans Emerge" as episode 1).
+        if (recursiveOffset > 0) {
+            val totalPoolEpisodes = allSeasonDetails.sumOf { it.episodes.size }
+            val shortfall = recursiveOffset + totalEps - totalPoolEpisodes
+            if (shortfall <= recursiveOffset / 10) {
+                return Pair(recursiveOffset, totalEps)
             }
             return Pair(0, totalEps)
         }
+        return Pair(0, totalEps)
+    }
 
         // AniList doesn't know the episode count yet (common for a currently-airing
         // sequel season whose `episodes` field is still null). If this title has

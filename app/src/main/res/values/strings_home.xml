@@ -74,6 +74,7 @@
     <string name="app_time_less_than_minute">&lt; 1m</string>
     <string name="app_never">never</string>
     <string name="app_airing_today_count">%1$d airing today</string>
+    <string name="app_airing_today_detailed">%1$d airing today · %2$d already aired</string>
     <string name="app_no_anime_airing_today">No anime airing today</string>
     <string name="app_updated_ago">Updated %1$s</string>
     <string name="app_refresh">Refresh</string>

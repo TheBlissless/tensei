@@ -59,7 +59,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -125,8 +124,13 @@ import com.blissless.tensei.util.toast
 /**
  * Compact rich episode list shown below the video player when it is not in fullscreen.
  * Mirrors the rich episode screen styling but drops the anime banner header — the video
- * itself acts as the header. Its header shows the anime name, the current episode
- * number + title and the episode description beneath them.
+ * itself acts as the header. Its header stacks the anime name (big, bold), the current
+ * episode as "EP<n>: <title>" and the episode description, which always shows here (the
+ * "hide episode descriptions" setting only affects episode list cards). The list applies
+ * an anti-spoiler cutoff on every open — watched episodes plus the next one — with a
+ * Crunchyroll-style "All Episodes" button below the current episode card that expands
+ * the list for the current session only (nothing is persisted; the next time the
+ * minimized player opens, the cutoff applies again).
  */
 @Composable
 fun RichEpisodeList(
@@ -152,74 +156,81 @@ fun RichEpisodeList(
     // the theme — white-on-white was unreadable in light mode while OLED stays true black.
     val headerContentColor = if (isOled) Color.White else MaterialTheme.colorScheme.onBackground
 
+    // Anti-spoiler, applied fresh on every entry: episodes beyond the next one to watch
+    // stay hidden (their titles/thumbnails spoil future plot). "All Episodes" expands the
+    // list for this session only — deliberately NOT persisted, so the cutoff returns the
+    // next time the minimized player opens or another anime is played (remember(animeId)).
+    var showAllEpisodes by remember(animeId) { mutableStateOf(false) }
+    val spoilerCutoff = if (showAllEpisodes) Int.MAX_VALUE else currentProgress + 1
+    val visibleCount = episodeCount.coerceAtMost(spoilerCutoff)
+
     // Keep the list anchored at the currently playing episode when it changes
     LaunchedEffect(currentEpisode) {
-        val targetIndex = (currentEpisode - 1).coerceIn(0, (episodeCount - 1).coerceAtLeast(0))
+        val targetIndex = (currentEpisode - 1).coerceIn(0, (visibleCount - 1).coerceAtLeast(0))
         listState.scrollToItem(targetIndex)
     }
 
     Column(modifier.fillMaxSize().background(if (isOled) Color.Black else MaterialTheme.colorScheme.background)) {
-        // Header: anime name, episode number + title, and the episode description
-        // beneath the episode title (the minimized player screen's info block).
+        // Header (the minimized player screen's info block): the anime title as the big
+        // heading, "EP<n>: <episode title>" beneath it, then the episode description.
+        // The description always shows here — the "hide episode descriptions" setting
+        // only applies to episode list cards.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
             if (animeTitle.isNotEmpty()) {
                 Text(
                     animeTitle,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = headerContentColor,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             if (!isMovie) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.player_episode_label, currentEpisode) +
-                            if (episodeCount > 0) "/$episodeCount" else "",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = headerContentColor.copy(alpha = 0.8f),
+                        "EP$currentEpisode",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary,
                         maxLines = 1
                     )
                     if (!episodeTitle.isNullOrEmpty()) {
-                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            "·",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = headerContentColor.copy(alpha = 0.4f)
+                            ": ",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = headerContentColor
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             episodeTitle,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = headerContentColor.copy(alpha = 0.8f),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = headerContentColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
                     }
                 }
-                if (!hideDescription) {
-                    val currentTmdbEpisode = tmdbEpisodes.find { it.episode == currentEpisode }
-                    val description = currentTmdbEpisode?.description
-                    if (!description.isNullOrBlank()) {
-                        Text(
-                            description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = headerContentColor.copy(alpha = 0.6f),
-                            maxLines = 3,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                    }
+                val currentTmdbEpisode = tmdbEpisodes.find { it.episode == currentEpisode }
+                val description = currentTmdbEpisode?.description
+                if (!description.isNullOrBlank()) {
+                    Text(
+                        description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = headerContentColor.copy(alpha = 0.65f),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
                 }
             }
         }
@@ -231,7 +242,7 @@ fun RichEpisodeList(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(episodeCount) { index ->
+                items(visibleCount) { index ->
                     val ep = index + 1
                     val tmdb = tmdbEpisodes.find { it.episode == ep }
                     val isWatched = ep <= currentProgress
@@ -269,6 +280,36 @@ fun RichEpisodeList(
                             onSelect = {},
                             onPlay = { onEpisodeSelect(ep) }
                         )
+                    }
+                }
+                // Anti-spoiler reveal: the hidden episodes continue right below the
+                // current (next-to-watch) episode card. Session-only expansion.
+                if (!showAllEpisodes && episodeCount > currentProgress + 1) {
+                    item {
+                        // Crunchyroll-style "All Episodes" button: full-width bar, 8dp
+                        // corners, dark surface fill with a bold centered label (their
+                        // ghost-button recipe: #23252B + white 14/700 text).
+                        Button(
+                            onClick = { showAllEpisodes = true },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isOled) Color(0xFF23252B) else MaterialTheme.colorScheme.surfaceVariant,
+                                contentColor = if (isOled) Color.White else MaterialTheme.colorScheme.onSurface
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp)
+                                .height(48.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.lists_all_episodes),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip
+                            )
+                        }
                     }
                 }
             }

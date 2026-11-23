@@ -115,6 +115,7 @@ fun BoxScope.PlayerControlsUi(
     extensionName: String,
     isFullscreen: Boolean,
     isCompact: Boolean,
+    isInPiPMode: Boolean = false,
     isLatestEpisode: Boolean,
     isLoadingStream: Boolean,
     isOled: Boolean,
@@ -233,7 +234,13 @@ fun BoxScope.PlayerControlsUi(
                                         // Movies have no meaningful episode title/number; only show them
                                         // for episodic media in the fullscreen (maximized) top bar.
                                         if (!isMovie) {
+                                            Text(
+                                                text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
+                                                color = Color.White.copy(alpha = 0.7f),
+                                                style = MaterialTheme.typography.labelSmall
+                                            )
                                             if (!episodeTitle.isNullOrEmpty()) {
+                                                Text("·", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
                                                 Text(
                                                     text = episodeTitle,
                                                     color = Color.White.copy(alpha = 0.7f),
@@ -241,13 +248,7 @@ fun BoxScope.PlayerControlsUi(
                                                     maxLines = 1,
                                                     overflow = TextOverflow.Ellipsis
                                                 )
-                                                Text("·", color = Color.White.copy(alpha = 0.4f), style = MaterialTheme.typography.labelSmall)
                                             }
-                                            Text(
-                                                text = stringResource(R.string.player_episode_label, currentEpisode) + if (totalEpisodes > 0) "/$totalEpisodes" else "",
-                                                color = Color.White.copy(alpha = 0.7f),
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
                                         }
                                         if (s.isFetchingTimestamps || s.isChangingServer) {
                                             CircularProgressIndicator(
@@ -268,7 +269,7 @@ fun BoxScope.PlayerControlsUi(
                             extensionServers.isNotEmpty() -> extensionName.ifEmpty { "EXT" }
                             else -> "EXT"
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(if (isCompact) 4.dp else 8.dp), modifier = Modifier.width(IntrinsicSize.Max)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(if (isCompact) 4.dp else 8.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(IntrinsicSize.Max)) {
                             // Server selector
                             if (!isCompact && ((onServerChange != null && (subServers.isNotEmpty() || dubServers.isNotEmpty())) || extensionServers.isNotEmpty())) {
                                 Box {
@@ -518,22 +519,27 @@ fun BoxScope.PlayerControlsUi(
                                 )
                             }
 
-                            // Player settings button
-                            PlayerSettingsButton(
-                                showMenu = s.showPlayerSettings,
-                                onShowMenuChange = { s.showPlayerSettings = it },
-                                swipeVolume = swipeVolume,
-                                swipeBrightness = swipeBrightness,
-                                swipeSwap = swipeSwap,
-                                onSwipeVolumeChange = { onSwipeVolumeChange?.invoke(it) },
-                                onSwipeBrightnessChange = { onSwipeBrightnessChange?.invoke(it) },
-                                onSwipeSwapChange = { onSwipeSwapChange?.invoke(it) },
-                                isCompact = isCompact,
-                                autoPlayNextEpisode = autoPlayNextEpisode,
-                                onAutoPlayChange = { onAutoPlayNextEpisodeChanged?.invoke(it) },
-                                supportsPiP = supportsPiP,
-                                onPiPToggle = { onPiPToggle?.invoke(it) },
-                            )
+                            // Player settings button — fullscreen top bar only. The
+                            // minimized (compact) player has no room for it and its
+                            // dropdown would open over the tiny video; swipe-gesture
+                            // settings live in the fullscreen player and Settings.
+                            if (!isCompact) {
+                                PlayerSettingsButton(
+                                    showMenu = s.showPlayerSettings,
+                                    onShowMenuChange = { s.showPlayerSettings = it },
+                                    swipeVolume = swipeVolume,
+                                    swipeBrightness = swipeBrightness,
+                                    swipeSwap = swipeSwap,
+                                    onSwipeVolumeChange = { onSwipeVolumeChange?.invoke(it) },
+                                    onSwipeBrightnessChange = { onSwipeBrightnessChange?.invoke(it) },
+                                    onSwipeSwapChange = { onSwipeSwapChange?.invoke(it) },
+                                    isCompact = isCompact,
+                                    autoPlayNextEpisode = autoPlayNextEpisode,
+                                    onAutoPlayChange = { onAutoPlayNextEpisodeChanged?.invoke(it) },
+                                    supportsPiP = supportsPiP,
+                                    onPiPToggle = { onPiPToggle?.invoke(it) },
+                                )
+                            }
 
                             // Fullscreen toggle — placed directly right of the settings icon
                             // in both the fullscreen and the minimized (compact) top bar.
@@ -730,20 +736,23 @@ fun BoxScope.PlayerControlsUi(
                     // YouTube-style scrub bar: a thin line whose thickness and dot grow
                     // while scrubbing and shrink the moment the finger lifts.
                     val isScrubbing = s.isDragging
+                    // The compact (minimized) bar runs visibly thicker with a taller
+                    // touch target — at the small minimized-player width a hairline
+                    // bar is nearly impossible to grab and scrub.
                     val scrubTrackHeight by animateDpAsState(
-                        targetValue = if (isScrubbing) (if (isCompact) 4.dp else 6.dp) else (if (isCompact) 2.dp else 3.dp),
+                        targetValue = if (isScrubbing) (if (isCompact) 8.dp else 6.dp) else (if (isCompact) 4.dp else 3.dp),
                         animationSpec = tween(150),
                         label = "scrubTrackHeight"
                     )
                     val scrubThumbRadius by animateDpAsState(
-                        targetValue = if (isScrubbing) (if (isCompact) 6.dp else 8.dp) else (if (isCompact) 3.dp else 4.dp),
+                        targetValue = if (isScrubbing) (if (isCompact) 9.dp else 8.dp) else (if (isCompact) 5.dp else 4.dp),
                         animationSpec = tween(150),
                         label = "scrubThumbRadius"
                     )
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(if (isCompact) 14.dp else 24.dp)
+                            .height(if (isCompact) 18.dp else 24.dp)
                             .pointerInput(Unit) {
                                 detectTapGestures(
                                     onTap = { offset ->
@@ -911,10 +920,11 @@ fun BoxScope.PlayerControlsUi(
         }
     }
 
-    // Skip Opening/Ending buttons - outside controls AnimatedVisibility so they're visible even when UI is hidden
+    // Skip Opening/Ending buttons - outside controls AnimatedVisibility so they're visible even when UI is hidden.
+    // Hidden in PiP: the system owns touches on the PiP window, so the buttons render but can never be pressed.
     SkipButtonsOverlay(
-        showSkipOpening = s.showSkipOpeningButton,
-        showSkipEnding = s.showSkipEndingButton,
+        showSkipOpening = s.showSkipOpeningButton && !isInPiPMode,
+        showSkipEnding = s.showSkipEndingButton && !isInPiPMode,
         isLatestEpisode = isLatestEpisode,
         creditsAtEnd = creditsAtEnd,
         isChangingServer = s.isChangingServer,

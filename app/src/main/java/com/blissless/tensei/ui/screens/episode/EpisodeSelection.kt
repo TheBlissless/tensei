@@ -510,7 +510,7 @@ fun RichEpisodeScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = displayTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Color.White)
+                            Text(text = displayTitle, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis, color = Color.White)
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Surface(
@@ -630,25 +630,6 @@ fun RichEpisodeScreen(
                                 }
                             }
                         }
-                        // Anti-spoiler: episodes beyond the next one to watch are hidden
-                        // (their titles/thumbnails spoil future plot); "All Episodes"
-                        // reveals the full list and remembers that choice so every
-                        // future episode list starts fully shown ("always show full
-                        // episode list"). Revert via Settings → Episodes.
-                        if (!showAllEpisodes && episodeCount > currentProgress + 1) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            OutlinedButton(
-                                onClick = {
-                                    showAllEpisodes = true
-                                    viewModel.setAlwaysShowAllEpisodes(true)
-                                },
-                                shape = RoundedCornerShape(50),
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
-                            ) {
-                                Text(stringResource(R.string.lists_all_episodes), maxLines = 1)
-                            }
-                        }
                         Spacer(modifier = Modifier.height(12.dp))
                         HorizontalDivider(color = if (isOled) Color.White.copy(alpha = 0.1f) else MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                     }
@@ -725,6 +706,27 @@ fun RichEpisodeScreen(
                          )
                      }
                  }
+
+                // Anti-spoiler reveal: episodes beyond the next one to watch stay hidden
+                // (their titles/thumbnails spoil future plot), so the list ends at the
+                // current episode card. "All Episodes" continues right below it and
+                // remembers that choice so every future episode list starts fully shown
+                // ("always show full episode list"). Revert via Settings → Episodes.
+                if (!showAllEpisodes && episodeCount > currentProgress + 1) {
+                    item {
+                        OutlinedButton(
+                            onClick = {
+                                showAllEpisodes = true
+                                viewModel.setAlwaysShowAllEpisodes(true)
+                            },
+                            shape = RoundedCornerShape(50),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(stringResource(R.string.lists_all_episodes), maxLines = 1)
+                        }
+                    }
+                }
 
                 // Loading and error states at the bottom
                 if (isLoadingEpisodes) {

@@ -84,6 +84,36 @@ class PlaybackController(
     // ─── TMDB episode titles ───────────────────────────────────────────
 
     /**
+     * TMDB episode title for a given (anime, episode), or null when TMDB has no
+     * real title for it. Used by [getTmdbEpisodeTitle] and by playback paths that
+     * already carry a provisional title and only want to overwrite it when TMDB
+     * actually knows the episode name.
+     *
+     * Reads from the in-memory cache first; on a miss, fetches from TMDB. A cached
+     * list that lacks this episode is already the complete data set, so it short-
+     * circuits instead of re-fetching.
+     */
+    private suspend fun findTmdbEpisodeTitle(anime: AnimeMedia, episode: Int): String? {
+        val cachedEpisodes = viewModel.getCachedTmdbEpisodes(anime.id)
+        if (cachedEpisodes != null) {
+            return cachedEpisodes.find { it.episode == episode }?.title?.let { sanitizeEpisodeTitle(it) }
+        }
+        return try {
+            val tmdbEpisodes = viewModel.fetchTmdbEpisodes(
+                title = anime.title,
+                id = anime.id,
+                year = anime.year,
+                format = anime.format,
+                animeEpisodes = anime.totalEpisodes.takeIf { it > 0 },
+                alternateTitles = listOfNotNull(anime.titleEnglish),
+            )
+            tmdbEpisodes.find { it.episode == episode }?.title?.let { sanitizeEpisodeTitle(it) }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
      * Fetch the TMDB episode title for a given (anime, episode). Used as the
      * source of truth for the player's episode title — preferred over the
      * anime's title (which would duplicate the animeName shown in the top
@@ -95,26 +125,8 @@ class PlaybackController(
      * "Episode N" placeholder on failure.
      */
     suspend fun getTmdbEpisodeTitle(anime: AnimeMedia, episode: Int): String {
-        val cachedEpisodes = viewModel.getCachedTmdbEpisodes(anime.id)
-        if (cachedEpisodes != null) {
-            val title = cachedEpisodes.find { it.episode == episode }?.title
-            if (!title.isNullOrEmpty()) return sanitizeEpisodeTitle(title)
-                ?: context.getString(R.string.app_episode_number, episode)
-        }
-        return try {
-            val tmdbEpisodes = viewModel.fetchTmdbEpisodes(
-                title = anime.title,
-                id = anime.id,
-                year = anime.year,
-                format = anime.format,
-                animeEpisodes = anime.totalEpisodes.takeIf { it > 0 },
-                alternateTitles = listOfNotNull(anime.titleEnglish),
-            )
-            val title = tmdbEpisodes.find { it.episode == episode }?.title
-            sanitizeEpisodeTitle(title) ?: context.getString(R.string.app_episode_number, episode)
-        } catch (_: Exception) {
-            context.getString(R.string.app_episode_number, episode)
-        }
+        return findTmdbEpisodeTitle(anime, episode)
+            ?: context.getString(R.string.app_episode_number, episode)
     }
 
     // ─── Aniyomi extension playback ────────────────────────────────────
@@ -130,6 +142,19 @@ class PlaybackController(
         state.streamError = null
         state.currentEpisodeTitle = sanitizeEpisodeTitle(result.episode?.name)
             ?: context.getString(R.string.app_episode_number, state.currentEpisode)
+        // TMDB is the source of truth for the episode title; the extension's
+        // episode name is only a stand-in until the TMDB title lands (and the
+        // fallback when TMDB has no data for the episode). The anime/episode
+        // guard keeps a slow TMDB response from clobbering a newer selection.
+        state.currentAnime?.let { anime ->
+            val episode = state.currentEpisode
+            scope.launch {
+                val tmdbTitle = findTmdbEpisodeTitle(anime, episode)
+                if (tmdbTitle != null && state.currentAnime?.id == anime.id && state.currentEpisode == episode) {
+                    state.currentEpisodeTitle = tmdbTitle
+                }
+            }
+        }
         state.currentVideoUrl = result.url.ifEmpty { video.videoUrl }
         state.currentReferer = result.referer
         val preferredLang = viewModel.defaultSubtitleLang.value

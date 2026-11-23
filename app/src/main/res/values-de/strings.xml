@@ -85,7 +85,7 @@
     <string name="settings_hide_episode_desc">Episodenbeschreibungen ausblenden</string>
     <string name="settings_hide_episode_desc_detail">In Episodenlisten nur Nummer und Titel der Episode anzeigen</string>
     <string name="settings_always_show_all_episodes_title">Episodenliste immer vollständig anzeigen</string>
-    <string name="settings_always_show_all_episodes_desc">Zeigt alle Episoden sofort an, statt zukünftige Episoden hinter der Schaltfläche „Alle Episoden“ zu verbergen. Das Tippen auf diese Schaltfläche aktiviert diese Option automatisch</string>
+    <string name="settings_always_show_all_episodes_desc">Zeigt alle Episoden sofort an, statt zukünftige Episoden hinter der Schaltfläche „Alle Episoden“ zu verbergen</string>
     <string name="settings_section_app_icon">APP-SYMBOL</string>
     <string name="settings_icon_default">Standard</string>
     <string name="settings_icon_default_desc">Standard-App-Symbol</string>

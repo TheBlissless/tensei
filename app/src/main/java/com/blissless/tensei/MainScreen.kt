@@ -176,6 +176,38 @@ fun MainScreen(
 
     // ─── Screen-level navigation state ────────────────────────────────────
     var overlayState by remember { mutableStateOf<OverlayState>(OverlayState.None) }
+
+    // Widget → anime detail: the airing schedule widget taps launch MainActivity
+    // with the anime's AniList id; MainActivity relays it through widgetClicks
+    // (a Channel — each tap is delivered once, even across activity recreation).
+    // Fetch the full record and open the detail overlay, mirroring the home
+    // screen's "open by AniList id" path.
+    (context as? MainActivity)?.let { activity ->
+        LaunchedEffect(activity) {
+            activity.widgetClicks.collect { animeId ->
+                val detailedData = viewModel.fetchDetailedAnimeData(animeId)
+                if (detailedData != null) {
+                    val newAnime = ExploreAnime(
+                        id = detailedData.id,
+                        title = detailedData.title,
+                        titleEnglish = detailedData.titleEnglish,
+                        cover = detailedData.cover,
+                        banner = detailedData.banner,
+                        episodes = detailedData.episodes,
+                        latestEpisode = detailedData.latestEpisode,
+                        averageScore = detailedData.averageScore,
+                        genres = detailedData.genres,
+                        year = detailedData.year,
+                        format = detailedData.format
+                    )
+                    overlayState = OverlayState.ExploreAnimeDialog(anime = newAnime, firstAnime = newAnime, isFirstOpen = true)
+                } else {
+                    context.toast(context.getString(R.string.app_anime_not_found))
+                }
+            }
+        }
+    }
+
     var scheduleDialogOpen by remember { mutableStateOf(false) }
     var showSearchScreen by remember { mutableStateOf(false) }
     var showUserProfilePage by remember { mutableStateOf(false) }
