@@ -168,19 +168,26 @@ private fun MainViewModel.fetchExtensionChapterImages(mangaTitle: String, chapte
  * The chapter URL is a routing token, NOT a real URL. The chapter number is later extracted
  * from the chapter TITLE (not the URL) when scraping images, matching oni's contract.
  */
-fun MainViewModel.loadMangaChapters(mangaId: Int, title: String) {
+fun MainViewModel.loadMangaChapters(mangaId: Int, title: String, malId: Int? = null) {
+    // Claim the shared chapter state for this manga. A cancelled/earlier manga must never
+    // keep its chapter list on screen while a different manga is loading.
+    activeMangaDetailId = mangaId
     mangaChaptersJob?.cancel()
+    // Drop the previous list immediately so the reader can't briefly show the cancelled
+    // manga's chapters while the new list is being fetched.
+    setMangaChapters(null, emptyList())
+    _hasLoadedMangaChapters.value = false
     // A fresh load clears any previous cancellation so the loading state shows again.
     _mangaChaptersLoadCancelled.value = false
     mangaChaptersJob = viewModelScope.launch {
-        loadMangaChaptersInternal(mangaId, title)
+        loadMangaChaptersInternal(mangaId, title, malId)
     }
 }
 
 
-private suspend fun MainViewModel.loadMangaChaptersInternal(mangaId: Int, title: String) {
+private suspend fun MainViewModel.loadMangaChaptersInternal(mangaId: Int, title: String, malId: Int?) {
     if (userPreferences.mangaSourceMethod.value == "external") {
-        loadMangaChaptersFromExternal(mangaId, title)
+        loadMangaChaptersFromExternal(mangaId, title, malId)
         return
     }
     _isLoadingMangaChapters.value = true
@@ -193,13 +200,19 @@ private suspend fun MainViewModel.loadMangaChaptersInternal(mangaId: Int, title:
     // shows the "select an extension" screen instead of a bogus list.
     if (_selectedExtensionAuthority.value == null) {
         android.util.Log.w("MangaChapters", "loadMangaChapters: no extension selected â€” skipping chapter list generation")
-        _mangaChapters.value = emptyList()
-        _hasLoadedMangaChapters.value = true
-        _isLoadingMangaChapters.value = false
+        if (activeMangaDetailId == mangaId) {
+            setMangaChapters(mangaId, emptyList())
+            _hasLoadedMangaChapters.value = true
+            _isLoadingMangaChapters.value = false
+        }
         return
     }
 
-    val detail = _mangaDetail.value
+    // Never build chapters from a detail that belongs to a different manga (a slow
+    // fetch for a cancelled manga could otherwise be what resolves this list).
+    val detail = _mangaDetail.value?.takeIf { d ->
+        d.id == mangaId || (malId != null && malId > 0 && (d.id == malId || d.malId == malId))
+    }
     var chapters = emptyList<MangaChapter>()
 
     // Resolve the title â€” prefer English, then Romaji, then the passed-in title
@@ -332,7 +345,10 @@ private suspend fun MainViewModel.loadMangaChaptersInternal(mangaId: Int, title:
         }
     }
 
-    _mangaChapters.value = chapters
+    // A newer manga may have claimed the state while this load was in flight.
+    if (activeMangaDetailId != mangaId) return
+
+    setMangaChapters(mangaId, chapters)
 
     // Count chapters per base number for the display total (e.g. 149/354): a subchapter that
     // opens a new number (314.1) is a chapter of its own, one that only continues an existing
@@ -419,14 +435,16 @@ private fun pickBestMangaMatch(title: String, results: List<SManga>): SManga? {
 }
 
 
-private suspend fun MainViewModel.loadMangaChaptersFromExternal(mangaId: Int, title: String) {
+private suspend fun MainViewModel.loadMangaChaptersFromExternal(mangaId: Int, title: String, malId: Int?) {
     _isLoadingMangaChapters.value = true
     _hasLoadedMangaChapters.value = false
     _mangaTotalChapters.value = 0
     _mangaExtensionTitle.value = null
     mangaTrackManager?.resetTotalChapters(mangaId)
 
-    val detail = _mangaDetail.value
+    val detail = _mangaDetail.value?.takeIf { d ->
+        d.id == mangaId || (malId != null && malId > 0 && (d.id == malId || d.malId == malId))
+    }
     val resolvedTitle = detail?.titleEnglish?.takeIf { it.isNotBlank() }
         ?: detail?.title?.takeIf { it.isNotBlank() }
         ?: title
@@ -434,9 +452,11 @@ private suspend fun MainViewModel.loadMangaChaptersFromExternal(mangaId: Int, ti
     val pkgName = userPreferences.defaultExternalMangaExtension.value
     if (pkgName.isNullOrBlank()) {
         android.util.Log.w("MangaChapters", "external: no default manga extension selected")
-        _mangaChapters.value = emptyList()
-        _hasLoadedMangaChapters.value = true
-        _isLoadingMangaChapters.value = false
+        if (activeMangaDetailId == mangaId) {
+            setMangaChapters(mangaId, emptyList())
+            _hasLoadedMangaChapters.value = true
+            _isLoadingMangaChapters.value = false
+        }
         return
     }
 
@@ -446,7 +466,8 @@ private suspend fun MainViewModel.loadMangaChaptersFromExternal(mangaId: Int, ti
             .getOrDefault(emptyList())
     }
 
-    _mangaChapters.value = chapters
+    if (activeMangaDetailId != mangaId) return
+    setMangaChapters(mangaId, chapters)
     val counted = countDistinctChapters(chapters.map { it.chapterNumber })
     _mangaTotalChapters.value = counted
     mangaTrackManager?.updateTotalChapters(mangaId, counted, detail?.volumes)

@@ -117,6 +117,26 @@ internal val _mangaChapters = MutableStateFlow<List<MangaChapter>>(emptyList())
 
 val MainViewModel.mangaChapters: StateFlow<List<MangaChapter>> get() = _mangaChapters.asStateFlow()
 
+/**
+ * Which manga the current [mangaChapters] list belongs to. Detail/reader screens use this to
+ * ignore a chapter list left behind by a cancelled/previous manga instead of rendering it
+ * as if it belonged to the manga they were opened for.
+ */
+internal val _mangaChaptersOwnerId = MutableStateFlow<Int?>(null)
+
+val MainViewModel.mangaChaptersOwnerId: StateFlow<Int?> get() = _mangaChaptersOwnerId.asStateFlow()
+
+internal fun MainViewModel.setMangaChapters(mangaId: Int?, chapters: List<MangaChapter>) {
+    _mangaChaptersOwnerId.value = mangaId
+    _mangaChapters.value = chapters
+}
+
+/**
+ * Manga that currently owns the global detail/chapter state. Async fetches must check this
+ * before writing, otherwise a slow fetch for a cancelled manga can overwrite the new one.
+ */
+internal var activeMangaDetailId: Int? = null
+
 
 /**
  * The extension-derived total chapter count for the currently loaded manga (the display

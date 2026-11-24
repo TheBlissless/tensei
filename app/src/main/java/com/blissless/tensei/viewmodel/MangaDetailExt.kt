@@ -50,10 +50,14 @@ import com.blissless.tensei.data.manga.fetchMangaMalDetail
 // â”€â”€â”€ Detail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 suspend fun MainViewModel.fetchMangaDetail(mangaId: Int, malId: Int? = null) {
+    // Claim the global detail state. A fetch started for a manga that was cancelled (or
+    // superseded by another manga) must not publish its result over the newer manga.
+    activeMangaDetailId = mangaId
     _isLoadingManga.value = true
     _mangaDetailSource.value = null
     val token = authToken.value
     var detail = mangaRepository?.fetchMangaDetail(mangaId, token)
+    var detailSource: String? = null
     // MAL-sourced cards (explore / search fallback, or relations pushed from one) carry the
     // MAL id as their own id. Looking that value up in AniList can silently return an
     // unrelated Media that merely shares the same numeric id — which is why tapping a
@@ -63,7 +67,7 @@ suspend fun MainViewModel.fetchMangaDetail(mangaId: Int, malId: Int? = null) {
         android.util.Log.w("MangaDetail", "fetchMangaDetail: AniList id=$mangaId is not MAL id $malId (got idMal=${detail.malId}) — discarding wrong media")
         detail = null
     }
-    if (detail != null) _mangaDetailSource.value = "anilist"
+    if (detail != null) detailSource = "anilist"
     // AniList unavailable: fall back to the official MAL manga detail API so the
     // detail screen still renders a full page instead of only the shallow card data.
     // Entries that originated from a MAL fallback (explore/search/relations) carry the
@@ -72,29 +76,44 @@ suspend fun MainViewModel.fetchMangaDetail(mangaId: Int, malId: Int? = null) {
     if (detail == null && malIdToUse > 0) {
         android.util.Log.w("MangaDetail", "fetchMangaDetail: AniList failed — trying MAL manga detail fallback for malId=$malIdToUse")
         detail = mangaRepository?.fetchMangaMalDetail(malIdToUse)
-        if (detail != null) {
-            _mangaDetailSource.value = "mal"
-        }
+        if (detail != null) detailSource = "mal"
     }
+
+    // Stale/cancelled manga — drop the result and let the newer fetch own the loading flag.
+    if (activeMangaDetailId != mangaId) return
+
+    _mangaDetailSource.value = detailSource
     _mangaDetail.value = detail
     if (detail != null) {
         mangaTrackManager?.updateMangaInfo(mangaId, detail.title, detail.cover, detail.titleEnglish, detail.status)
     } else {
-        android.util.Log.w("MangaDetail", "fetchMangaDetail: FAILED (null) mangaId=$mangaId â€” detail screen will fall back to shallow MangaMedia.asDetail()")
+        android.util.Log.w("MangaDetail", "fetchMangaDetail: FAILED (null) mangaId=$mangaId — detail screen will fall back to shallow MangaMedia.asDetail()")
     }
     _isLoadingManga.value = false
 }
 
 
 fun MainViewModel.clearMangaDetail() {
+    // Invalidate any in-flight detail fetch and chapter load so they cannot publish
+    // results for the manga that was just dismissed.
+    activeMangaDetailId = null
+    mangaChaptersJob?.cancel()
+    mangaChaptersJob = null
+    chapterImagesJob?.cancel()
+
     _mangaDetail.value = null
-    _mangaChapters.value = emptyList()
+    _mangaDetailSource.value = null
+    setMangaChapters(null, emptyList()) // also clears the chapter-list owner id
     _mangaTotalChapters.value = 0
     _mangaChapterImages.value = null
     _mangaChapterImagesError.value = null
+    _mangaImageHeaders.value = null
     _mangaDexId.value = null
     _mangaExtensionTitle.value = null
     _hasLoadedMangaChapters.value = false
+    _isLoadingManga.value = false
+    _isLoadingMangaChapters.value = false
+    _mangaChaptersLoadCancelled.value = false
 }
 
 
@@ -112,17 +131,23 @@ fun MainViewModel.clearMangaUserData() {
     _favoritedMangaIds.value = emptySet()
     _malMangaFavorites.value = emptySet()
     _mangaExploreSections.value = emptyMap()
+    activeMangaDetailId = null
+    mangaChaptersJob?.cancel()
+    mangaChaptersJob = null
     _mangaDetail.value = null
-    _mangaChapters.value = emptyList()
+    _mangaDetailSource.value = null
+    setMangaChapters(null, emptyList())
     _mangaTotalChapters.value = 0
     _mangaChapterImages.value = null
     _mangaChapterImagesError.value = null
     _mangaChapterImagesCache.value = emptyMap()
+    _mangaImageHeaders.value = null
     _mangaDexId.value = null
     _mangaExtensionTitle.value = null
     _hasLoadedMangaChapters.value = false
     _isLoadingManga.value = false
     _isLoadingMangaChapters.value = false
+    _mangaChaptersLoadCancelled.value = false
 }
 
 

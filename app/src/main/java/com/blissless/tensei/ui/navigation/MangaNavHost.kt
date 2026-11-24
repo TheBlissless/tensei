@@ -169,6 +169,7 @@ fun MangaNavHost(
                     state.detailStack = emptyList()
                     state.showDetailScreen = false
                     state.autoShowChapters = false
+                    viewModel.clearMangaDetail()
                 }
             },
             onSwipeToClose = {

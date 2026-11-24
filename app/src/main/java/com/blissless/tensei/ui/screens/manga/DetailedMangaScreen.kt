@@ -161,6 +161,7 @@ import com.blissless.tensei.viewmodel.clearMangaDetail
 import com.blissless.tensei.viewmodel.fetchMangaDetail
 import com.blissless.tensei.viewmodel.loadMangaChapters
 import com.blissless.tensei.viewmodel.mangaChapters
+import com.blissless.tensei.viewmodel.mangaChaptersOwnerId
 import com.blissless.tensei.viewmodel.mangaDetail
 import com.blissless.tensei.viewmodel.mangaTotalChapters
 import com.blissless.tensei.viewmodel.isLoadingManga
@@ -226,8 +227,15 @@ fun DetailedMangaScreen(
         }
     }
 
-    val detail by viewModel.mangaDetail.collectAsState()
-    val chapters by viewModel.mangaChapters.collectAsState()
+    val loadedDetail by viewModel.mangaDetail.collectAsState()
+    val allChapters by viewModel.mangaChapters.collectAsState()
+    val chaptersOwnerId by viewModel.mangaChaptersOwnerId.collectAsState()
+    // Global detail/chapter state can briefly belong to the manga that was just dismissed.
+    // Ignore it unless it was resolved for this manga, so opening manga B never renders A.
+    val detail = loadedDetail?.takeIf { d ->
+        d.id == manga.id || (manga.malId?.let { it > 0 && (d.id == it || d.malId == it) } == true)
+    }
+    val chapters = allChapters.takeIf { chaptersOwnerId == manga.id }.orEmpty()
     val isLoading by viewModel.isLoadingManga.collectAsState()
     val isLoadingChapters by viewModel.isLoadingMangaChapters.collectAsState()
     val selectedExtension by viewModel.selectedExtensionAuthority.collectAsState()
@@ -290,7 +298,7 @@ fun DetailedMangaScreen(
 
     LaunchedEffect(manga.id, selectedExtension, mangaSourceMethod, defaultExternalMangaExtension) {
         viewModel.fetchMangaDetail(manga.id, manga.malId)
-        viewModel.loadMangaChapters(manga.id, manga.title)
+        viewModel.loadMangaChapters(manga.id, manga.title, manga.malId)
     }
 
     // NOTE: We intentionally do NOT call viewModel.clearMangaDetail() on dispose here.
@@ -319,8 +327,9 @@ fun DetailedMangaScreen(
         scope.launch {
             dismissSlideOffset.snapTo(0f)
             dismissSlideOffset.animateTo(targetValue = 1000f, animationSpec = tween(150, easing = LinearEasing))
+            // Both callbacks pop the same nav entry in MangaNavHost — calling both here
+            // popped two mangas at once and left stale state behind.
             onDismiss()
-            onSwipeToClose()
         }
     }
 

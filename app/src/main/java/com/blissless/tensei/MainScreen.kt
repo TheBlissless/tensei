@@ -275,8 +275,13 @@ fun MainScreen(
     }
     /** Opens the reader directly (from an explore/home card) without a detail screen behind. */
     val openMangaReader: (MangaMedia, Boolean, Int) -> Unit = { m, autoShowChapters, chapterIndex ->
+        // A card tap starts a brand-new flow. Discard the detail/chapter state and any
+        // navigation entry left behind by a manga whose load was cancelled — otherwise
+        // the new reader can display the previous manga's chapters/detail.
+        viewModel.clearMangaDetail()
+        mangaNav.closeAll()
         mangaNav.autoShowChapters = autoShowChapters
-        mangaNav.detailStack = mangaNav.detailStack + m
+        mangaNav.detailStack = listOf(m)
         mangaNav.readerChapterIndex = chapterIndex
         mangaNav.showReader = true
     }

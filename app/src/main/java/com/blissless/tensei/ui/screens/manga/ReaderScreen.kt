@@ -88,6 +88,7 @@ import com.blissless.tensei.viewmodel.mangaChapterImages
 import com.blissless.tensei.viewmodel.mangaChapterImagesError
 import com.blissless.tensei.viewmodel.mangaImageHeaders
 import com.blissless.tensei.viewmodel.mangaChapters
+import com.blissless.tensei.viewmodel.mangaChaptersOwnerId
 import com.blissless.tensei.viewmodel.mangaTrackManager
 import com.blissless.tensei.viewmodel.onMangaScrollProgress
 import com.blissless.tensei.viewmodel.prefetchMangaChapterImages
@@ -146,7 +147,11 @@ fun MangaReaderScreen(
             com.blissless.tensei.discord.DiscordRichPresence.clearPresence()
         }
     }
-    val chapters by viewModel.mangaChapters.collectAsState()
+    val allChapters by viewModel.mangaChapters.collectAsState()
+    val chaptersOwnerId by viewModel.mangaChaptersOwnerId.collectAsState()
+    // The chapter list is global ViewModel state; ignore a list left over from a manga
+    // that was cancelled/dismissed until this manga's own load publishes its list.
+    val chapters = allChapters.takeIf { chaptersOwnerId == manga.id }.orEmpty()
     val chapterImages by viewModel.mangaChapterImages.collectAsState()
     val chapterImagesError by viewModel.mangaChapterImagesError.collectAsState()
     val chapterImageHeaders by viewModel.mangaImageHeaders.collectAsState()
@@ -409,8 +414,8 @@ fun MangaReaderScreen(
     LaunchedEffect(manga.id, hasMangaSource, showChapterList) {
         val shouldLoad = chapters.isEmpty() || showChapterList
         if (shouldLoad && hasMangaSource) {
-            runCatching { viewModel.fetchMangaDetail(manga.id) }
-            viewModel.loadMangaChapters(manga.id, manga.title)
+            runCatching { viewModel.fetchMangaDetail(manga.id, manga.malId) }
+            viewModel.loadMangaChapters(manga.id, manga.title, manga.malId)
         }
     }
 
@@ -647,8 +652,8 @@ fun MangaReaderScreen(
                     },
                     onRetryLoadChapters = {
                         scope.launch {
-                            runCatching { viewModel.fetchMangaDetail(manga.id) }
-                            viewModel.loadMangaChapters(manga.id, manga.title)
+                            runCatching { viewModel.fetchMangaDetail(manga.id, manga.malId) }
+                            viewModel.loadMangaChapters(manga.id, manga.title, manga.malId)
                         }
                     },
                     onCancelLoadChapters = {
