@@ -281,9 +281,10 @@ private suspend fun MainViewModel.loadMangaChaptersInternal(mangaId: Int, title:
         // even though 367 was the actual last main chapter.
         //
         // The fix has two parts:
-        //   1. Filter out chapters whose title matches obvious special/extras markers
-        //      (case-insensitive). These are NOT main chapters and shouldn't be in the
-        //      reader's sequential navigation.
+        //   1. Filter out marked extras that are NOT canonical numbered chapters. A real
+        //      whole-number chapter must survive even if its title trips a marker —
+        //      Mangataro's Blue Lock ch 28 is "Super Special", and dropping it made the
+        //      list 369 long with ch 370 still pinned on the end (369 read showed as 368).
         //   2. Sort the remaining chapters by their parsed chapter NUMBER (with the
         //      extension's `index` as a stable tiebreaker) instead of by `index` alone.
         //      This way ch 367 (the highest-numbered main chapter) lands at the end of
@@ -293,9 +294,31 @@ private suspend fun MainViewModel.loadMangaChaptersInternal(mangaId: Int, title:
             "prologue", "epilogue", "oneshot", "one-shot", "doujinshi",
             "extra chapter", "bonus chapter", "side chapter"
         )
-        val filteredExtChapters = extChapters.filter { ch ->
+        fun isMarked(ch: ExtensionChapter): Boolean {
             val combined = "${ch.number} ${ch.title}".lowercase()
-            specialMarkers.none { combined.contains(it) }
+            return specialMarkers.any { combined.contains(it) }
+        }
+        fun chapterNumber(ch: ExtensionChapter): Float = ch.number.toFloatOrNull() ?: 0f
+        fun isWholeNumberedChapter(ch: ExtensionChapter): Boolean {
+            val number = chapterNumber(ch)
+            return number > 0f && (number - number.toInt()) < 0.001f
+        }
+
+        val filteredExtChapters = extChapters.filter { ch ->
+            if (!isMarked(ch)) return@filter true
+
+            // Keep a legitimate numbered chapter (e.g. "28 / Super Special"). Only drop
+            // marked entries without a usable whole number, or ones that merely duplicate
+            // a clean entry for the same base (e.g. a "367.5 Special" after chapter 367).
+            if (!isWholeNumberedChapter(ch)) return@filter false
+            val base = chapterBaseNumber(chapterNumber(ch))
+            val hasCleanDuplicate = extChapters.any { other ->
+                other !== ch &&
+                    !isMarked(other) &&
+                    isWholeNumberedChapter(other) &&
+                    chapterBaseNumber(chapterNumber(other)) == base
+            }
+            !hasCleanDuplicate
         }.ifEmpty { extChapters } // never return an empty list — fall back to original
 
         chapters = filteredExtChapters

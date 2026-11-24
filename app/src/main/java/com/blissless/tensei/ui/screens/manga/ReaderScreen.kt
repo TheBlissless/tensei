@@ -218,7 +218,6 @@ fun MangaReaderScreen(
     // load state changes, so the cancelled chapter is remembered to block that automatic
     // restart; it is cleared when the user picks or retries a chapter.
     var cancelledChapterId by remember { mutableStateOf<String?>(null) }
-    val loadCancelledMessage = stringResource(R.string.reader_load_cancelled)
     // Read marks come from the local track's FLOAT progress (314.1 after that subchapter
     // was read) instead of the model's truncated Int: 314.1 must show as read while the
     // 314.2 after it must not. Whichever source is further along wins, so a model that
@@ -568,18 +567,20 @@ fun MangaReaderScreen(
     }
 
     // Cancel the current chapter image load: stops the request and leaves the reader on the
-    // chapter that is already on screen (or on its error/retry screen) instead of spinning.
+    // chapter that is already on screen. If no page is on screen (initial load or a retry the
+    // user just cancelled), go back to the chapter list instead of parking on a dead-end
+    // "Loading cancelled." / Retry screen.
     fun cancelChapterLoad() {
         val chapter = currentChapter ?: return
         cancelledChapterId = chapter.chapterId
         viewModel.cancelChapterImageLoad()
         pendingChapterLoad = false
         pendingChapterIndex = -1
-        // If nothing is on screen yet, fall back to the error/retry screen so the reader
-        // does not spin forever.
         if (displayedImages.isNullOrEmpty()) {
             displayedImages = null
-            displayedImagesError = loadCancelledMessage
+            displayedImagesError = null
+            showChapterList = true
+            showControls = false
         }
     }
 
