@@ -109,9 +109,7 @@ import com.blissless.tensei.ui.theme.MangaStatusLabels
 import com.blissless.tensei.ui.theme.tenseiColors
 import java.text.SimpleDateFormat
 import java.util.Date
-import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -180,40 +178,65 @@ fun UserProfileScreen(
     val mangaHeld by viewModel.mangaPaused.collectAsState()
     val mangaAbandoned by viewModel.mangaDropped.collectAsState()
 
-    // Nothing on this screen exposes a loading flag, so while the profile fetches
-    // are in flight every tab would otherwise render its "empty" state and the
-    // placeholder name "User". Track the fetches here so each tab can skeleton.
-    var isProfileLoading by remember { mutableStateOf(false) }
+    // Per-tab loading flags tied to the actual fetches that feed each tab. The old single
+    // flag was cleared as soon as the (fire-and-forget) fetches were *launched*, so tabs
+    // flashed their empty state while the requests were still in flight.
+    var aboutLoading by remember { mutableStateOf(false) }
+    var favoritesLoading by remember { mutableStateOf(false) }
+    var historyLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(loginProvider) {
-        if (loginProvider == LoginProvider.ANILIST || loginProvider == LoginProvider.BOTH) {
-            isProfileLoading = true
-            val elapsed = measureTimeMillis {
-                viewModel.loadAniListFavoritesFromStorage()
-                // Refresh the Viewer profile (name/avatar/banner/bio/joined/stats) and
-                // ensure _userId is populated BEFORE the child fetches that depend on it —
-                // otherwise fetchUserStats / fetchUserActivity / fetchAniListFavorites
-                // return early with null userId and About Me stays empty.
-                viewModel.fetchUser()
-                // The four remaining fetches are independent of each other, so run them
-                // concurrently instead of paying for them one after another.
-                coroutineScope {
-                    listOf(
-                        async { viewModel.fetchAniListFavorites() },
-                        async { viewModel.fetchUserActivity() },
-                        async { viewModel.fetchUserStats() },
-                        async { viewModel.fetchMangaUserProfile() },
-                    ).awaitAll()
-                }
+        if (loginProvider != LoginProvider.ANILIST && loginProvider != LoginProvider.BOTH) {
+            // MAL-only profiles render from the already-loaded local list state.
+            aboutLoading = false
+            favoritesLoading = false
+            historyLoading = false
+            return@LaunchedEffect
+        }
+
+        aboutLoading = true
+        favoritesLoading = true
+        historyLoading = true
+        val startedAt = System.currentTimeMillis()
+
+        // Avoid a one-frame skeleton flash when a response resolves immediately.
+        suspend fun enforceMinSkeletonDuration() {
+            val remaining = ProfileSkeletonMinDurationMs - (System.currentTimeMillis() - startedAt)
+            if (remaining > 0) delay(remaining)
+        }
+
+        try {
+            viewModel.loadAniListFavoritesFromStorage()
+            // Refresh the Viewer profile (name/avatar/banner/bio/joined/stats) and
+            // ensure _userId is populated BEFORE the child fetches that depend on it —
+            // otherwise fetchUserStats / fetchUserActivity / fetchAniListFavorites
+            // return early with null userId and those tabs stay empty.
+            viewModel.fetchUser()
+
+            coroutineScope {
+                // Each fetch returns its Job, so joining it means the data is really ready.
+                val favoritesJob = async { viewModel.fetchAniListFavorites().join() }
+                val activityJob = async { viewModel.fetchUserActivity().join() }
+                val statsJob = async { viewModel.fetchUserStats().join() }
+                val mangaJob = async { viewModel.fetchMangaUserProfile().join() }
+
+                favoritesJob.await()
+                enforceMinSkeletonDuration()
+                favoritesLoading = false
+
+                activityJob.await()
+                enforceMinSkeletonDuration()
+                historyLoading = false
+
+                statsJob.await()
+                mangaJob.await()
+                enforceMinSkeletonDuration()
+                aboutLoading = false
             }
-            // Avoid a one-frame skeleton flash when everything resolves from cache.
-            if (elapsed < ProfileSkeletonMinDurationMs) {
-                delay(ProfileSkeletonMinDurationMs - elapsed)
-            }
-            isProfileLoading = false
-        } else {
-            // MAL-only profiles render from the already-loaded list state.
-            isProfileLoading = false
+        } finally {
+            aboutLoading = false
+            favoritesLoading = false
+            historyLoading = false
         }
     }
 
@@ -331,14 +354,6 @@ fun UserProfileScreen(
         Box(
             modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp)
         ) {
-            // Only skeleton a tab that has nothing to show yet — if data already
-            // arrived (cache or a fast response) keep rendering it.
-            val aboutLoading = isProfileLoading && userName == null
-            val favoritesLoading = isProfileLoading &&
-                favorites.isEmpty() && mangaFavorites.isEmpty()
-            val historyLoading = isProfileLoading &&
-                history.isEmpty() && mangaActivity.isEmpty()
-
             when (selectedSection) {
                 UserProfileSection.ABOUT_ME -> if (aboutLoading) {
                     ProfileAboutSkeleton()

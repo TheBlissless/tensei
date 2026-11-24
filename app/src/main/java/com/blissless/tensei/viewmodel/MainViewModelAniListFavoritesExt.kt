@@ -7,6 +7,7 @@ import com.blissless.tensei.data.models.AnimeMedia
 import com.blissless.tensei.data.models.MediaCoverImage
 import com.blissless.tensei.data.models.MediaTitle
 import com.blissless.tensei.data.models.UserFavoriteAnime
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
@@ -14,6 +15,7 @@ import com.blissless.tensei.data.prefs.getLocalAnimeStatus
 import com.blissless.tensei.data.anime.fetchUserFavorites
 import com.blissless.tensei.data.prefs.isAniListFavorite
 import com.blissless.tensei.data.anime.fetchUserActivity
+import com.blissless.tensei.data.prefs.saveAniListFavorites
 import com.blissless.tensei.data.prefs.toggleAniListFavorite
 
 /**
@@ -30,9 +32,10 @@ import com.blissless.tensei.data.prefs.toggleAniListFavorite
  * Public signatures preserved as extension functions.
  */
 
-fun MainViewModel.fetchUserActivity() {
-    val userId = _userId.value ?: return
-    viewModelScope.launch { repository.fetchUserActivity(userId)?.let { _userActivity.value = it } }
+/** Returns the fetch Job so callers (e.g. the profile screen) can await it for loading state. */
+fun MainViewModel.fetchUserActivity(): Job = viewModelScope.launch {
+    val userId = _userId.value ?: return@launch
+    repository.fetchUserActivity(userId)?.let { _userActivity.value = it }
 }
 
 /** The user's rating (raw 0-100) for an anime, from the loaded lists or local status. */
@@ -42,60 +45,77 @@ private fun MainViewModel.animeUserScore(mediaId: Int): Int? {
         ?: userPreferences.getLocalAnimeStatus(mediaId)?.score
 }
 
-fun MainViewModel.fetchUserStats() {
-    val userId = _userId.value ?: return
-    viewModelScope.launch {
-        repository.fetchUserStats(userId)?.let {
-            _userStats.value = it.data.User.statistics.anime
-        }
+fun MainViewModel.fetchUserStats(): Job = viewModelScope.launch {
+    val userId = _userId.value ?: return@launch
+    repository.fetchUserStats(userId)?.let {
+        _userStats.value = it.data.User.statistics.anime
     }
 }
 
-fun MainViewModel.fetchAniListFavorites() {
-    val userId = _userId.value ?: return
-    viewModelScope.launch {
-        repository.fetchUserFavorites(userId)?.let { response ->
-            val apiFavorites = response.data.User.favourites.anime.nodes
-            // Merge API favorites with locally stored favorites. CRITICAL: the local set is the
-            // source of truth for "what the user currently wants favorited", because AniList's
-            // GraphQL endpoint is CDN-cached for several seconds. Without this gate, a sequence
-            // like:
-            //   1. User removes favorite → local set drops the id
-            //   2. User reopens Profile within ~5 s → fetchAniListFavorites runs
-            //   3. API still returns the removed anime (CDN-stale)
-            //   4. mergedFavorites starts from apiFavorites → re-adds the removed anime
-            // would silently re-add a just-removed favorite.
-            //
-            // The fix: intersect the API response with the local set. Any API entry NOT in the
-            // local set is a stale-CDN echo of a removed favorite and must be dropped. Local-only
-            // entries (added but not yet propagated to AniList) are appended at the end.
-            val localFavoriteIds = userPreferences.aniListFavorites.value
-            val mergedFavorites = apiFavorites
-                .filter { it.id in localFavoriteIds }
-                .map { apiFav ->
-                    apiFav.copy(userScore = apiFav.userScore ?: animeUserScore(apiFav.id))
-                }
-                .map { apiFav ->
-                    // Prefer the local in-memory entry's userScore (it may be more recent than
-                    // the API's, which lags by the CDN TTL).
-                    val localFav = _aniListFavorites.value.find { it.id == apiFav.id }
-                    localFav?.copy(userScore = localFav.userScore ?: apiFav.userScore) ?: apiFav
-                }
-                .toMutableList()
+fun MainViewModel.fetchAniListFavorites(): Job = viewModelScope.launch {
+    val userId = _userId.value ?: return@launch
+    val response = repository.fetchUserFavorites(userId) ?: return@launch
+    val apiFavorites = response.data.User.favourites.anime.nodes
+    val localFavoriteIds = userPreferences.aniListFavorites.value
+    val now = System.currentTimeMillis()
 
-            // Add any favorites that were added locally but not on API yet (e.g. added offline,
-            // or added but the AniList CDN cache hasn't invalidated to reflect the new state).
-            localFavoriteIds.forEach { localId ->
-                if (mergedFavorites.none { it.id == localId }) {
-                    val localOnly = _aniListFavorites.value.find { it.id == localId }
-                    if (localOnly != null) {
-                        mergedFavorites.add(localOnly)
-                    }
-                }
-            }
+    // forget toggles older than the window; from then on the API is authoritative
+    recentFavoriteChanges.entries.removeAll {
+        now - it.value.changedAtMs > MainViewModel.FAVORITE_STALE_WINDOW_MS
+    }
 
-            _aniListFavorites.value = mergedFavorites
+    fun recentChange(mediaId: Int): MainViewModel.RecentFavoriteChange? =
+        recentFavoriteChanges[mediaId]
+
+    fun isSuppressed(mediaId: Int): Boolean {
+        // A removal that is still queued (or was just made) must not be resurrected by
+        // an API/CDN response that still contains the old favorite.
+        val pending = pendingSyncs[mediaId]
+        if (pending?.type == "favorite" && pending.favoriteAdded == false) return true
+        return recentChange(mediaId)?.added == false
+    }
+
+    fun isOptimisticAdd(mediaId: Int): Boolean {
+        // An add that hasn't reached AniList yet must survive until the next fetch
+        // confirms it. Without this, an API response could hide a favorite the user
+        // just made in the app.
+        val pending = pendingSyncs[mediaId]
+        if (pending?.type == "favorite" && pending.favoriteAdded == true) return true
+        return recentChange(mediaId)?.added == true && mediaId in localFavoriteIds
+    }
+
+    val apiIds = apiFavorites.map { it.id }.toSet()
+    val localEntriesById = _aniListFavorites.value.associateBy { it.id }
+
+    // AniList is the source of truth for the actual favorite list. Do NOT intersect the
+    // API response with the local id set: a fresh install / cleared preferences have an
+    // empty local mirror, which previously hid every favorite that exists on AniList.
+    val mergedFavorites = apiFavorites
+        .filterNot { isSuppressed(it.id) }
+        .map { apiFav ->
+            // API metadata is authoritative; only the user's own score comes from local
+            // state (the API query doesn't include it). Local placeholders must never
+            // replace a real title/cover.
+            val localScore = localEntriesById[apiFav.id]?.userScore
+            apiFav.copy(userScore = apiFav.userScore ?: localScore ?: animeUserScore(apiFav.id))
         }
+        .toMutableList()
+
+    // Keep local-only entries only while their add is still pending/recent. Once the API
+    // has answered, a favorite absent from AniList is no longer a favorite.
+    localFavoriteIds.forEach { localId ->
+        if (localId !in apiIds && isOptimisticAdd(localId) && !isSuppressed(localId)) {
+            localEntriesById[localId]?.let { mergedFavorites.add(it) }
+        }
+    }
+
+    _aniListFavorites.value = mergedFavorites
+
+    // Re-seed the local mirror from the resolved list so detail screens show the right
+    // heart state and a later fetch can't discard favorites added from AniList's website.
+    val resolvedIds = mergedFavorites.map { it.id }.toSet()
+    if (resolvedIds != localFavoriteIds) {
+        userPreferences.saveAniListFavorites(resolvedIds)
     }
 }
 
@@ -167,6 +187,10 @@ fun MainViewModel.toggleAniListFavorite(mediaId: Int, anime: AnimeMedia? = null)
         val isFavoriteInStorage = userPreferences.isAniListFavorite(mediaId)
         val isFavorite = isFavoriteInMemory || isFavoriteInStorage
         val willBeAdded = !isFavorite
+
+        // Remember the intent so a just-fetched (or cached) AniList list can't undo it.
+        recentFavoriteChanges[mediaId] =
+            MainViewModel.RecentFavoriteChange(willBeAdded, System.currentTimeMillis())
 
         // Update persisted storage
         userPreferences.toggleAniListFavorite(mediaId)

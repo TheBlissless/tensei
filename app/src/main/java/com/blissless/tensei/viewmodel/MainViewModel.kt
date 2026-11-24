@@ -130,6 +130,7 @@ class MainViewModel : ViewModel() {
         internal const val MANUAL_REFRESH_COOLDOWN_MS = 30_000L // 30 seconds between manual refreshes
         internal const val SYNC_DEBOUNCE_MS = 2000L // 2 seconds debounce for API sync
         internal const val FAVORITE_DEBOUNCE_MS = 1000L // 1 second debounce for favorite toggles
+        internal const val FAVORITE_STALE_WINDOW_MS = 60_000L // ignore stale API echoes right after a toggle
     }
 
     internal lateinit var userPreferences: UserPreferences
@@ -310,6 +311,11 @@ class MainViewModel : ViewModel() {
     // Sync queue for debounced AniList API calls
     internal data class PendingSync(val type: String, val mediaId: Int, val malId: Int? = null, val status: String? = null, val progress: Int? = null, val score: Int? = null, val entryId: Int? = null, val favoriteAdded: Boolean? = null)
     internal val pendingSyncs = mutableMapOf<Int, PendingSync>() // mediaId -> pending sync
+
+    /** Last local favorite toggle, used to keep a fresh fetch from undoing it. */
+    internal data class RecentFavoriteChange(val added: Boolean, val changedAtMs: Long)
+    internal val recentFavoriteChanges = mutableMapOf<Int, RecentFavoriteChange>()
+
     internal var syncJob: Job? = null
     internal var favoriteSyncJob: Job? = null
 

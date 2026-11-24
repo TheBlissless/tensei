@@ -204,13 +204,23 @@ suspend fun AnimeRepository.fetchUserFavorites(userId: Int): UserFavoritesRespon
             }
         }
     """.trimIndent()
-    return graphqlRequest(query, mapOf("userId" to userId))?.let {
-        try {
-            val response = json.decodeFromString<UserFavoritesResponse>(it)
-            response
-        } catch (_: Exception) {
-            null
-        }
+    // Favourites are per-user mutable state. The generic authed query path caches user
+    // data for an hour, which made the profile resurrect favourites the user had just
+    // removed (and hid favourites added from the AniList website). Always hit AniList.
+    val token = userPreferences.authToken.value ?: return null
+    val raw = graphQLClient.execute(
+        query = query,
+        variables = mapOf("userId" to userId),
+        requiresAuth = true,
+        authToken = token,
+        clientIds = CLIENT_IDS,
+        useCache = false,
+        parser = { it }
+    ).data ?: return null
+    return try {
+        json.decodeFromString<UserFavoritesResponse>(raw)
+    } catch (_: Exception) {
+        null
     }
 }
 

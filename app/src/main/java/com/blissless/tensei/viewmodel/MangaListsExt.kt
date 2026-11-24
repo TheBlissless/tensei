@@ -113,24 +113,22 @@ suspend fun MainViewModel.fetchMangaLists(): Boolean {
  * Fetch the user's manga favorites + activity + profile stats from AniList.
  * Replaces the previous "fake favorites = union of tracking lists" approach.
  */
-fun MainViewModel.fetchMangaUserProfile() {
-    val token = authToken.value ?: return
-    viewModelScope.launch {
-        val userId = _userId.value
-        val favoritesDeferred = async { mangaRepository?.fetchUserMangaFavorites(token) ?: emptyList() }
-        val profileDeferred = async { mangaRepository?.fetchMangaUserProfile(token) }
-        val activityDeferred = async {
-            if (userId != null) mangaRepository?.fetchUserMangaActivity(userId, token) ?: emptyList()
-            else emptyList()
-        }
-        val favorites = favoritesDeferred.await()
-        val profile = profileDeferred.await()
-        val activity = activityDeferred.await()
-        _mangaFavorites.value = favorites
-        _favoritedMangaIds.value = favorites.map { it.id }.toSet()
-        _mangaUserProfile.value = profile
-        _mangaActivity.value = activity
+fun MainViewModel.fetchMangaUserProfile(): Job = viewModelScope.launch {
+    val token = authToken.value ?: return@launch
+    val userId = _userId.value
+    val favoritesDeferred = async { mangaRepository?.fetchUserMangaFavorites(token) ?: emptyList() }
+    val profileDeferred = async { mangaRepository?.fetchMangaUserProfile(token) }
+    val activityDeferred = async {
+        if (userId != null) mangaRepository?.fetchUserMangaActivity(userId, token) ?: emptyList()
+        else emptyList()
     }
+    val favorites = favoritesDeferred.await()
+    val profile = profileDeferred.await()
+    val activity = activityDeferred.await()
+    _mangaFavorites.value = favorites
+    _favoritedMangaIds.value = favorites.map { it.id }.toSet()
+    _mangaUserProfile.value = profile
+    _mangaActivity.value = activity
 }
 
 
